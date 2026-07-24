@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#dfe4ec;font-family:'Nunito',system-ui,sans-serif}
+  a{color:#2f6fc4}a:hover{color:#255aa0}
+  .dv-turn{padding:48px 52px 40px;border-bottom:1px solid rgba(20,34,60,.1);scroll-margin-top:16px}
+  .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 26px}
+  .dv-tid{font:800 11px ui-monospace,Menlo,monospace;padding:4px 8px;background:#17335f;color:#fff;border-radius:5px;text-decoration:none}
+  .dv-tname{font:800 14px/1.2 'Nunito',sans-serif;color:#17335f}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px}
+  .dv-oid{font:800 11px ui-monospace,Menlo,monospace;padding:4px 8px;background:rgba(20,34,60,.1);color:#17335f;border-radius:6px;text-decoration:none}
+  .dv-olabel{display:flex;align-items:baseline;gap:10px;font:600 13px/1.35 'Nunito',sans-serif;color:#5a6b85;max-width:600px}
+  .dv-opt:target .dv-oid{background:#2f7fd6;color:#fff}
+  .dv-card{background:#eef1f6;border:1px solid rgba(20,34,60,.12);border-radius:16px;box-shadow:0 12px 40px rgba(20,34,60,.16);overflow:hidden;display:flex;flex-direction:column}
+  .dv-next{margin:30px 0 0;font:600 13px/1.6 'Nunito',sans-serif;color:#5a6b85}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#c3ccd9;border-radius:6px}
+  .row:hover{background:#e4ebf5 !important}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Entry Segment — three UX directions (same palette)</span></div>
+  <div class="dv-opts">
+
+    <!-- ============ 1a : Refined single panel ============ -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Same drawer, fixed. One clear "entry source" switch instead of two toggles, dense rows, group tags, and a sticky audience bar that always shows what you've built.</div>
+      <div class="dv-card" style="width:600px;height:760px;">
+        <!-- header -->
+        <div style="padding:24px 28px 18px;background:#fff;border-bottom:1px solid #e2e8f1;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+            <div>
+              <h1 style="margin:0;font-size:23px;font-weight:800;color:#17335f;letter-spacing:-.3px;">Who enters this automation?</h1>
+              <p style="margin:6px 0 0;font-size:14px;color:#8a95a6;font-weight:500;">Everyone in the sources below is enrolled.</p>
+            </div>
+            <button style="background:none;border:none;cursor:pointer;color:#8a95a6;padding:2px;display:flex;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+          <!-- segmented control -->
+          <div style="margin-top:16px;display:inline-flex;background:#eef1f6;border-radius:11px;padding:4px;gap:4px;">
+            <button onClick="{{ setSeg }}" style="{{ tabSegStyle }}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg>
+              Segments <span style="opacity:.75;font-weight:700;">· {{ segCount }}</span>
+            </button>
+            <button onClick="{{ setGeo }}" style="{{ tabGeoStyle }}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              Geofences <span style="opacity:.75;font-weight:700;">· {{ geoCount }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- toolbar -->
+        <div style="padding:14px 28px 10px;display:flex;gap:10px;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #d8e0ea;border-radius:10px;padding:0 14px;height:42px;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8a95a6" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input placeholder="{{ searchPh }}" style="flex:1;border:none;outline:none;background:none;font-family:inherit;font-size:15px;color:#17335f;font-weight:600;"/>
+          </div>
+          <button style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #d8e0ea;border-radius:10px;padding:0 14px;height:42px;font-family:inherit;font-size:14px;font-weight:700;color:#17335f;cursor:pointer;">Groups<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        </div>
+
+        <!-- column head -->
+        <div style="padding:6px 28px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dde4ee;">
+          <span style="font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">{{ colName }}</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#4a6088;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;">{{ colUsers }} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+
+        <!-- list -->
+        <div style="flex:1;min-height:0;overflow-y:auto;background:#fff;">
+          <sc-for list="{{ rows1a }}" as="r" hint-placeholder-count="8">
+            <div class="row" onClick="{{ r.toggle }}" style="display:flex;align-items:center;justify-content:space-between;padding:11px 28px;cursor:pointer;background:{{ r.bg }};border-left:3px solid {{ r.accent }};">
+              <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+                <div style="width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid {{ r.boxBorder }};background:{{ r.boxBg }};">
+                  <sc-if value="{{ r.selected }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if>
+                </div>
+                <span style="font-size:15px;font-weight:700;color:#1b3a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</span>
+                <span style="font-size:11px;font-weight:800;color:{{ r.tagFg }};background:{{ r.tagBg }};padding:2px 8px;border-radius:20px;flex:none;">{{ r.group }}</span>
+              </div>
+              <span style="font-size:14px;font-weight:700;color:#4a6088;flex:none;margin-left:12px;">{{ r.users }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- sticky audience bar -->
+        <div style="border-top:1px solid #dde4ee;background:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(180deg,#4a93d8,#2f7fd6);display:flex;align-items:center;justify-content:center;color:#fff;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg>
+            </div>
+            <div>
+              <div style="font-size:19px;font-weight:800;color:#17335f;line-height:1;">{{ reach1a }}</div>
+              <div style="font-size:12px;font-weight:700;color:#8a95a6;margin-top:3px;">{{ reachSub1a }}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <button style="background:none;border:none;font-family:inherit;font-size:15px;font-weight:700;color:#5a6b85;cursor:pointer;">Cancel</button>
+            <button style="background:#2f5aa0;border:none;border-radius:10px;padding:11px 26px;font-family:inherit;font-size:15px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(47,90,160,.3);">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1b : Master–detail two-pane ============ -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Browse on the left, your audience on the right. A live reach number does the math for you, selected sources become removable chips, and overlap is called out — no scrolling back to see what you picked.</div>
+      <div class="dv-card" style="width:840px;height:760px;">
+        <div style="padding:22px 28px;background:#fff;border-bottom:1px solid #e2e8f1;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <h1 style="margin:0;font-size:22px;font-weight:800;color:#17335f;">Build your entry audience</h1>
+            <p style="margin:6px 0 0;font-size:14px;color:#8a95a6;font-weight:500;">Add segments or geofences — anyone matching enters the automation.</p>
+          </div>
+          <button style="background:none;border:none;cursor:pointer;color:#8a95a6;padding:2px;display:flex;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;display:flex;">
+          <!-- left browse -->
+          <div style="width:460px;display:flex;flex-direction:column;border-right:1px solid #dde4ee;background:#fff;">
+            <div style="padding:16px 24px 10px;">
+              <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <span style="font-size:13px;font-weight:800;color:#fff;background:#2f7fd6;padding:6px 14px;border-radius:20px;cursor:pointer;">Segments</span>
+                <span style="font-size:13px;font-weight:800;color:#4a6088;background:#eef1f6;padding:6px 14px;border-radius:20px;cursor:pointer;">Geofences</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:#f4f6fa;border:1px solid #d8e0ea;border-radius:10px;padding:0 14px;height:42px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8a95a6" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input placeholder="Search 478 segments" style="flex:1;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:#17335f;font-weight:600;"/>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
+                <span style="font-size:12px;font-weight:700;color:#fff;background:#17335f;padding:4px 11px;border-radius:16px;">All</span>
+                <span style="font-size:12px;font-weight:700;color:#4a6088;background:#eef1f6;padding:4px 11px;border-radius:16px;">Smart</span>
+                <span style="font-size:12px;font-weight:700;color:#4a6088;background:#eef1f6;padding:4px 11px;border-radius:16px;">Uploaded</span>
+                <span style="font-size:12px;font-weight:700;color:#4a6088;background:#eef1f6;padding:4px 11px;border-radius:16px;">Recently used</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:4px 0;">
+              <sc-for list="{{ rows1b }}" as="r" hint-placeholder-count="9">
+                <div class="row" onClick="{{ r.toggle }}" style="display:flex;align-items:center;justify-content:space-between;padding:11px 24px;cursor:pointer;">
+                  <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                    <div style="width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid {{ r.boxBorder }};background:{{ r.boxBg }};">
+                      <sc-if value="{{ r.selected }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if>
+                    </div>
+                    <div style="min-width:0;">
+                      <div style="font-size:15px;font-weight:700;color:#1b3a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</div>
+                      <div style="font-size:12px;font-weight:600;color:#8a95a6;">{{ r.group }}</div>
+                    </div>
+                  </div>
+                  <span style="font-size:14px;font-weight:700;color:#4a6088;flex:none;margin-left:10px;">{{ r.users }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <!-- right summary -->
+          <div style="flex:1;display:flex;flex-direction:column;background:#eef1f6;">
+            <div style="padding:22px 24px 18px;">
+              <div style="font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.6px;">Estimated reach</div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+                <div style="font-size:38px;font-weight:800;color:#17335f;line-height:1;letter-spacing:-1px;">{{ reach1b }}</div>
+                <div style="font-size:14px;font-weight:700;color:#8a95a6;">users</div>
+              </div>
+              <div style="margin-top:14px;height:8px;border-radius:6px;background:#dbe3ee;overflow:hidden;"><div style="width:82%;height:100%;background:linear-gradient(90deg,#4a93d8,#2f7fd6);"></div></div>
+              <div style="font-size:12px;font-weight:600;color:#8a95a6;margin-top:8px;">≈ 82% of your reachable base · {{ count1b }} sources</div>
+            </div>
+            <div style="padding:0 24px 8px;font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.6px;">Selected sources</div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:0 24px 12px;display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ chips1b }}" as="c" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dbe3ee;border-radius:11px;padding:11px 12px 11px 14px;">
+                  <div style="min-width:0;">
+                    <div style="font-size:14px;font-weight:700;color:#1b3a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</div>
+                    <div style="font-size:12px;font-weight:600;color:#8a95a6;">{{ c.users }} users</div>
+                  </div>
+                  <button style="width:26px;height:26px;flex:none;border-radius:8px;border:none;background:#eef1f6;color:#5a6b85;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+              </sc-for>
+              <div style="display:flex;gap:9px;align-items:flex-start;background:#fff6e8;border:1px solid #f4dcae;border-radius:11px;padding:11px 13px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#c98a1e" stroke-width="2.2" stroke-linecap="round" style="flex:none;margin-top:1px;"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>
+                <div style="font-size:12.5px;font-weight:600;color:#8a6d2e;line-height:1.4;">~1,200 users appear in more than one source — they're counted once.</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid #dbe3ee;padding:14px 24px;display:flex;align-items:center;justify-content:flex-end;gap:14px;background:#eef1f6;">
+              <button style="background:none;border:none;font-family:inherit;font-size:15px;font-weight:700;color:#5a6b85;cursor:pointer;">Cancel</button>
+              <button style="background:#2f5aa0;border:none;border-radius:10px;padding:11px 26px;font-family:inherit;font-size:15px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(47,90,160,.3);">Save audience</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1c : Guided audience builder ============ -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>The boldest rethink. Lead with the audience, not a checklist: pick a trigger type, watch the reach hero update, add sources as tokens in a combobox, and quick-add popular segments. The 478-item table is one click away, not the whole experience.</div>
+      <div class="dv-card" style="width:600px;height:760px;background:#fff;">
+        <div style="padding:24px 30px 20px;border-bottom:1px solid #e2e8f1;display:flex;align-items:flex-start;justify-content:space-between;">
+          <div>
+            <h1 style="margin:0;font-size:23px;font-weight:800;color:#17335f;letter-spacing:-.3px;">Entry audience</h1>
+            <p style="margin:6px 0 0;font-size:14px;color:#8a95a6;font-weight:500;">Choose what makes someone enter this automation.</p>
+          </div>
+          <button style="background:none;border:none;cursor:pointer;color:#8a95a6;padding:2px;display:flex;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div style="flex:1;min-height:0;overflow-y:auto;padding:22px 30px 8px;">
+          <!-- trigger type -->
+          <div style="font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Trigger</div>
+          <div style="display:flex;gap:10px;margin-bottom:24px;">
+            <div style="flex:1;border:2px solid #2f7fd6;background:#eef5fc;border-radius:13px;padding:14px;cursor:pointer;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2f7fd6" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg>
+              <div style="font-size:15px;font-weight:800;color:#17335f;margin-top:9px;">Is in a segment</div>
+              <div style="font-size:12px;font-weight:600;color:#5a6b85;margin-top:2px;">Enroll by audience list</div>
+            </div>
+            <div style="flex:1;border:2px solid #e2e8f1;border-radius:13px;padding:14px;cursor:pointer;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a95a6" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              <div style="font-size:15px;font-weight:800;color:#17335f;margin-top:9px;">Enters a place</div>
+              <div style="font-size:12px;font-weight:600;color:#5a6b85;margin-top:2px;">Geofence trigger</div>
+            </div>
+          </div>
+
+          <!-- reach hero -->
+          <div style="border-radius:14px;background:linear-gradient(135deg,#1f4a86,#2f7fd6);padding:20px 22px;color:#fff;margin-bottom:24px;">
+            <div style="font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.8;">Estimated reach</div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+              <div style="font-size:42px;font-weight:800;line-height:1;letter-spacing:-1px;">{{ reach1c }}</div>
+              <div style="font-size:14px;font-weight:700;opacity:.85;">users · {{ count1c }} segments</div>
+            </div>
+            <div style="margin-top:14px;height:7px;border-radius:6px;background:rgba(255,255,255,.25);overflow:hidden;"><div style="width:78%;height:100%;background:#fff;"></div></div>
+          </div>
+
+          <!-- combobox of tokens -->
+          <div style="font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Segments</div>
+          <div style="border:1px solid #d8e0ea;border-radius:12px;padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:20px;">
+            <sc-for list="{{ tokens1c }}" as="t" hint-placeholder-count="3">
+              <span style="display:flex;align-items:center;gap:8px;background:#eef5fc;border:1px solid #cfe1f6;border-radius:9px;padding:7px 8px 7px 12px;">
+                <span style="font-size:13px;font-weight:700;color:#1f4a86;">{{ t.name }}</span>
+                <span style="font-size:12px;font-weight:700;color:#5a8bc4;">{{ t.users }}</span>
+                <button style="width:20px;height:20px;border-radius:6px;border:none;background:#d7e6f7;color:#2f6fc4;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              </span>
+            </sc-for>
+            <span style="font-size:14px;font-weight:600;color:#8a95a6;padding:6px 8px;">+ Add segment…</span>
+          </div>
+
+          <!-- popular quick add -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-size:12px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.6px;">Popular</span>
+            <a style="font-size:13px;font-weight:800;color:#2f6fc4;text-decoration:none;cursor:pointer;">Browse all 478 →</a>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ pop1c }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #e2e8f1;border-radius:11px;padding:11px 14px;">
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:#1b3a63;">{{ p.name }}</div>
+                  <div style="font-size:12px;font-weight:600;color:#8a95a6;">{{ p.group }} · {{ p.users }} users</div>
+                </div>
+                <button style="display:flex;align-items:center;gap:6px;background:#eef5fc;border:1px solid #cfe1f6;border-radius:9px;padding:7px 13px;font-family:inherit;font-size:13px;font-weight:800;color:#2f6fc4;cursor:pointer;">+ Add</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="border-top:1px solid #e2e8f1;padding:14px 30px;display:flex;align-items:center;justify-content:flex-end;gap:14px;">
+          <button style="background:none;border:none;font-family:inherit;font-size:15px;font-weight:700;color:#5a6b85;cursor:pointer;">Cancel</button>
+          <button style="background:#2f5aa0;border:none;border-radius:10px;padding:11px 26px;font-family:inherit;font-size:15px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(47,90,160,.3);">Save</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "build out <a class="dv-oid" href="#1b">1b</a> full-size in the campaign canvas" · "combine <a class="dv-oid" href="#1c">1c</a>'s reach hero with <a class="dv-oid" href="#1a">1a</a>'s dense list" · "show the geofence view for <a class="dv-oid" href="#1a">1a</a>" · "now redesign the Campaign settings panel too"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    mode1a: 'segments',
+    sel1a: { 0:true, 6:true },        // Q2 Smart, load test batch2
+    sel1b: { 0:true, 1:true, 5:true },
+  };
+  fmt(n){ return n.toLocaleString('en-US'); }
+
+  segData(){ return [
+    {name:'Q2 Smart: All Users', group:'Smart', users:5},
+    {name:'200k users', group:'Uploaded', users:200000},
+    {name:'Sampa Test', group:'Manual', users:1},
+    {name:'Shalana Test', group:'Manual', users:1},
+    {name:'muzzsidekiq', group:'System', users:1},
+    {name:'test_segment_upload', group:'Uploaded', users:5},
+    {name:'load test users 200k batch2', group:'Uploaded', users:199998},
+    {name:'muzz seg', group:'Manual', users:1},
+    {name:'minnn seg', group:'Manual', users:0},
+    {name:'Test CSV Upload', group:'Uploaded', users:0},
+    {name:'all user', group:'System', users:0},
+  ]; }
+  geoData(){ return [
+    {name:'Founders FCU Charlotte Branch', group:'Branch', users:'—'},
+    {name:'Raleigh Ford', group:'Dealer', users:'—'},
+    {name:'Lagan Valley', group:'Region', users:'—'},
+    {name:'Coleraine', group:'Region', users:'—'},
+  ]; }
+
+  tagColors(g){
+    const m={Smart:['#1f6f4a','#e2f4ea'],Uploaded:['#7a4fc0','#efe8fb'],Manual:['#2f6fc4','#e6effb'],System:['#8a6d2e','#fbf1dc'],Branch:['#2f6fc4','#e6effb'],Dealer:['#7a4fc0','#efe8fb'],Region:['#1f6f4a','#e2f4ea']};
+    return m[g]||['#5a6b85','#eef1f6'];
+  }
+
+  renderVals(){
+    const isSeg = this.state.mode1a==='segments';
+    const list = isSeg ? this.segData() : this.geoData();
+    const sel = this.state.sel1a;
+
+    const rows1a = list.map((s,i)=>{
+      const on = isSeg && !!sel[i];
+      const [tagFg,tagBg]=this.tagColors(s.group);
+      return { name:s.name, group:s.group, users:typeof s.users==='number'?this.fmt(s.users):s.users,
+        selected:on, bg:on?'#eef5fc':'#fff', accent:on?'#2f7fd6':'transparent',
+        boxBorder:on?'#2f7fd6':'#c3ccd9', boxBg:on?'#2f7fd6':'#fff', tagFg, tagBg,
+        toggle:()=>{ if(!isSeg) return; this.setState(st=>({sel1a:{...st.sel1a,[i]:!st.sel1a[i]}})); } };
+    });
+    const reachN = isSeg ? this.segData().reduce((a,s,i)=>a+(sel[i]?s.users:0),0) : 0;
+    const selCount = isSeg ? Object.values(sel).filter(Boolean).length : 0;
+
+    // 1b
+    const sel1b=this.state.sel1b;
+    const seg1b=this.segData();
+    const rows1b=seg1b.map((s,i)=>{const on=!!sel1b[i];return{name:s.name,group:s.group+' segment',users:this.fmt(s.users),
+      selected:on,boxBorder:on?'#2f7fd6':'#c3ccd9',boxBg:on?'#2f7fd6':'#fff',
+      toggle:()=>this.setState(st=>({sel1b:{...st.sel1b,[i]:!st.sel1b[i]}}))};});
+    const chips1b=seg1b.filter((s,i)=>sel1b[i]).map(s=>({name:s.name,users:this.fmt(s.users)}));
+    const reach1bN=seg1b.reduce((a,s,i)=>a+(sel1b[i]?s.users:0),0);
+
+    return {
+      // 1a
+      setSeg:()=>this.setState({mode1a:'segments'}),
+      setGeo:()=>this.setState({mode1a:'geofences'}),
+      tabSegStyle:this.tabStyle(isSeg), tabGeoStyle:this.tabStyle(!isSeg),
+      segCount:this.segData().filter((s,i)=>this.state.sel1a[i]).length,
+      geoCount:0,
+      searchPh:isSeg?'Search 478 segments':'Search 79 geofences',
+      colName:isSeg?'Segment name':'Geofence name',
+      colUsers:isSeg?'Approx. users':'Trigger',
+      rows1a,
+      reach1a: selCount? '~'+this.fmt(reachN)+' users' : 'No audience yet',
+      reachSub1a: selCount? selCount+(selCount===1?' segment selected':' segments selected') : 'Pick at least one segment',
+      // 1b
+      rows1b, chips1b,
+      reach1b:'~'+this.fmt(reach1bN), count1b:chips1b.length,
+      // 1c
+      reach1c:'~205,004', count1c:'2',
+      tokens1c:[{name:'Q2 Smart: All Users',users:'5'},{name:'load test users 200k batch2',users:'199,998'}],
+      pop1c:[
+        {name:'200k users',group:'Uploaded',users:'200,000'},
+        {name:'test_segment_upload',group:'Uploaded',users:'5'},
+        {name:'muzz seg',group:'Manual',users:'1'},
+      ],
+    };
+  }
+  tabStyle(active){
+    return 'display:flex;align-items:center;gap:8px;border:none;border-radius:8px;padding:9px 16px;font-family:Nunito,sans-serif;font-size:14px;font-weight:800;cursor:pointer;'
+      + (active?'background:#fff;color:#17335f;box-shadow:0 1px 3px rgba(20,34,60,.15);':'background:transparent;color:#8a95a6;');
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;font-family:'Nunito',system-ui,sans-serif;background:#fff}
+  a{color:#2f6fc4}a:hover{color:#255aa0}
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-thumb{background:#c3ccd9;border-radius:6px}
+  .row:hover{background:#f2f6fc !important}
+</style>
+</helmet>
+<div style="position:relative;width:1440px;height:900px;overflow:hidden;background:#fff;font-family:'Nunito',system-ui,sans-serif;">
+
+  <!-- ===== canvas ===== -->
+  <div style="position:absolute;inset:0;background:#5f7bab;">
+    <div style="position:absolute;top:0;left:0;right:0;height:56px;background:#fff;display:flex;align-items:center;padding:0 20px;gap:14px;">
+      <button style="width:32px;height:32px;border-radius:50%;border:1px solid #d8e0ea;background:#fff;color:#2f6fc4;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span style="font-size:16px;font-weight:800;color:#17335f;">Untitled automation</span>
+      <span style="font-size:12px;font-weight:800;color:#8a6d2e;background:#fbf1dc;padding:3px 10px;border-radius:20px;">Draft</span>
+    </div>
+    <div style="position:absolute;top:56px;left:0;right:0;height:34px;background:#eef1f6;"></div>
+    <div style="position:absolute;top:130px;left:0;{{ flowRight }}bottom:0;display:flex;flex-direction:column;align-items:center;transition:right .25s;">
+
+      <!-- Start node -->
+      <sc-if value="{{ showEmptyNode }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ openSidebar }}" style="width:260px;background:rgba(255,255,255,.14);border:2px dashed rgba(255,255,255,.6);border-radius:16px;padding:26px 22px;display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;text-align:center;">
+        <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.9);color:#2f6fc4;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg></div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;">Set your entry audience</div>
+          <div style="font-size:12.5px;font-weight:600;color:rgba(255,255,255,.8);margin-top:3px;">No segments or geofences yet</div>
+        </div>
+        <div style="font-size:12.5px;font-weight:800;color:#fff;background:rgba(255,255,255,.22);padding:7px 16px;border-radius:9px;">+ Choose audience</div>
+      </div>
+      <div style="width:2px;height:26px;background:rgba(255,255,255,.5);"></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;">+</div>
+      </sc-if>
+
+      <sc-if value="{{ isSaved }}" hint-placeholder-val="{{ false }}">
+      <!-- SAVED: populated start node -->
+      <div onClick="{{ openSidebar }}" style="width:300px;background:#fff;border-radius:16px;box-shadow:0 10px 30px rgba(20,34,60,.22);overflow:hidden;cursor:pointer;">
+        <div style="background:linear-gradient(135deg,#1f4a86,#2f7fd6);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:9px;color:#fff;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            <span style="font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;">Start · Entry audience</span>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+          <!-- reach -->
+          <div>
+            <div style="font-size:10.5px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">Estimated reach</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px;">
+              <div style="font-size:28px;font-weight:800;color:#17335f;line-height:1;letter-spacing:-.5px;">{{ nodeReach }}</div>
+              <div style="font-size:12.5px;font-weight:700;color:#8a95a6;">users</div>
+            </div>
+          </div>
+          <!-- segments -->
+          <div style="display:flex;align-items:center;gap:11px;">
+            <div style="width:34px;height:34px;border-radius:9px;flex:none;background:#e6effb;color:#2f6fc4;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg></div>
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:800;color:#17335f;">{{ nodeSegLabel }}</div>
+              <div style="font-size:12px;font-weight:600;color:#8a95a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;">{{ nodeSegNames }}</div>
+            </div>
+          </div>
+          <!-- geofences -->
+          <div style="display:flex;align-items:center;gap:11px;">
+            <div style="width:34px;height:34px;border-radius:9px;flex:none;background:#e2f4ea;color:#1f6f4a;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></div>
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:800;color:#17335f;">{{ nodeGeoLabel }}</div>
+              <div style="font-size:12px;font-weight:600;color:#8a95a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;">{{ nodeGeoDetail }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="width:2px;height:26px;background:rgba(255,255,255,.5);"></div>
+      <button onClick="{{ openSidebar }}" style="width:34px;height:34px;border-radius:50%;border:none;background:rgba(255,255,255,.9);color:#2f6fc4;font-size:20px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(20,34,60,.2);line-height:1;">+</button>
+      </sc-if>
+
+      <!-- UNSAVED: same card, unset treatment -->
+      <sc-if value="{{ notSaved }}" hint-placeholder-val="{{ true }}">      <div onClick="{{ openSidebar }}" style="width:300px;background:#fff;border:2px dashed #b7c2d2;border-radius:16px;box-shadow:0 10px 30px rgba(20,34,60,.18);overflow:hidden;cursor:pointer;">
+        <div style="background:#eef1f6;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:9px;color:#17335f;">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#17335f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            <span style="font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;">Start · Entry audience</span>
+          </div>
+          <span style="font-size:11px;font-weight:800;color:#8a6d2e;background:#fbf1dc;padding:3px 9px;border-radius:20px;">Not set</span>
+        </div>
+        <div style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="font-size:10.5px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">Estimated reach</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-top:2px;">
+              <div style="font-size:28px;font-weight:800;color:#b1bccb;line-height:1;letter-spacing:-.5px;">{{ nodeReach }}</div>
+              <div style="font-size:12.5px;font-weight:700;color:#b1bccb;">users</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;">
+            <div style="width:34px;height:34px;border-radius:9px;flex:none;background:#eef1f6;color:#a6b1c1;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg></div>
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:800;color:#17335f;">{{ nodeSegLabel }}</div>
+              <div style="font-size:12px;font-weight:600;color:#8a95a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;">{{ nodeSegNames }}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;">
+            <div style="width:34px;height:34px;border-radius:9px;flex:none;background:#eef1f6;color:#a6b1c1;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></div>
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:800;color:#17335f;">{{ nodeGeoLabel }}</div>
+              <div style="font-size:12px;font-weight:600;color:#8a95a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;">{{ nodeGeoDetail }}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:7px;border-top:1px solid #edf1f6;margin-top:2px;padding-top:12px;font-size:13px;font-weight:800;color:#2f6fc4;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            {{ emptyCta }}
+          </div>
+        </div>
+      </div>
+      <div style="width:2px;height:26px;background:rgba(255,255,255,.5);"></div>
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.28);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;">+</div>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- ===== docked sidebar ===== -->
+  <sc-if value="{{ sidebarOpen }}" hint-placeholder-val="{{ true }}">
+  <div onClick="{{ closeSidebar }}" style="position:absolute;inset:0;background:rgba(20,34,60,.34);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);"></div>
+  <div style="position:absolute;top:0;right:0;width:440px;height:900px;background:#fff;box-shadow:-6px 0 28px rgba(20,34,60,.16);display:flex;flex-direction:column;">
+
+    <!-- header -->
+    <div style="padding:22px 24px 16px;border-bottom:1px solid #edf1f6;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+        <div>
+          <h1 style="margin:0;font-size:21px;font-weight:800;color:#17335f;letter-spacing:-.3px;">{{ headerTitle }}</h1>
+          <p style="margin:5px 0 0;font-size:13.5px;color:#8a95a6;font-weight:500;">{{ headerSub }}</p>
+        </div>
+        <button onClick="{{ closeSidebar }}" style="background:none;border:none;cursor:pointer;color:#8a95a6;padding:2px;display:flex;"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div style="margin-top:14px;display:flex;background:#eef1f6;border-radius:11px;padding:4px;gap:4px;">
+        <button onClick="{{ setSeg }}" style="{{ tabSegStyle }}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg>
+          Segments <span style="opacity:.7;">· {{ segCount }}</span>
+        </button>
+        <button onClick="{{ setGeo }}" style="{{ tabGeoStyle }}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+          Geofences <span style="opacity:.7;">· {{ geoCount }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- reach hero (compact) -->
+    <div style="margin:14px 24px 6px;border-radius:13px;background:linear-gradient(135deg,#1f4a86,#2f7fd6);padding:14px 16px;color:#fff;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.82;">{{ heroLabel }}</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:2px;">
+            <div style="font-size:29px;font-weight:800;line-height:1;letter-spacing:-.5px;">{{ reachBig }}</div>
+            <div style="font-size:12.5px;font-weight:700;opacity:.85;">{{ reachSub }}</div>
+          </div>
+        </div>
+        <div style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;">
+          <sc-if value="{{ isSegMode }}" hint-placeholder-val="{{ true }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 20c0-3.3 3-5 5.5-5s5.5 1.7 5.5 5"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.5 15c3 .2 5 1.8 5 5"/></svg></sc-if>
+          <sc-if value="{{ isGeoMode }}" hint-placeholder-val="{{ false }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 21s7-5.7 7-11a7 7 0 0 0-14 0c0 5.3 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></sc-if>
+        </div>
+      </div>
+      <div style="margin-top:11px;height:6px;border-radius:6px;background:rgba(255,255,255,.25);overflow:hidden;"><div style="width:{{ reachPct }};height:100%;background:#fff;transition:width .2s;"></div></div>
+    </div>
+
+    <!-- toolbar -->
+    <div style="padding:12px 24px 8px;display:flex;gap:9px;">
+      <div style="flex:1;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #d8e0ea;border-radius:10px;padding:0 12px;height:40px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a95a6" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="{{ searchPh }}" style="flex:1;min-width:0;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:#17335f;font-weight:600;"/>
+      </div>
+      <div style="position:relative;">
+        <button onClick="{{ toggleGroups }}" style="display:flex;align-items:center;gap:6px;background:{{ groupsBtnBg }};border:1px solid {{ groupsBtnBorder }};border-radius:10px;padding:0 12px;height:40px;font-family:inherit;font-size:13.5px;font-weight:700;color:{{ groupsBtnFg }};cursor:pointer;white-space:nowrap;">{{ groupsLabel }}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+        <sc-if value="{{ groupsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:46px;right:0;width:236px;background:#fff;border:1px solid #dbe3ee;border-radius:12px;box-shadow:0 14px 36px rgba(20,34,60,.22);z-index:40;overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #edf1f6;">
+            <span style="font-size:11px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">Filter by group</span>
+            <button onClick="{{ clearGroups }}" style="background:none;border:none;font-family:inherit;font-size:12.5px;font-weight:800;color:#2f6fc4;cursor:pointer;padding:0;">Clear</button>
+          </div>
+          <div style="max-height:280px;overflow-y:auto;padding:4px 0;">
+            <sc-for list="{{ groupsList }}" as="g" hint-placeholder-count="4">
+              <div class="row" onClick="{{ g.toggle }}" style="display:flex;align-items:center;gap:11px;padding:9px 14px;cursor:pointer;">
+                <div style="width:19px;height:19px;border-radius:5px;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid {{ g.boxBorder }};background:{{ g.boxBg }};">
+                  <sc-if value="{{ g.on }}" hint-placeholder-val="{{ false }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if>
+                </div>
+                <span style="flex:1;font-size:14px;font-weight:700;color:#1b3a63;">{{ g.name }}</span>
+                <span style="font-size:12.5px;font-weight:700;color:#8a95a6;">{{ g.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div onClick="{{ closeGroups }}" style="position:fixed;inset:0;z-index:30;"></div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- selected chips (segments only) -->
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:2px 24px 8px;display:flex;flex-wrap:wrap;gap:7px;">
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="2">
+        <span style="display:flex;align-items:center;gap:7px;background:#eef5fc;border:1px solid #cfe1f6;border-radius:8px;padding:5px 6px 5px 10px;">
+          <span style="font-size:12.5px;font-weight:700;color:#1f4a86;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ c.name }}</span>
+          <button onClick="{{ c.remove }}" style="width:18px;height:18px;border-radius:5px;border:none;background:#d7e6f7;color:#2f6fc4;cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </span>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <!-- active-only filter (geofences) -->
+    <sc-if value="{{ showActiveToggle }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:2px 24px 8px;display:flex;justify-content:flex-end;">
+      <button onClick="{{ toggleActiveOnly }}" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 2px;">
+        <span style="{{ swTrack }}"><span style="{{ swKnob }}"></span></span>
+        <span style="font-size:13px;font-weight:800;color:{{ activeOnlyFg }};">Active only</span>
+        <span style="font-size:12px;font-weight:700;color:#8a95a6;">· {{ activeCount }}</span>
+      </button>
+    </div>
+    </sc-if>
+
+    <!-- column head -->
+    <div style="padding:6px 24px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #edf1f6;">
+      <span style="font-size:11px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">{{ colName }}</span>
+      <span style="font-size:11px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;">{{ colRight }}</span>
+    </div>
+
+    <!-- list -->
+    <div style="flex:1;min-height:0;overflow-y:auto;">
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="9">
+        <div style="border-bottom:1px solid #f4f6fa;background:{{ r.bg }};border-left:3px solid {{ r.accent }};">
+          <div class="row" onClick="{{ r.toggle }}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 24px 10px 21px;cursor:pointer;background:transparent;">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+              <div style="width:20px;height:20px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;border:2px solid {{ r.boxBorder }};background:{{ r.boxBg }};">
+                <sc-if value="{{ r.selected }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></sc-if>
+              </div>
+              <div style="min-width:0;">
+                <div style="font-size:14.5px;font-weight:700;color:#1b3a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.name }}</div>
+                <div style="font-size:11px;font-weight:800;color:{{ r.tagFg }};margin-top:1px;">{{ r.group }}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex:none;margin-left:10px;">
+              <span style="font-size:13.5px;font-weight:700;color:#4a6088;text-align:right;">{{ r.users }}</span>
+              <sc-if value="{{ r.canView }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ r.viewUsers }}" title="View users in segment" style="width:30px;height:30px;border-radius:8px;border:1px solid #dbe3ee;background:#fff;color:#5a6b85;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- geofence trigger control (expands when selected) -->
+          <sc-if value="{{ r.showTrigger }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:2px 24px 14px 44px;">
+            <div style="font-size:10.5px;font-weight:800;color:#8a95a6;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">Trigger when a user…</div>
+            <div style="display:flex;background:#eef1f6;border-radius:10px;padding:3px;gap:3px;">
+              <button onClick="{{ r.setEnter }}" style="{{ r.trigEnterStyle }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v16H4"/><polyline points="14 8 18 12 14 16"/><line x1="18" y1="12" x2="9" y2="12"/></svg>
+                Enters
+              </button>
+              <button onClick="{{ r.setExit }}" style="{{ r.trigExitStyle }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4h7v16h-7"/><polyline points="8 8 12 12 8 16"/><line x1="12" y1="12" x2="3" y2="12"/></svg>
+                Exits
+              </button>
+              <button onClick="{{ r.setDwell }}" style="{{ r.trigDwellStyle }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 15 15"/><line x1="9" y1="2" x2="15" y2="2"/></svg>
+                Dwells
+              </button>
+            </div>
+            <!-- dwell time -->
+            <sc-if value="{{ r.isDwell }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:9px;display:flex;align-items:center;gap:10px;background:#eef5fc;border:1px solid #cfe1f6;border-radius:10px;padding:9px 12px;">
+              <span style="font-size:13px;font-weight:700;color:#1f4a86;">Stays for at least</span>
+              <div style="display:flex;align-items:center;background:#fff;border:1px solid #cfe1f6;border-radius:8px;overflow:hidden;">
+                <button onClick="{{ r.decDwell }}" style="width:30px;height:32px;border:none;background:#fff;color:#2f6fc4;font-size:19px;font-weight:800;cursor:pointer;line-height:1;">−</button>
+                <span style="min-width:34px;text-align:center;font-size:15px;font-weight:800;color:#17335f;">{{ r.dwell }}</span>
+                <button onClick="{{ r.incDwell }}" style="width:30px;height:32px;border:none;background:#fff;color:#2f6fc4;font-size:18px;font-weight:800;cursor:pointer;line-height:1;">+</button>
+              </div>
+              <span style="font-size:13px;font-weight:700;color:#1f4a86;">minutes</span>
+            </div>
+            </sc-if>
+          </div>
+          </sc-if>
+        </div>
+      </sc-for>
+      <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:40px 24px;text-align:center;">
+          <div style="font-size:14.5px;font-weight:800;color:#17335f;">No active geofences</div>
+          <div style="font-size:13px;font-weight:600;color:#8a95a6;margin-top:4px;">Turn off "Active only" to browse and add geofences.</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ===== drill-in: users in segment ===== -->
+    <sc-if value="{{ viewOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:#fff;z-index:50;display:flex;flex-direction:column;">
+      <div style="padding:18px 24px 14px;border-bottom:1px solid #edf1f6;">
+        <button onClick="{{ backToList }}" style="display:flex;align-items:center;gap:7px;background:none;border:none;font-family:inherit;font-size:13px;font-weight:800;color:#2f6fc4;cursor:pointer;padding:0;margin-bottom:12px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          All segments
+        </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h1 style="margin:0;font-size:19px;font-weight:800;color:#17335f;max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ viewName }}</h1>
+          <span style="font-size:11px;font-weight:800;color:{{ viewSelFg }};background:{{ viewSelBg }};padding:4px 10px;border-radius:20px;">{{ viewSelLabel }}</span>
+        </div>
+        <p style="margin:5px 0 0;font-size:13px;color:#8a95a6;font-weight:600;">{{ viewCountLabel }}</p>
+      </div>
+      <div style="padding:12px 24px 8px;">
+        <div style="display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #d8e0ea;border-radius:10px;padding:0 12px;height:40px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a95a6" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Search users in this segment" style="flex:1;min-width:0;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:#17335f;font-weight:600;"/>
+        </div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;">
+        <sc-for list="{{ viewUsersList }}" as="u" hint-placeholder-count="8">
+          <div style="display:flex;align-items:center;gap:12px;padding:11px 24px;border-bottom:1px solid #f4f6fa;">
+            <div style="width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:{{ u.avBg }};color:{{ u.avFg }};font-size:13px;font-weight:800;">{{ u.initials }}</div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:14.5px;font-weight:700;color:#1b3a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.name }}</div>
+              <div style="font-size:12.5px;font-weight:600;color:#8a95a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.email }}</div>
+            </div>
+            <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;color:#b1bccb;flex:none;">{{ u.id }}</span>
+          </div>
+        </sc-for>
+        <div style="padding:16px 24px;text-align:center;font-size:12.5px;font-weight:700;color:#8a95a6;">{{ viewMoreLabel }}</div>
+      </div>
+      <div style="border-top:1px solid #edf1f6;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;">
+        <button onClick="{{ backToList }}" style="background:none;border:none;font-family:inherit;font-size:14.5px;font-weight:700;color:#5a6b85;cursor:pointer;">Back</button>
+        <button onClick="{{ toggleViewSel }}" style="background:{{ viewCtaBg }};border:1px solid {{ viewCtaBorder }};border-radius:10px;padding:10px 22px;font-family:inherit;font-size:14.5px;font-weight:800;color:{{ viewCtaFg }};cursor:pointer;">{{ viewCtaLabel }}</button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- footer -->
+    <div style="border-top:1px solid #edf1f6;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12.5px;font-weight:700;color:#8a95a6;">{{ footNote }}</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onClick="{{ closeSidebar }}" style="background:none;border:none;font-family:inherit;font-size:14.5px;font-weight:700;color:#5a6b85;cursor:pointer;">Cancel</button>
+        <button onClick="{{ saveSidebar }}" style="background:#2f5aa0;border:none;border-radius:10px;padding:10px 24px;font-family:inherit;font-size:14.5px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(47,90,160,.3);">{{ saveLabel }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    mode:'segments',
+    sel:{},
+    geoSel:{},
+    grpOpen:false, segGroups:{}, geoGroups:{},
+    viewSeg:null, geoActiveOnly:false,
+    sidebarOpen:true, saved:false,
+  };
+  avatarColor(n){ const p=[['#1f6f4a','#e2f4ea'],['#7a4fc0','#efe8fb'],['#2f6fc4','#e6effb'],['#8a6d2e','#fbf1dc'],['#c05a8a','#fbe8f1']]; let h=0; for(const c of n)h=(h*31+c.charCodeAt(0))>>>0; return p[h%p.length]; }
+  sampleUsers(name, n){
+    const first=['Amara','Diego','Priya','Liam','Noor','Kenji','Sofia','Marcus','Yuki','Elena','Omar','Grace','Tomas','Aisha','Ravi','Chloe'];
+    const last=['Okafor','Reyes','Sharma','Walsh','Haddad','Tanaka','Rossi','Bennett','Ito','Novak','Farah','Kim','Silva','Ali','Patel','Dubois'];
+    let h=0; for(const c of name)h=(h*31+c.charCodeAt(0))>>>0;
+    const out=[];
+    for(let k=0;k<n;k++){ const f=first[(h+k*7)%first.length], l=last[(h+k*13)%last.length];
+      const [avFg,avBg]=this.avatarColor(f+l);
+      out.push({ name:f+' '+l, email:(f+'.'+l).toLowerCase()+'@example.com',
+        initials:f[0]+l[0], id:'#'+String(100000+((h+k*911)%899999)), avFg, avBg }); }
+    return out;
+  }
+  viewVals(){
+    const i=this.state.viewSeg;
+    if(i===null||this.state.mode!=='segments') return { viewOpen:false, viewUsersList:[] };
+    const s=this.segData()[i]; if(!s) return { viewOpen:false, viewUsersList:[] };
+    const on=!!this.state.sel[i];
+    const shown=Math.min(8, s.users||0);
+    return {
+      viewOpen:true, viewName:s.name,
+      viewCountLabel:'Approx. '+this.fmt(s.users)+(s.users===1?' user':' users')+' · '+s.group+' segment',
+      viewSelLabel: on?'In entry':'Not added', viewSelFg:on?'#fff':'#8a95a6', viewSelBg:on?'#2f7fd6':'#eef1f6',
+      viewUsersList: shown? this.sampleUsers(s.name, shown) : [],
+      viewMoreLabel: s.users>shown? '+ '+this.fmt(s.users-shown)+' more users' : (s.users? 'End of list' : 'This segment has no users yet'),
+      backToList:()=>this.setState({viewSeg:null}),
+      toggleViewSel:()=>this.setState(st=>({sel:{...st.sel,[i]:!st.sel[i]}})),
+      viewCtaLabel: on?'Remove from entry':'Add to entry',
+      viewCtaBg: on?'#fff':'#2f5aa0', viewCtaBorder: on?'#d8e0ea':'#2f5aa0', viewCtaFg: on?'#5a6b85':'#fff',
+    };
+  }
+  fmt(n){ return n.toLocaleString('en-US'); }
+  segData(){ return [
+    {name:'Active — last 30 days', group:'Smart', users:184230},
+    {name:'New signups this week', group:'Smart', users:6842},
+    {name:'Completed onboarding', group:'Smart', users:52107},
+    {name:'Premium subscribers', group:'Smart', users:14903},
+    {name:'Lapsed 60+ days', group:'Smart', users:31288},
+    {name:'Push opt-in', group:'System', users:98450},
+    {name:'Email subscribers', group:'System', users:203115},
+    {name:'iOS users', group:'System', users:76220},
+    {name:'Black Friday 2025 waitlist', group:'Uploaded', users:12004},
+    {name:'VIP customers — Q2', group:'Uploaded', users:842},
+    {name:'Winback CSV — March', group:'Uploaded', users:5310},
+    {name:'Beta testers', group:'Manual', users:126},
+  ]; }
+  geoData(){ return [
+    {name:'Downtown Flagship Store', group:'Branch'},
+    {name:'Westfield Century City', group:'Branch'},
+    {name:'Manhattan Beach Store', group:'Branch'},
+    {name:'Bay Area Dealer Network', group:'Dealer'},
+    {name:'Texas Dealer Network', group:'Dealer'},
+    {name:'Southern California Region', group:'Region'},
+    {name:'Pacific Northwest Region', group:'Region'},
+    {name:'Summer Festival Pop-up', group:'Custom'},
+    {name:'Campus Push Zone', group:'Push'},
+  ]; }
+  tagColor(g){ const m={Smart:'#1f6f4a',Uploaded:'#7a4fc0',Manual:'#2f6fc4',System:'#8a6d2e',Branch:'#2f6fc4',Dealer:'#7a4fc0',Region:'#1f6f4a',Custom:'#5a6b85',Push:'#c05a8a'}; return m[g]||'#5a6b85'; }
+  trigLabel(t){ return t==='enter'?'enters':t==='exit'?'exits':'dwells'; }
+
+  renderVals(){
+    const isSeg = this.state.mode==='segments';
+    const base = isSeg ? this.segVals() : this.geoVals();
+    return { ...base, ...this.canvasVals() };
+  }
+
+  canvasVals(){
+    const seg=this.segData(), gsel=this.state.geoSel, geo=this.geoData(), sel=this.state.sel;
+    const segIdx=Object.keys(sel).filter(k=>sel[k]).map(Number);
+    const geoIdx=Object.keys(gsel).map(Number);
+    const reachN=segIdx.reduce((a,i)=>a+seg[i].users,0);
+    const segNames=segIdx.map(i=>seg[i].name);
+    const geoNames=geoIdx.map(i=>geo[i].name);
+    const nEnter=geoIdx.filter(i=>gsel[i].trigger==='enter').length;
+    const nExit=geoIdx.filter(i=>gsel[i].trigger==='exit').length;
+    const nDwell=geoIdx.filter(i=>gsel[i].trigger==='dwell').length;
+    const parts=[]; if(nEnter)parts.push(nEnter+' on entry'); if(nExit)parts.push(nExit+' on exit'); if(nDwell)parts.push(nDwell+' on dwell');
+    const open=this.state.sidebarOpen, saved=this.state.saved;
+    const isEmpty = segIdx.length===0 && geoIdx.length===0;
+    return {
+      sidebarOpen:open,
+      showEmptyNode: isEmpty,
+      isSaved: !isEmpty,
+      headerTitle: saved ? 'Edit entry audience' : 'Let’s choose who enters',
+      headerSub: saved
+        ? 'Update the segments and geofences that enroll people into this automation.'
+        : 'Start by adding the segments or geofences that should enroll people. You can fine-tune this anytime.',
+      saveLabel: saved ? 'Save changes' : (isEmpty ? 'Add audience' : 'Add audience'),
+      flowRight: open? 'right:440px;' : 'right:0;',
+      openSidebar:()=>this.setState({sidebarOpen:true}),
+      closeSidebar:()=>this.setState({sidebarOpen:false}),
+      saveSidebar:()=>this.setState({sidebarOpen:false,saved:true}),
+      nodeReach: reachN? '~'+this.fmt(reachN) : '0',
+      nodeSegLabel: segIdx.length? segIdx.length+(segIdx.length===1?' segment':' segments') : 'No segments',
+      nodeSegNames: segNames.length? segNames.join(', ') : 'None selected',
+      nodeGeoLabel: geoIdx.length? geoIdx.length+(geoIdx.length===1?' geofence active':' geofences active') : 'No geofences',
+      nodeGeoDetail: parts.length? parts.join(' · ') : (geoNames.length? geoNames.join(', ') : 'No location triggers'),
+      emptySegCount: segIdx.length, emptyGeoCount: geoIdx.length,
+      emptyCta: (segIdx.length||geoIdx.length)? 'Review entry audience →' : 'Set entry audience →',
+    };
+  }
+
+  segVals(){
+    const sel=this.state.sel, data=this.segData();
+    const rows=data.map((s,i)=>{const on=!!sel[i];return{
+      name:s.name, group:s.group, users:this.fmt(s.users), selected:on,
+      bg:on?'#eef5fc':'#fff', accent:on?'#2f7fd6':'transparent',
+      boxBorder:on?'#2f7fd6':'#c3ccd9', boxBg:on?'#2f7fd6':'#fff', tagFg:this.tagColor(s.group), groupKey:s.group,
+      showTrigger:false, isDwell:false, dwell:5,
+      trigEnterStyle:'', trigExitStyle:'', trigDwellStyle:'',
+      setEnter:()=>{}, setExit:()=>{}, setDwell:()=>{}, incDwell:()=>{}, decDwell:()=>{},
+      canView:true, viewUsers:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState({viewSeg:i,grpOpen:false}); },
+      toggle:()=>this.setState(st=>({sel:{...st.sel,[i]:!st.sel[i]}})),
+    };});
+    const idx=Object.keys(sel).filter(k=>sel[k]).map(Number);
+    const reachN=idx.reduce((a,i)=>a+data[i].users,0), count=idx.length;
+    const gui=this.groupUI('segments',data);
+    const shown=gui.active.length? rows.filter(r=>gui.active.includes(r.groupKey)):rows;
+    return {
+      ...this.common(true, count, 0), ...gui, ...this.viewVals(),
+      heroLabel:'Estimated reach',
+      reachBig: count? '~'+this.fmt(reachN):'0',
+      reachSub: count? 'users · '+count+(count===1?' segment':' segments'):'no audience yet',
+      reachPct: count? Math.min(100,Math.round(reachN/205004*100))+'%':'0%',
+      hasSel: count>0,
+      chips: idx.map(i=>({name:data[i].name, remove:()=>this.setState(st=>{const n={...st.sel};delete n[i];return{sel:n};})})),
+      colName:'Segment name', colRight:'Approx. users',
+      footNote: count? count+' of 478 selected':'Nothing selected yet',
+      rows:shown,
+      showActiveToggle:false, showEmpty:false,
+    };
+  }
+
+  geoVals(){
+    const gsel=this.state.geoSel, data=this.geoData();
+    const setTrig=(i,t)=>this.setState(st=>({geoSel:{...st.geoSel,[i]:{trigger:t,dwell:(st.geoSel[i]&&st.geoSel[i].dwell)||5}}}));
+    const bump=(i,d)=>this.setState(st=>{const cur=st.geoSel[i]||{trigger:'dwell',dwell:5};const v=Math.max(1,Math.min(240,cur.dwell+d));return{geoSel:{...st.geoSel,[i]:{...cur,dwell:v}}};});
+    const rows=data.map((g,i)=>{const cfg=gsel[i];const on=!!cfg;const t=on?cfg.trigger:null;return{
+      name:g.name, group: on? ('Triggers when user '+this.trigLabel(t)+(t==='dwell'?' '+cfg.dwell+'m':'')) : g.group,
+      users:'', selected:on,
+      bg:on?'#eef5fc':'#fff', accent:on?'#2f7fd6':'transparent',
+      boxBorder:on?'#2f7fd6':'#c3ccd9', boxBg:on?'#2f7fd6':'#fff', tagFg: on?'#2f7fd6':this.tagColor(g.group), groupKey:g.group,
+      showTrigger:on, isDwell: on&&t==='dwell', dwell: on?cfg.dwell:5,
+      trigEnterStyle:this.trig(on&&t==='enter'), trigExitStyle:this.trig(on&&t==='exit'), trigDwellStyle:this.trig(on&&t==='dwell'),
+      setEnter:()=>setTrig(i,'enter'), setExit:()=>setTrig(i,'exit'), setDwell:()=>setTrig(i,'dwell'),
+      incDwell:()=>bump(i,1), decDwell:()=>bump(i,-1),
+      canView:false, viewUsers:()=>{},
+      toggle:()=>this.setState(st=>{const n={...st.geoSel};if(n[i])delete n[i];else n[i]={trigger:'enter',dwell:5};return{geoSel:n};}),
+    };});
+    const count=Object.keys(gsel).length;
+    const gui=this.groupUI('geofences',data);
+    let shown=gui.active.length? rows.filter(r=>gui.active.includes(r.groupKey)):rows;
+    const ao=this.state.geoActiveOnly;
+    if(ao) shown=shown.filter(r=>r.selected);
+    return {
+      ...this.common(false, 0, count), ...gui, viewOpen:false, viewUsersList:[],
+      heroLabel:'Location triggers',
+      reachBig: count? this.fmt(count):'0',
+      reachSub: count? (count===1?'geofence active':'geofences active'):'none active yet',
+      reachPct: count? Math.min(100,Math.round(count/79*100))+'%':'0%',
+      hasSel:false, chips:[],
+      colName:'Geofence name', colRight:'Set trigger',
+      footNote: ao ? (count?'Showing '+count+' active':'0 active') : (count? count+' of 79 geofences':'No geofences selected'),
+      rows:shown,
+      showActiveToggle:true, activeCount:count, showEmpty: ao&&count===0,
+      toggleActiveOnly:()=>this.setState(s=>({geoActiveOnly:!s.geoActiveOnly})),
+      activeOnlyFg: ao?'#2f6fc4':'#5a6b85',
+      swTrack:'width:38px;height:22px;border-radius:999px;display:flex;align-items:center;padding:2px;box-sizing:border-box;transition:background .15s;background:'+(ao?'#2f7fd6':'#c3ccd9')+';',
+      swKnob:'width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s;transform:'+(ao?'translateX(16px)':'translateX(0)')+';',
+    };
+  }
+
+  common(isSeg, segCount, geoCount){
+    return {
+      setSeg:()=>this.setState({mode:'segments',grpOpen:false}),
+      setGeo:()=>this.setState({mode:'geofences',grpOpen:false}),
+      tabSegStyle:this.tab(isSeg), tabGeoStyle:this.tab(!isSeg),
+      segCount, geoCount, isSegMode:isSeg, isGeoMode:!isSeg,
+      searchPh:isSeg?'Search 478 segments':'Search 79 geofences',
+      groupsOpen:this.state.grpOpen,
+      toggleGroups:()=>this.setState(s=>({grpOpen:!s.grpOpen})),
+      closeGroups:()=>this.setState({grpOpen:false}),
+    };
+  }
+
+  groupUI(mode, data){
+    const key = mode==='segments'?'segGroups':'geoGroups';
+    const all = mode==='segments'
+      ? ['Smart','Uploaded','Manual','System']
+      : ['Custom','Push','Branch','Dealer','Region'];
+    const sel = this.state[key];
+    const active = all.filter(g=>sel[g]);
+    const groupsList = all.map(name=>{
+      const on=!!sel[name];
+      return { name, on, count:data.filter(d=>d.group===name).length,
+        boxBorder:on?'#2f7fd6':'#c3ccd9', boxBg:on?'#2f7fd6':'#fff',
+        toggle:()=>this.setState(st=>({[key]:{...st[key],[name]:!st[key][name]}})) };
+    });
+    return {
+      groupsList, active,
+      clearGroups:()=>this.setState({[key]:{}}),
+      groupsLabel: active.length? 'Groups · '+active.length : 'Groups',
+      groupsBtnBg: active.length? '#eef5fc':'#fff',
+      groupsBtnBorder: active.length? '#cfe1f6':'#d8e0ea',
+      groupsBtnFg: active.length? '#2f6fc4':'#17335f',
+    };
+  }
+
+  tab(active){
+    return 'flex:1;display:flex;align-items:center;justify-content:center;gap:7px;border:none;border-radius:8px;padding:9px 6px;font-family:Nunito,sans-serif;font-size:13.5px;font-weight:800;cursor:pointer;'
+      + (active?'background:#fff;color:#17335f;box-shadow:0 1px 3px rgba(20,34,60,.15);':'background:transparent;color:#8a95a6;');
+  }
+  trig(active){
+    return 'flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;padding:8px 4px;font-family:Nunito,sans-serif;font-size:13px;font-weight:800;cursor:pointer;'
+      + (active?'background:#2f7fd6;color:#fff;box-shadow:0 1px 3px rgba(47,127,214,.4);':'background:transparent;color:#5a6b85;');
+  }
+}
+</script>
+</body>
+</html>
