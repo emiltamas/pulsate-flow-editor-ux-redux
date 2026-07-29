@@ -1,8 +1,9 @@
+import { useState } from 'react'
 import {
   PRODUCT_CATEGORIES, CATEGORY_ORDER, QUANTIFIERS, EMPTY_PRODUCT_RULE,
-  fieldByKey, operatorsFor, ruleActive, ruleSentence,
+  fieldByKey, operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase,
 } from '../data'
-import { CloseIcon } from '../icons'
+import { CloseIcon, SparkleIcon, RepeatIcon } from '../icons'
 
 const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
 const helperText = { margin: '4px 0 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
@@ -13,9 +14,33 @@ const selectStyle = {
 }
 const numInputStyle = { ...selectStyle, width: 74, textAlign: 'center' }
 
-export default function ProductsPanel({ rule, onChange, freqCap, onFreqCapChange }) {
+export default function ProductsPanel({ rule, onChange, freqCap, onFreqCapChange, savedAudiences, onSaveAudience }) {
   const active = ruleActive(rule)
   const cat = active ? PRODUCT_CATEGORIES[rule.category] : null
+
+  const [aiText, setAiText] = useState('')
+  const [aiStatus, setAiStatus] = useState('idle') // 'idle' | 'ok' | 'fail'
+  const [saveName, setSaveName] = useState('')
+  const [justSaved, setJustSaved] = useState(false)
+
+  const buildFromPhrase = () => {
+    const parsed = parseAudiencePhrase(aiText)
+    if (parsed) {
+      onChange(parsed)
+      setAiStatus('ok')
+    } else {
+      setAiStatus('fail')
+    }
+  }
+
+  const suggestedName = active ? (ruleSentence(rule) || '').slice(0, 34) : ''
+  const saveAudience = () => {
+    onSaveAudience((saveName.trim() || suggestedName), { ...rule })
+    setSaveName('')
+    setJustSaved(true)
+  }
+
+  const hasDateCondition = active && rule.conditions.some((c) => fieldByKey(rule.category, c.field).type === 'date')
 
   const setCategory = (key) =>
     onChange(key === rule.category ? { ...EMPTY_PRODUCT_RULE, quantifier: rule.quantifier } : { ...EMPTY_PRODUCT_RULE, quantifier: rule.quantifier, category: key })
@@ -36,6 +61,49 @@ export default function ProductsPanel({ rule, onChange, freqCap, onFreqCapChange
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 0 20px' }}>
+
+      {/* AI assist */}
+      <div style={{ padding: '0 24px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1.5px solid #cfe1f6', background: '#f7fafd', borderRadius: 12, padding: '9px 12px' }}>
+          <SparkleIcon size={16} stroke="#2f6fc4" />
+          <input
+            value={aiText}
+            onChange={(e) => { setAiText(e.target.value); setAiStatus('idle') }}
+            onKeyDown={(e) => { if (e.key === 'Enter') buildFromPhrase() }}
+            placeholder="Describe the audience — e.g. anyone with a loan due in the next 3 days"
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: '#17335f' }}
+          />
+          <button
+            onClick={buildFromPhrase}
+            style={{ border: 'none', background: '#2f5aa0', color: '#fff', borderRadius: 8, padding: '6px 12px', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer', flex: 'none' }}
+          >
+            Build
+          </button>
+        </div>
+        {aiStatus === 'ok' && <p style={{ ...helperText, color: '#1f6f4a' }}>Built from your description — review below.</p>}
+        {aiStatus === 'fail' && <p style={helperText}>Couldn’t parse that — try mentioning a product type, e.g. “anyone with a loan due in the next 3 days”.</p>}
+      </div>
+
+      {/* saved audiences (quick apply) */}
+      {!active && savedAudiences.length > 0 && (
+        <div style={{ padding: '0 24px 18px' }}>
+          <span style={sectionLabel}>Saved audiences</span>
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {savedAudiences.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => onChange({ ...s.rule })}
+                style={{
+                  padding: '7px 12px', borderRadius: 9, border: '1px solid #cfe1f6', background: '#eef5fc',
+                  color: '#1f4a86', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                }}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* quantifier */}
       <div style={{ padding: '0 24px 18px' }}>
@@ -141,6 +209,50 @@ export default function ProductsPanel({ rule, onChange, freqCap, onFreqCapChange
             </div>
           </div>
 
+          {/* save as reusable audience */}
+          <div style={{ margin: '0 24px 18px' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={saveName}
+                onChange={(e) => { setSaveName(e.target.value); setJustSaved(false) }}
+                placeholder={suggestedName ? `Name this audience — e.g. “${suggestedName.slice(0, 24)}…”` : 'Name this audience'}
+                style={{ ...selectStyle, flex: 1, fontWeight: 600 }}
+              />
+              <button
+                onClick={saveAudience}
+                style={{
+                  border: '1px solid #cfe1f6', background: '#eef5fc', color: '#1f4a86', borderRadius: 9,
+                  padding: '8px 13px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                Save as audience
+              </button>
+            </div>
+            {justSaved && (
+              <p style={{ ...helperText, color: '#1f6f4a' }}>Saved — reusable in any flow from the Products tab.</p>
+            )}
+          </div>
+
+          {/* entry cadence (only for date-anchored rules) */}
+          {hasDateCondition && (
+            <div style={{ padding: '0 24px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={sectionLabel}>Entry</span>
+              <EntryOption
+                selected={!rule.recurring}
+                onSelect={() => onChange({ ...rule, recurring: false })}
+                title="One-time entry"
+                desc="Members are evaluated once when the flow starts."
+              />
+              <EntryOption
+                selected={!!rule.recurring}
+                onSelect={() => onChange({ ...rule, recurring: true })}
+                title="Recurring — re-enter each cycle"
+                desc="Members re-enter each time the date approaches again — e.g. every month’s payment reminder."
+                icon={<RepeatIcon size={13} />}
+              />
+            </div>
+          )}
+
           {/* enrollment semantics */}
           <div style={{ margin: '0 24px 18px', background: '#fbf1dc', borderRadius: 11, padding: '10px 14px', fontSize: 12.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.45 }}>
             Each matching product enrolls separately — a member with two qualifying loans gets each reminder.
@@ -166,6 +278,29 @@ export default function ProductsPanel({ rule, onChange, freqCap, onFreqCapChange
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function EntryOption({ selected, onSelect, title, desc, icon }) {
+  return (
+    <div
+      onClick={onSelect}
+      style={{
+        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+        border: `1px solid ${selected ? '#cfe1f6' : '#e2e8f1'}`, background: selected ? '#eef5fc' : '#fff',
+      }}
+    >
+      <span style={{ width: 18, height: 18, borderRadius: '50%', flex: 'none', marginTop: 1, boxSizing: 'border-box', border: `2px solid ${selected ? '#2f7fd6' : '#c3ccd9'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {selected && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2f7fd6' }} />}
+      </span>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>
+          {icon}
+          {title}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+      </div>
     </div>
   )
 }

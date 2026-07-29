@@ -17,6 +17,7 @@ export default function Sidebar({
   segSel, toggleSeg,
   geoSel, toggleGeo, setTrigger, bumpDwell,
   productRule, setProductRule, freqCap, setFreqCap,
+  savedAudiences, saveAudience,
   saved, onClose, onSave,
 }) {
   const [grpOpen, setGrpOpen] = useState(false)
@@ -162,7 +163,14 @@ export default function Sidebar({
 
         {/* products rule builder */}
         {isProd && (
-          <ProductsPanel rule={productRule} onChange={setProductRule} freqCap={freqCap} onFreqCapChange={setFreqCap} />
+          <ProductsPanel
+            rule={productRule}
+            onChange={setProductRule}
+            freqCap={freqCap}
+            onFreqCapChange={setFreqCap}
+            savedAudiences={savedAudiences}
+            onSaveAudience={saveAudience}
+          />
         )}
 
         {/* list */}

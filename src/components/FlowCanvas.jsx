@@ -3,11 +3,11 @@ import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
   SEGMENTS, GEOFENCES, CHANNELS, PRODUCT_CATEGORIES, TOTAL_MEMBERS,
-  productReach, ruleActive, ruleSentence, fmt,
+  productReach, ruleActive, ruleSentence, mockPerformance, fmtMoney, fmt,
 } from '../data'
 import {
   PlayIcon, PencilIcon, UsersIcon, PinIcon, ChevronLeftIcon,
-  SendIcon, TypeIcon, DwellIcon, BranchIcon, ProductIcon,
+  SendIcon, TypeIcon, DwellIcon, BranchIcon, ProductIcon, ChartIcon,
 } from '../icons'
 
 const NODE_WIDTH = 300
@@ -17,6 +17,8 @@ const EMPTY_NODE_HEIGHT = 196
 const CARD_NODE_HEIGHT = 219
 const PRODUCT_LINE_HEIGHT = 48 // extra start-card row when a product rule is set
 const MESSAGE_NODE_HEIGHT = 197
+const PERF_BAND_START = 34 // stat bands appended in performance mode
+const PERF_BAND_MESSAGE = 52
 
 const nodeTypes = { start: StartNode, message: MessageNode, addStep: AddStepNode }
 
@@ -24,7 +26,7 @@ const edgeStyle = { stroke: 'rgba(255,255,255,.5)', strokeWidth: 2 }
 
 /* The editor owns the layout: nodes are stacked vertically from a fixed
    origin, so positions are derived, never user-set. */
-const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, addActive, addMenuOpen }) => {
+const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, perf, addActive, addMenuOpen }) => {
   const nodes = []
   const hasRule = ruleActive(productRule)
   let y = 0
@@ -33,18 +35,20 @@ const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, ad
     id: 'start',
     type: 'start',
     position: { x: -NODE_WIDTH / 2, y },
-    data: { isEmpty, segIdx, geoIdx, geoSel, productRule },
+    data: { isEmpty, segIdx, geoIdx, geoSel, productRule, perf },
   })
-  y += (isEmpty ? EMPTY_NODE_HEIGHT : CARD_NODE_HEIGHT + (hasRule ? PRODUCT_LINE_HEIGHT : 0)) + CONNECTOR_GAP
+  y += (isEmpty
+    ? EMPTY_NODE_HEIGHT
+    : CARD_NODE_HEIGHT + (hasRule ? PRODUCT_LINE_HEIGHT : 0) + (perf ? PERF_BAND_START : 0)) + CONNECTOR_GAP
 
   if (message) {
     nodes.push({
       id: 'message',
       type: 'message',
       position: { x: -NODE_WIDTH / 2, y },
-      data: { message },
+      data: { message, perf },
     })
-    y += MESSAGE_NODE_HEIGHT + CONNECTOR_GAP
+    y += MESSAGE_NODE_HEIGHT + (perf ? PERF_BAND_MESSAGE : 0) + CONNECTOR_GAP
   }
 
   nodes.push({
@@ -57,7 +61,7 @@ const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, ad
   return nodes
 }
 
-export default function FlowCanvas({ segSel, geoSel, productRule, message, sidebarOpen, onOpenAudience, onOpenMessage }) {
+export default function FlowCanvas({ segSel, geoSel, productRule, message, showPerf, onTogglePerf, sidebarOpen, onOpenAudience, onOpenMessage }) {
   const segIdx = [...segSel]
   const geoIdx = Object.keys(geoSel).map(Number)
   const isEmpty = segIdx.length === 0 && geoIdx.length === 0 && !ruleActive(productRule)
@@ -70,7 +74,12 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, sideb
     if (type === 'message') onOpenMessage()
   }
 
-  const nodes = layoutNodes({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, addActive, addMenuOpen }).map((n) =>
+  const segReach = segIdx.reduce((a, i) => a + SEGMENTS[i].users, 0)
+  const pr = ruleActive(productRule) ? productReach(productRule, segIdx.length ? segReach : TOTAL_MEMBERS) : null
+  const audienceMembers = pr ? pr.members : segReach
+  const perf = showPerf && !isEmpty ? mockPerformance(audienceMembers) : null
+
+  const nodes = layoutNodes({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, perf, addActive, addMenuOpen }).map((n) =>
     n.id === 'add' ? { ...n, data: { ...n.data, onPick: pickStep } } : n
   )
 
@@ -115,7 +124,7 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, sideb
       >
         <ViewportShifter sidebarOpen={sidebarOpen} />
       </ReactFlow>
-      <TopBar />
+      <TopBar showPerf={showPerf} onTogglePerf={onTogglePerf} />
       <div style={{ position: 'absolute', top: 56, left: 0, right: 0, height: 34, background: '#eef1f6', zIndex: 10 }} />
     </div>
   )
@@ -144,7 +153,7 @@ function StartNode({ data }) {
       {data.isEmpty ? (
         <EmptyStartNode />
       ) : (
-        <StartNodeCard segIdx={data.segIdx} geoIdx={data.geoIdx} geoSel={data.geoSel} productRule={data.productRule} />
+        <StartNodeCard segIdx={data.segIdx} geoIdx={data.geoIdx} geoSel={data.geoSel} productRule={data.productRule} perf={data.perf} />
       )}
       <Handle type="source" position={Position.Bottom} style={hiddenHandle} />
     </div>
@@ -193,6 +202,12 @@ function MessageNode({ data }) {
           detail={m.body || 'Add a title and text'}
         />
       </div>
+      {data.perf && (
+        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', color: '#1f6f4a', fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 800 }}>{fmt(data.perf.delivered)} delivered · {fmt(data.perf.opened)} opened</div>
+          <div>{fmt(data.perf.converted)} payments on time · {fmtMoney(data.perf.revenue)} collected</div>
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} style={hiddenHandle} />
     </div>
   )
@@ -268,7 +283,7 @@ function AddStepNode({ data }) {
   )
 }
 
-function TopBar() {
+function TopBar({ showPerf, onTogglePerf }) {
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 14, zIndex: 10 }}>
       <button
@@ -278,6 +293,24 @@ function TopBar() {
       </button>
       <span style={{ fontSize: 16, fontWeight: 800, color: '#17335f' }}>Untitled automation</span>
       <span style={{ fontSize: 12, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 20 }}>Draft</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
+        {[{ key: false, label: 'Build' }, { key: true, label: 'Performance' }].map(({ key, label }) => (
+          <button
+            key={label}
+            onClick={() => onTogglePerf(key)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 12px',
+              fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+              ...(showPerf === key
+                ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                : { background: 'transparent', color: '#8a95a6' }),
+            }}
+          >
+            {key && <ChartIcon size={13} />}
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -312,7 +345,7 @@ function EmptyStartNode() {
   )
 }
 
-function StartNodeCard({ segIdx, geoIdx, geoSel, productRule }) {
+function StartNodeCard({ segIdx, geoIdx, geoSel, productRule, perf }) {
   const reach = segIdx.reduce((a, i) => a + SEGMENTS[i].users, 0)
   const segNames = segIdx.map((i) => SEGMENTS[i].name)
   const geoNames = geoIdx.map((i) => GEOFENCES[i].name)
@@ -372,11 +405,17 @@ function StartNodeCard({ segIdx, geoIdx, geoSel, productRule }) {
             icon={<ProductIcon size={17} />}
             iconBg="#fbf1dc"
             iconFg="#8a6d2e"
-            label="Product rule"
+            label={`Product rule${productRule.recurring ? ' · recurring' : ''}`}
             detail={ruleSentence(productRule)}
           />
         )}
       </div>
+      {perf && (
+        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#1f6f4a', fontSize: 11.5, fontWeight: 800 }}>
+          <ChartIcon size={13} />
+          {fmt(perf.entered)} members entered
+        </div>
+      )}
     </div>
   )
 }

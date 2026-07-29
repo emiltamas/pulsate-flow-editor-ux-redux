@@ -11,6 +11,9 @@ export const SEGMENTS = [
   { name: 'VIP customers — Q2', group: 'Uploaded', users: 842 },
   { name: 'Winback CSV — March', group: 'Uploaded', users: 5310 },
   { name: 'Beta testers', group: 'Manual', users: 126 },
+  { name: 'Likely to accept a loan offer', group: 'Predicted', users: 3120 },
+  { name: 'Churn risk — next 90 days', group: 'Predicted', users: 1480 },
+  { name: 'Card upgrade propensity', group: 'Predicted', users: 2210 },
 ]
 
 export const GEOFENCES = [
@@ -25,7 +28,7 @@ export const GEOFENCES = [
   { name: 'Campus Push Zone', group: 'Push' },
 ]
 
-export const SEG_GROUPS = ['Smart', 'Uploaded', 'Manual', 'System']
+export const SEG_GROUPS = ['Smart', 'Uploaded', 'Manual', 'System', 'Predicted']
 export const GEO_GROUPS = ['Custom', 'Push', 'Branch', 'Dealer', 'Region']
 
 export const TOTAL_SEGMENTS = 478
@@ -33,7 +36,7 @@ export const TOTAL_GEOFENCES = 79
 export const REACH_CEILING = 205004
 
 const TAG_COLORS = {
-  Smart: '#1f6f4a', Uploaded: '#7a4fc0', Manual: '#2f6fc4', System: '#8a6d2e',
+  Smart: '#1f6f4a', Uploaded: '#7a4fc0', Manual: '#2f6fc4', System: '#8a6d2e', Predicted: '#c05a8a',
   Branch: '#2f6fc4', Dealer: '#7a4fc0', Region: '#1f6f4a', Custom: '#5a6b85', Push: '#c05a8a',
 }
 export const tagColor = (g) => TAG_COLORS[g] || '#5a6b85'
@@ -126,7 +129,7 @@ export const OPERATORS = {
   ],
 }
 
-export const EMPTY_PRODUCT_RULE = { quantifier: 'any', category: null, types: [], conditions: [] }
+export const EMPTY_PRODUCT_RULE = { quantifier: 'any', category: null, types: [], conditions: [], recurring: false }
 
 export const fieldByKey = (category, key) => PRODUCT_CATEGORIES[category].fields.find((f) => f.key === key)
 export const operatorsFor = (type) => OPERATORS[type] ?? OPERATORS.number
@@ -224,6 +227,73 @@ export const matchedProducts = (seed, rule) => memberProducts(seed).filter((p) =
 
 export const memberSatisfies = (matchCount, quantifier) =>
   quantifier === 'none' ? matchCount === 0 : quantifier === 'two_plus' ? matchCount >= 2 : matchCount >= 1
+
+/* Deterministic "AI" phrase parser — keyword matching, no model calls.
+   Returns a product rule or null when no product type is recognized. */
+export function parseAudiencePhrase(text) {
+  const t = (text || '').toLowerCase()
+  if (!t.trim()) return null
+
+  let category = null
+  const types = []
+  for (const key of CATEGORY_ORDER) {
+    for (const label of PRODUCT_CATEGORIES[key].types) {
+      if (t.includes(label.toLowerCase())) {
+        category = key
+        if (!types.includes(label)) types.push(label)
+      }
+    }
+  }
+  if (!category) {
+    if (/\bloans?\b|\bmortgage\b/.test(t)) category = 'loan'
+    else if (/\bcards?\b|\bvisa\b/.test(t)) category = 'card'
+    else if (/\bcertificates?\b|\bcds?\b/.test(t)) category = 'certificate'
+    else if (/\bdeposits?\b|\bsavings\b|\bchecking\b/.test(t)) category = 'deposit'
+  }
+  if (!category) return null
+
+  let quantifier = 'any'
+  if (/\bno\b|\bwithout\b|doesn'?t have|\bnone\b/.test(t)) quantifier = 'none'
+  else if (/two or more|2 or more|\b2\+|more than one|\bmultiple\b/.test(t)) quantifier = 'two_plus'
+
+  const conditions = []
+  let id = 1
+  const fields = PRODUCT_CATEGORIES[category].fields
+  const hasField = (k) => fields.some((f) => f.key === k)
+  let m
+
+  if (hasField('dueDate')) {
+    if ((m = t.match(/due (?:in |within )?(?:the )?next (\d+) days?/))) {
+      conditions.push({ id: id++, field: 'dueDate', op: 'next_n', value: '', n: Number(m[1]) })
+    } else if (/due tomorrow/.test(t)) {
+      conditions.push({ id: id++, field: 'dueDate', op: 'tomorrow', value: '', n: 3 })
+    } else if ((m = t.match(/overdue (?:by )?(?:more than )?(\d+) days?/))) {
+      conditions.push({ id: id++, field: 'dueDate', op: 'past_n', value: '', n: Number(m[1]) })
+    }
+  }
+  if (hasField('maturity') && (m = t.match(/matur\w* (?:in |within )?(?:the )?next (\d+) days?/))) {
+    conditions.push({ id: id++, field: 'maturity', op: 'next_n', value: '', n: Number(m[1]) })
+  }
+  if ((m = t.match(/balance (?:of )?(?:over|above|more than|greater than) \$?([\d,]+)/))) {
+    conditions.push({ id: id++, field: 'balance', op: 'gt', value: m[1].replace(/,/g, ''), n: 3 })
+  } else if ((m = t.match(/balance (?:of )?(?:under|below|less than) \$?([\d,]+)/))) {
+    conditions.push({ id: id++, field: 'balance', op: 'lt', value: m[1].replace(/,/g, ''), n: 3 })
+  }
+
+  return { quantifier, category, types, conditions, recurring: false }
+}
+
+/* Mocked closed-loop numbers, derived from the audience size so the
+   performance view always agrees with the reach shown. */
+export function mockPerformance(members) {
+  const delivered = Math.round(members * 0.96)
+  const opened = Math.round(delivered * 0.64)
+  const converted = Math.round(opened * 0.47)
+  return { entered: members, delivered, opened, converted, revenue: converted * 168 }
+}
+
+export const fmtMoney = (n) =>
+  n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${fmt(n)}`
 
 export function productFactline(p) {
   const parts = [`$${fmt(p.balance)}`]

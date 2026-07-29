@@ -12,6 +12,8 @@ export default function App() {
   const [geoSel, setGeoSel] = useState({})
   const [productRule, setProductRule] = useState({ ...EMPTY_PRODUCT_RULE })
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
+  const [savedAudiences, setSavedAudiences] = useState([])
+  const [showPerf, setShowPerf] = useState(false)
   const [message, setMessage] = useState(null)
 
   const toggleSeg = (i) =>
@@ -54,6 +56,8 @@ export default function App() {
         geoSel={geoSel}
         productRule={productRule}
         message={message}
+        showPerf={showPerf}
+        onTogglePerf={setShowPerf}
         sidebarOpen={editor !== null}
         onOpenAudience={() => setEditor('audience')}
         onOpenMessage={() => setEditor('message')}
@@ -72,6 +76,8 @@ export default function App() {
           setProductRule={setProductRule}
           freqCap={freqCap}
           setFreqCap={setFreqCap}
+          savedAudiences={savedAudiences}
+          saveAudience={(name, rule) => setSavedAudiences((prev) => [...prev, { name, rule }])}
           saved={audienceSaved}
           onClose={() => setEditor(null)}
           onSave={() => {
