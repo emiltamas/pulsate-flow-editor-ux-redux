@@ -1,0 +1,10 @@
+body {
+  margin: 0;
+  font-family: 'Nunito', system-ui, sans-serif;
+  background: #fff;
+}
+a { color: #2f6fc4; }
+a:hover { color: #255aa0; }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #c3ccd9; border-radius: 6px; }
+.row:hover { background: #f2f6fc !important; }
