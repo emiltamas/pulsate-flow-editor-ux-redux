@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import {
-  SEGMENTS, GEOFENCES, CHANNELS, PRODUCT_CATEGORIES, TOTAL_MEMBERS,
-  productReach, ruleActive, ruleSentence, mockPerformance, fmtMoney, fmt,
-} from '../data'
-import {
-  PlayIcon, PencilIcon, UsersIcon, PinIcon, ChevronLeftIcon,
-  SendIcon, TypeIcon, DwellIcon, BranchIcon, ProductIcon, ChartIcon,
-} from '../icons'
+import { CHANNELS, PRODUCT_CATEGORIES, audienceReach, ruleSentence, mockPerformance, fmtMoney, fmt, trigLabel } from '../data'
+import { PlayIcon, PencilIcon, UsersIcon, SendIcon, TypeIcon, DwellIcon, BranchIcon, ChartIcon } from '../icons'
+import { TRIGGER_META } from './EntryPanel'
 
 const NODE_WIDTH = 300
 const CONNECTOR_GAP = 26
 // measured heights of node variants, used to stack the chain
 const EMPTY_NODE_HEIGHT = 196
 const CARD_NODE_HEIGHT = 219
-const PRODUCT_LINE_HEIGHT = 48 // extra start-card row when a product rule is set
 const MESSAGE_NODE_HEIGHT = 197
 const PERF_BAND_START = 34 // stat bands appended in performance mode
 const PERF_BAND_MESSAGE = 52
@@ -26,20 +20,17 @@ const edgeStyle = { stroke: 'rgba(255,255,255,.5)', strokeWidth: 2 }
 
 /* The editor owns the layout: nodes are stacked vertically from a fixed
    origin, so positions are derived, never user-set. */
-const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, perf, addActive, addMenuOpen }) => {
+const layoutNodes = ({ isEmpty, entry, audience, reach, message, perf, addActive, addMenuOpen }) => {
   const nodes = []
-  const hasRule = ruleActive(productRule)
   let y = 0
 
   nodes.push({
     id: 'start',
     type: 'start',
     position: { x: -NODE_WIDTH / 2, y },
-    data: { isEmpty, segIdx, geoIdx, geoSel, productRule, perf },
+    data: { isEmpty, entry, audience, reach, perf },
   })
-  y += (isEmpty
-    ? EMPTY_NODE_HEIGHT
-    : CARD_NODE_HEIGHT + (hasRule ? PRODUCT_LINE_HEIGHT : 0) + (perf ? PERF_BAND_START : 0)) + CONNECTOR_GAP
+  y += (isEmpty ? EMPTY_NODE_HEIGHT : CARD_NODE_HEIGHT + (perf ? PERF_BAND_START : 0)) + CONNECTOR_GAP
 
   if (message) {
     nodes.push({
@@ -61,10 +52,9 @@ const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, pe
   return nodes
 }
 
-export default function FlowCanvas({ segSel, geoSel, productRule, message, showPerf, onTogglePerf, sidebarOpen, onOpenAudience, onOpenMessage }) {
-  const segIdx = [...segSel]
-  const geoIdx = Object.keys(geoSel).map(Number)
-  const isEmpty = segIdx.length === 0 && geoIdx.length === 0 && !ruleActive(productRule)
+export default function FlowCanvas({ entry, audience, audiences, message, showPerf, sidebarOpen, onOpenEntry, onOpenMessage }) {
+  const geoCount = Object.keys(entry.trigger.geoSel).length
+  const isEmpty = !audience && !(entry.trigger.type === 'location' && geoCount > 0)
   const addActive = !isEmpty && !message
 
   const [addMenuOpen, setAddMenuOpen] = useState(false)
@@ -74,12 +64,10 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, showP
     if (type === 'message') onOpenMessage()
   }
 
-  const segReach = segIdx.reduce((a, i) => a + SEGMENTS[i].users, 0)
-  const pr = ruleActive(productRule) ? productReach(productRule, segIdx.length ? segReach : TOTAL_MEMBERS) : null
-  const audienceMembers = pr ? pr.members : segReach
-  const perf = showPerf && !isEmpty ? mockPerformance(audienceMembers) : null
+  const reach = audience ? audienceReach(audience, audiences) : { members: 0, products: null }
+  const perf = showPerf && !isEmpty ? mockPerformance(reach.members) : null
 
-  const nodes = layoutNodes({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, perf, addActive, addMenuOpen }).map((n) =>
+  const nodes = layoutNodes({ isEmpty, entry, audience, reach, message, perf, addActive, addMenuOpen }).map((n) =>
     n.id === 'add' ? { ...n, data: { ...n.data, onPick: pickStep } } : n
   )
 
@@ -101,7 +89,7 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, showP
         onNodeClick={(_, node) => {
           if (node.id === 'start') {
             setAddMenuOpen(false)
-            onOpenAudience()
+            onOpenEntry()
           } else if (node.id === 'message') {
             setAddMenuOpen(false)
             onOpenMessage()
@@ -110,7 +98,7 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, showP
           }
         }}
         onPaneClick={() => setAddMenuOpen(false)}
-        defaultViewport={{ x: 500, y: 170, zoom: 1 }}
+        defaultViewport={{ x: 500, y: 120, zoom: 1 }}
         minZoom={0.4}
         maxZoom={1.75}
         translateExtent={[[-1200, -600], [1200, 1600]]}
@@ -124,8 +112,7 @@ export default function FlowCanvas({ segSel, geoSel, productRule, message, showP
       >
         <ViewportShifter sidebarOpen={sidebarOpen} />
       </ReactFlow>
-      <TopBar showPerf={showPerf} onTogglePerf={onTogglePerf} />
-      <div style={{ position: 'absolute', top: 56, left: 0, right: 0, height: 34, background: '#eef1f6', zIndex: 10 }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 34, background: '#eef1f6', zIndex: 10 }} />
     </div>
   )
 }
@@ -153,9 +140,80 @@ function StartNode({ data }) {
       {data.isEmpty ? (
         <EmptyStartNode />
       ) : (
-        <StartNodeCard segIdx={data.segIdx} geoIdx={data.geoIdx} geoSel={data.geoSel} productRule={data.productRule} perf={data.perf} />
+        <StartNodeCard entry={data.entry} audience={data.audience} reach={data.reach} perf={data.perf} />
       )}
       <Handle type="source" position={Position.Bottom} style={hiddenHandle} />
+    </div>
+  )
+}
+
+function triggerDetail(trigger) {
+  if (trigger.type === 'audience') return 'Always on — enters on joining the audience'
+  if (trigger.type === 'schedule') return 'One-time send · not scheduled yet'
+  if (trigger.type === 'date') {
+    const field = trigger.dateField === 'maturity' ? 'maturity date' : 'payment due date'
+    return `${trigger.dateDays} days before ${field} · recurring`
+  }
+  const geoSel = trigger.geoSel
+  const idx = Object.keys(geoSel)
+  if (!idx.length) return 'No geofences selected'
+  const parts = ['enter', 'exit', 'dwell']
+    .map((t) => [idx.filter((i) => geoSel[i].trigger === t).length, t])
+    .filter(([n]) => n > 0)
+    .map(([n, t]) => `${n} on ${trigLabel(t).replace(/s$/, '')}`)
+  return `${idx.length} geofence${idx.length === 1 ? '' : 's'} · ${parts.join(' · ')}`
+}
+
+function StartNodeCard({ entry, audience, reach, perf }) {
+  const trig = TRIGGER_META[entry.trigger.type]
+  return (
+    <div style={{ width: 300, background: '#fff', borderRadius: 16, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
+      <div style={{ background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff' }}>
+          <PlayIcon size={17} stroke="#fff" />
+          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.4px', textTransform: 'uppercase' }}>Start · Entry</span>
+        </div>
+        <PencilIcon size={16} stroke="#fff" />
+      </div>
+      <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated reach</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#17335f', lineHeight: 1, letterSpacing: '-.5px' }}>
+              {reach.members ? `~${fmt(reach.members)}` : '—'}
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+              {reach.members
+                ? reach.products !== null
+                  ? `members · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[audience.rule.category].plural}`
+                  : 'members'
+                : 'all who trigger'}
+            </div>
+          </div>
+        </div>
+        <SummaryLine
+          icon={<trig.Icon size={17} />}
+          iconBg="#fbf1dc"
+          iconFg="#8a6d2e"
+          label={trig.label}
+          detail={triggerDetail(entry.trigger)}
+        />
+        <SummaryLine
+          icon={<UsersIcon size={18} />}
+          iconBg="#e6effb"
+          iconFg="#2f6fc4"
+          label={audience ? audience.name : 'No audience'}
+          detail={audience
+            ? audience.rule ? ruleSentence(audience.rule) : `${audience.kind} audience`
+            : 'Everyone matching the trigger'}
+        />
+      </div>
+      {perf && (
+        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#1f6f4a', fontSize: 11.5, fontWeight: 800 }}>
+          <ChartIcon size={13} />
+          {fmt(perf.entered)} members entered
+        </div>
+      )}
     </div>
   )
 }
@@ -283,38 +341,6 @@ function AddStepNode({ data }) {
   )
 }
 
-function TopBar({ showPerf, onTogglePerf }) {
-  return (
-    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 14, zIndex: 10 }}>
-      <button
-        style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #d8e0ea', background: '#fff', color: '#2f6fc4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <ChevronLeftIcon size={15} strokeWidth={2.4} />
-      </button>
-      <span style={{ fontSize: 16, fontWeight: 800, color: '#17335f' }}>Untitled automation</span>
-      <span style={{ fontSize: 12, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 20 }}>Draft</span>
-      <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
-        {[{ key: false, label: 'Build' }, { key: true, label: 'Performance' }].map(({ key, label }) => (
-          <button
-            key={label}
-            onClick={() => onTogglePerf(key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 12px',
-              fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
-              ...(showPerf === key
-                ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
-                : { background: 'transparent', color: '#8a95a6' }),
-            }}
-          >
-            {key && <ChartIcon size={13} />}
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function EmptyStartNode() {
   return (
     <div
@@ -337,85 +363,10 @@ function EmptyStartNode() {
         <PlayIcon size={22} />
       </div>
       <div>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Set your entry audience</div>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No segments or geofences yet</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Set up the entry step</div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No trigger or audience yet</div>
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '7px 16px', borderRadius: 9 }}>+ Choose audience</div>
-    </div>
-  )
-}
-
-function StartNodeCard({ segIdx, geoIdx, geoSel, productRule, perf }) {
-  const reach = segIdx.reduce((a, i) => a + SEGMENTS[i].users, 0)
-  const segNames = segIdx.map((i) => SEGMENTS[i].name)
-  const geoNames = geoIdx.map((i) => GEOFENCES[i].name)
-
-  const hasRule = ruleActive(productRule)
-  const pr = hasRule ? productReach(productRule, segIdx.length ? reach : TOTAL_MEMBERS) : null
-
-  const nEnter = geoIdx.filter((i) => geoSel[i].trigger === 'enter').length
-  const nExit = geoIdx.filter((i) => geoSel[i].trigger === 'exit').length
-  const nDwell = geoIdx.filter((i) => geoSel[i].trigger === 'dwell').length
-  const parts = []
-  if (nEnter) parts.push(`${nEnter} on entry`)
-  if (nExit) parts.push(`${nExit} on exit`)
-  if (nDwell) parts.push(`${nDwell} on dwell`)
-
-  return (
-    <div style={{ width: 300, background: '#fff', borderRadius: 16, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
-      <div style={{ background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff' }}>
-          <PlayIcon size={17} stroke="#fff" />
-          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.4px', textTransform: 'uppercase' }}>Start · Entry audience</span>
-        </div>
-        <PencilIcon size={16} stroke="#fff" />
-      </div>
-      <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated reach</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#17335f', lineHeight: 1, letterSpacing: '-.5px' }}>
-              {pr ? `~${fmt(pr.members)}` : reach ? `~${fmt(reach)}` : '0'}
-            </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
-              {pr
-                ? pr.products !== null
-                  ? `members · ${fmt(pr.products)} matching ${PRODUCT_CATEGORIES[productRule.category].plural}`
-                  : 'members'
-                : 'users'}
-            </div>
-          </div>
-        </div>
-        <SummaryLine
-          icon={<UsersIcon size={18} />}
-          iconBg="#e6effb"
-          iconFg="#2f6fc4"
-          label={segIdx.length ? `${segIdx.length} ${segIdx.length === 1 ? 'segment' : 'segments'}` : 'No segments'}
-          detail={segNames.length ? segNames.join(', ') : 'None selected'}
-        />
-        <SummaryLine
-          icon={<PinIcon size={18} />}
-          iconBg="#e2f4ea"
-          iconFg="#1f6f4a"
-          label={geoIdx.length ? `${geoIdx.length} ${geoIdx.length === 1 ? 'geofence active' : 'geofences active'}` : 'No geofences'}
-          detail={parts.length ? parts.join(' · ') : geoNames.length ? geoNames.join(', ') : 'No location triggers'}
-        />
-        {hasRule && (
-          <SummaryLine
-            icon={<ProductIcon size={17} />}
-            iconBg="#fbf1dc"
-            iconFg="#8a6d2e"
-            label={`Product rule${productRule.recurring ? ' · recurring' : ''}`}
-            detail={ruleSentence(productRule)}
-          />
-        )}
-      </div>
-      {perf && (
-        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#1f6f4a', fontSize: 11.5, fontWeight: 800 }}>
-          <ChartIcon size={13} />
-          {fmt(perf.entered)} members entered
-        </div>
-      )}
+      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '7px 16px', borderRadius: 9 }}>+ Choose entry</div>
     </div>
   )
 }

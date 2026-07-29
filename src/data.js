@@ -36,7 +36,7 @@ export const TOTAL_GEOFENCES = 79
 export const REACH_CEILING = 205004
 
 const TAG_COLORS = {
-  Smart: '#1f6f4a', Uploaded: '#7a4fc0', Manual: '#2f6fc4', System: '#8a6d2e', Predicted: '#c05a8a',
+  Smart: '#1f6f4a', Uploaded: '#7a4fc0', Manual: '#2f6fc4', System: '#8a6d2e', Predicted: '#c05a8a', Rule: '#1f4a86',
   Branch: '#2f6fc4', Dealer: '#7a4fc0', Region: '#1f6f4a', Custom: '#5a6b85', Push: '#c05a8a',
 }
 export const tagColor = (g) => TAG_COLORS[g] || '#5a6b85'
@@ -294,6 +294,41 @@ export function mockPerformance(members) {
 
 export const fmtMoney = (n) =>
   n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${fmt(n)}`
+
+/* ── audiences as first-class objects ────────────────────────────── */
+
+export const DEMO_RULE = {
+  quantifier: 'any', category: 'loan', types: [],
+  conditions: [{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 3 }],
+}
+
+export const seedAudiences = () => [
+  { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 2 },
+  ...SEGMENTS.map((s, i) => ({ id: `aud-seg-${i}`, name: s.name, kind: s.group, users: s.users, rule: null, baseIds: [], usedIn: (i * 7) % 4 })),
+]
+
+/* Reach for an audience object; rule audiences narrow their base
+   (all members, or the union of their start-from audiences). */
+export function audienceReach(a, all = []) {
+  const base = a.baseIds?.length
+    ? Math.min(TOTAL_MEMBERS, a.baseIds.reduce((s, id) => s + (all.find((x) => x.id === id)?.users || 0), 0))
+    : TOTAL_MEMBERS
+  if (a.rule) return productReach(a.rule, base)
+  return { members: a.users ?? base, products: null }
+}
+
+/* ── flat-file mock for the data-model story (invented, core-export
+      flavored; no real FI data) ─────────────────────────────────── */
+
+export const FLAT_FILE_SAMPLE = {
+  columns: ['MBR_NUM', 'FNAME', 'LNAME', 'SHR_SAV_BAL', 'AUTO_LN1_BAL', 'AUTO_LN1_DUE_DT', 'AUTO_LN1_RATE', 'AUTO_LN2_BAL', 'AUTO_LN2_DUE_DT', 'AUTO_LN2_RATE', 'PERS_LN_BAL', 'PERS_LN_DUE', 'CERT6_BAL', 'CERT6_MAT_DT', 'VISA_PLT_BAL', 'VISA_PLT_MIN_PMT', 'HM_EQ_BAL', 'HM_EQ_DUE_DT'],
+  rows: [
+    ['100482', 'Amara', 'Okafor', '4,210', '12,400', '08/01', '6.1', '8,950', '08/03', '5.4', '', '', '', '', '2,100', '35', '', ''],
+    ['100517', 'Diego', 'Reyes', '812', '', '', '', '', '', '', '6,000', '08/03', '10,000', '01/12', '', '', '', ''],
+    ['100533', 'Priya', 'Sharma', '15,640', '9,300', '08/12', '5.9', '', '', '', '', '', '', '', '450', '25', '44,700', '08/28'],
+    ['100561', 'Liam', 'Walsh', '230', '', '', '', '', '', '', '', '', '5,000', '09/30', '', '', '', ''],
+  ],
+}
 
 export function productFactline(p) {
   const parts = [`$${fmt(p.balance)}`]

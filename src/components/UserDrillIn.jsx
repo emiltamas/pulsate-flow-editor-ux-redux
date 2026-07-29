@@ -1,25 +1,24 @@
 import { useState } from 'react'
 import {
-  SEGMENTS, PRODUCT_CATEGORIES, fmt, sampleUsers,
-  ruleActive, matchedProducts, memberSatisfies, productFactline,
+  PRODUCT_CATEGORIES, fmt, sampleUsers,
+  matchedProducts, memberSatisfies, productFactline,
 } from '../data'
 import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 
-export default function UserDrillIn({ segIndex, selected, productRule, onToggle, onBack }) {
+/* Member preview for any audience: rule audiences show which product(s)
+   matched each member; plain audiences show a simple sample. */
+export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, onCta, onBack, backLabel = 'All audiences' }) {
   const [query, setQuery] = useState('')
-  const segment = SEGMENTS[segIndex]
-  const rule = ruleActive(productRule) ? productRule : null
 
-  const shown = Math.min(8, segment.users)
+  const shown = Math.min(8, count)
   let users
   if (rule) {
-    // sample a wider pool, keep members that satisfy the product rule
-    users = sampleUsers(segment.name, Math.min(48, segment.users))
+    users = sampleUsers(name, 48)
       .map((u) => ({ ...u, matches: matchedProducts(u.name + u.id, rule) }))
       .filter((u) => memberSatisfies(u.matches.length, rule.quantifier))
       .slice(0, shown)
   } else {
-    users = shown ? sampleUsers(segment.name, shown) : []
+    users = shown ? sampleUsers(name, shown) : []
   }
 
   const q = query.trim().toLowerCase()
@@ -28,42 +27,28 @@ export default function UserDrillIn({ segIndex, selected, productRule, onToggle,
     : users
 
   const moreLabel = q
-    ? filtered.length ? `${filtered.length} of ${users.length} shown users match` : 'No matching users in the loaded sample'
+    ? filtered.length ? `${filtered.length} of ${users.length} shown members match` : 'No matching members in the loaded sample'
     : rule
-      ? 'Sample of members matching the product rule'
-      : segment.users > shown
-        ? `+ ${fmt(segment.users - shown)} more users`
-        : segment.users ? 'End of list' : 'This segment has no users yet'
+      ? 'Sample of members matching the rule'
+      : count > shown
+        ? `+ ${fmt(count - shown)} more members`
+        : count ? 'End of list' : 'No members yet'
 
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#fff', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'absolute', inset: 0, background: '#fff', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #edf1f6' }}>
         <button
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: '#2f6fc4', cursor: 'pointer', padding: 0, marginBottom: 12 }}
         >
           <ChevronLeftIcon size={15} />
-          All segments
+          {backLabel}
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#17335f', maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {segment.name}
-          </h1>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              color: selected ? '#fff' : '#8a95a6',
-              background: selected ? '#2f7fd6' : '#eef1f6',
-              padding: '4px 10px',
-              borderRadius: 20,
-            }}
-          >
-            {selected ? 'In entry' : 'Not added'}
-          </span>
-        </div>
+        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#17335f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {name}
+        </h1>
         <p style={{ margin: '5px 0 0', fontSize: 13, color: '#8a95a6', fontWeight: 600 }}>
-          Approx. {fmt(segment.users)} {segment.users === 1 ? 'user' : 'users'} · {segment.group} segment
+          Approx. {fmt(count)} {count === 1 ? 'member' : 'members'} · {kindLabel}
         </p>
       </div>
 
@@ -73,7 +58,7 @@ export default function UserDrillIn({ segIndex, selected, productRule, onToggle,
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search users in this segment"
+            placeholder="Search members in this audience"
             style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14, color: '#17335f', fontWeight: 600 }}
           />
         </div>
@@ -98,27 +83,19 @@ export default function UserDrillIn({ segIndex, selected, productRule, onToggle,
         <div style={{ padding: '16px 24px', textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>{moreLabel}</div>
       </div>
 
-      <div style={{ borderTop: '1px solid #edf1f6', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
-          Back
-        </button>
-        <button
-          onClick={onToggle}
-          style={{
-            background: selected ? '#fff' : '#2f5aa0',
-            border: `1px solid ${selected ? '#d8e0ea' : '#2f5aa0'}`,
-            borderRadius: 10,
-            padding: '10px 22px',
-            fontFamily: 'inherit',
-            fontSize: 14.5,
-            fontWeight: 800,
-            color: selected ? '#5a6b85' : '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          {selected ? 'Remove from entry' : 'Add to entry'}
-        </button>
-      </div>
+      {ctaLabel && (
+        <div style={{ borderTop: '1px solid #edf1f6', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
+            Back
+          </button>
+          <button
+            onClick={onCta}
+            style={{ background: '#2f5aa0', border: '1px solid #2f5aa0', borderRadius: 10, padding: '10px 22px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 800, color: '#fff', cursor: 'pointer' }}
+          >
+            {ctaLabel}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
