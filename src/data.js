@@ -317,6 +317,47 @@ export function audienceReach(a, all = []) {
   return { members: a.users ?? base, products: null }
 }
 
+/* Ready-to-launch audiences: outcome-named playbooks a marketer can
+   activate in one click. Rule-backed ones stay transparent — the rule
+   is visible and editable, not a black box. */
+export const AUDIENCE_TEMPLATES = [
+  {
+    id: 'tpl-loan-reminder',
+    title: 'Loan payment reminders',
+    blurb: 'Every member with any loan payment due in the next 3 days — one reminder per qualifying loan.',
+    kind: 'Rule',
+    rule: { ...DEMO_RULE },
+  },
+  {
+    id: 'tpl-cert-renewal',
+    title: 'Certificate renewal window',
+    blurb: 'Certificates maturing in the next 30 days — reach members before the money walks.',
+    kind: 'Rule',
+    rule: { quantifier: 'any', category: 'certificate', types: [], conditions: [{ id: 1, field: 'maturity', op: 'next_n', value: '', n: 30 }] },
+  },
+  {
+    id: 'tpl-winback-auto',
+    title: 'Win back auto loans',
+    blurb: 'Members likely paying a competing lender, scored daily from transaction signals.',
+    kind: 'Predicted',
+    users: 1860,
+  },
+  {
+    id: 'tpl-high-savers',
+    title: 'Deposit growth — high savers',
+    blurb: 'High-balance members with room to grow deposits, refreshed daily.',
+    kind: 'Predicted',
+    users: 2540,
+  },
+  {
+    id: 'tpl-churn-save',
+    title: 'Churn risk save',
+    blurb: 'Members showing early attrition signals in the next 90 days.',
+    kind: 'Predicted',
+    users: 1480,
+  },
+]
+
 /* ── flat-file mock for the data-model story (invented, core-export
       flavored; no real FI data) ─────────────────────────────────── */
 

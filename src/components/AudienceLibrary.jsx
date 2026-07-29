@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { PRODUCT_CATEGORIES, tagColor, fmt, ruleSentence, audienceReach } from '../data'
+import { PRODUCT_CATEGORIES, AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach } from '../data'
 import { SearchIcon, EyeIcon, PencilIcon, SparkleIcon } from '../icons'
 import UserDrillIn from './UserDrillIn'
 
 /* Full-page audience library — audiences are first-class, reusable objects. */
-export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, onEdit }) {
+export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, onEdit, onActivateTemplate }) {
   const [query, setQuery] = useState('')
   const [viewingId, setViewingId] = useState(null)
 
@@ -35,7 +35,40 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
           </button>
         </div>
 
-        <div style={{ margin: '18px 0', display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #d8e0ea', borderRadius: 10, padding: '0 12px', height: 40, maxWidth: 420 }}>
+        {/* ready-to-launch playbooks */}
+        <div style={{ margin: '22px 0 6px', display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Ready to launch</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>Outcome playbooks, updated daily — activate in one click, then open and edit the rule behind it.</span>
+        </div>
+        <div style={{ margin: '10px 0 6px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+          {AUDIENCE_TEMPLATES.map((tpl) => {
+            const activated = audiences.some((a) => a.id === `aud-${tpl.id}`)
+            return (
+              <div key={tpl.id} style={{ background: '#fff', border: '1px solid #dfe7f2', borderRadius: 12, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: tpl.kind === 'Rule' ? '#1f4a86' : '#c05a8a', background: tpl.kind === 'Rule' ? '#e6effb' : '#fbe8f1', padding: '2px 7px', borderRadius: 20 }}>
+                    {tpl.kind === 'Rule' ? 'Transparent rule' : 'Predictive'}
+                  </span>
+                  <span style={{ fontSize: 9.5, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap' }}>Updated daily</span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f', lineHeight: 1.3 }}>{tpl.title}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45, flex: 1 }}>{tpl.blurb}</div>
+                <button
+                  onClick={() => onActivateTemplate(tpl)}
+                  style={{
+                    marginTop: 2, border: 'none', borderRadius: 8, padding: '7px 0', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
+                    background: activated ? '#eef5fc' : '#2f5aa0', color: activated ? '#1f4a86' : '#fff',
+                  }}
+                >
+                  {activated ? 'Use in flow' : 'Activate & use'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <div style={{ margin: '22px 0 0', fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Your audiences</div>
+        <div style={{ margin: '10px 0 18px', display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #d8e0ea', borderRadius: 10, padding: '0 12px', height: 40, maxWidth: 420 }}>
           <SearchIcon size={16} stroke="#8a95a6" />
           <input
             value={query}

@@ -30,6 +30,16 @@ export default function App() {
     setEditor('entry')
   }
 
+  const activateTemplate = (tpl) => {
+    const id = `aud-${tpl.id}`
+    setAudiences((prev) =>
+      prev.some((a) => a.id === id)
+        ? prev
+        : [{ id, name: tpl.title, kind: tpl.kind, rule: tpl.rule ? { ...tpl.rule } : null, users: tpl.users, baseIds: [], usedIn: 0 }, ...prev]
+    )
+    selectAudience(id)
+  }
+
   const upsertAudience = (aud) => {
     setAudiences((prev) => {
       const i = prev.findIndex((a) => a.id === aud.id)
@@ -81,6 +91,7 @@ export default function App() {
             onUse={selectAudience}
             onNew={() => setBuilderCtx({ audienceId: null, returnTo: 'library' })}
             onEdit={(id) => setBuilderCtx({ audienceId: id, returnTo: 'library' })}
+            onActivateTemplate={activateTemplate}
           />
         )}
         {view === 'data' && <DataModelView />}
