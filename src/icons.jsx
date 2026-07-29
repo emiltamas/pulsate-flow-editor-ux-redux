@@ -104,6 +104,10 @@ export const ImageIcon = (p) => (
   <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2.5" /><circle cx="9" cy="9" r="1.8" /><path d="m21 15-4.5-4.5L6 21" /></Svg>
 )
 
+export const ProductIcon = (p) => (
+  <Svg {...p}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><line x1="2.5" y1="10" x2="21.5" y2="10" /></Svg>
+)
+
 export const BranchIcon = (p) => (
   <Svg {...p}><line x1="6" y1="6" x2="6" y2="15" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="6" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></Svg>
 )

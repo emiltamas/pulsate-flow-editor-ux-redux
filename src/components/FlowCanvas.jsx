@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { SEGMENTS, GEOFENCES, CHANNELS, fmt } from '../data'
+import {
+  SEGMENTS, GEOFENCES, CHANNELS, PRODUCT_CATEGORIES, TOTAL_MEMBERS,
+  productReach, ruleActive, ruleSentence, fmt,
+} from '../data'
 import {
   PlayIcon, PencilIcon, UsersIcon, PinIcon, ChevronLeftIcon,
-  SendIcon, TypeIcon, DwellIcon, BranchIcon,
+  SendIcon, TypeIcon, DwellIcon, BranchIcon, ProductIcon,
 } from '../icons'
 
 const NODE_WIDTH = 300
@@ -12,6 +15,7 @@ const CONNECTOR_GAP = 26
 // measured heights of node variants, used to stack the chain
 const EMPTY_NODE_HEIGHT = 196
 const CARD_NODE_HEIGHT = 219
+const PRODUCT_LINE_HEIGHT = 48 // extra start-card row when a product rule is set
 const MESSAGE_NODE_HEIGHT = 197
 
 const nodeTypes = { start: StartNode, message: MessageNode, addStep: AddStepNode }
@@ -20,17 +24,18 @@ const edgeStyle = { stroke: 'rgba(255,255,255,.5)', strokeWidth: 2 }
 
 /* The editor owns the layout: nodes are stacked vertically from a fixed
    origin, so positions are derived, never user-set. */
-const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, message, addActive, addMenuOpen }) => {
+const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, addActive, addMenuOpen }) => {
   const nodes = []
+  const hasRule = ruleActive(productRule)
   let y = 0
 
   nodes.push({
     id: 'start',
     type: 'start',
     position: { x: -NODE_WIDTH / 2, y },
-    data: { isEmpty, segIdx, geoIdx, geoSel },
+    data: { isEmpty, segIdx, geoIdx, geoSel, productRule },
   })
-  y += (isEmpty ? EMPTY_NODE_HEIGHT : CARD_NODE_HEIGHT) + CONNECTOR_GAP
+  y += (isEmpty ? EMPTY_NODE_HEIGHT : CARD_NODE_HEIGHT + (hasRule ? PRODUCT_LINE_HEIGHT : 0)) + CONNECTOR_GAP
 
   if (message) {
     nodes.push({
@@ -52,10 +57,10 @@ const layoutNodes = ({ isEmpty, segIdx, geoIdx, geoSel, message, addActive, addM
   return nodes
 }
 
-export default function FlowCanvas({ segSel, geoSel, message, sidebarOpen, onOpenAudience, onOpenMessage }) {
+export default function FlowCanvas({ segSel, geoSel, productRule, message, sidebarOpen, onOpenAudience, onOpenMessage }) {
   const segIdx = [...segSel]
   const geoIdx = Object.keys(geoSel).map(Number)
-  const isEmpty = segIdx.length === 0 && geoIdx.length === 0
+  const isEmpty = segIdx.length === 0 && geoIdx.length === 0 && !ruleActive(productRule)
   const addActive = !isEmpty && !message
 
   const [addMenuOpen, setAddMenuOpen] = useState(false)
@@ -65,7 +70,7 @@ export default function FlowCanvas({ segSel, geoSel, message, sidebarOpen, onOpe
     if (type === 'message') onOpenMessage()
   }
 
-  const nodes = layoutNodes({ isEmpty, segIdx, geoIdx, geoSel, message, addActive, addMenuOpen }).map((n) =>
+  const nodes = layoutNodes({ isEmpty, segIdx, geoIdx, geoSel, productRule, message, addActive, addMenuOpen }).map((n) =>
     n.id === 'add' ? { ...n, data: { ...n.data, onPick: pickStep } } : n
   )
 
@@ -139,7 +144,7 @@ function StartNode({ data }) {
       {data.isEmpty ? (
         <EmptyStartNode />
       ) : (
-        <StartNodeCard segIdx={data.segIdx} geoIdx={data.geoIdx} geoSel={data.geoSel} />
+        <StartNodeCard segIdx={data.segIdx} geoIdx={data.geoIdx} geoSel={data.geoSel} productRule={data.productRule} />
       )}
       <Handle type="source" position={Position.Bottom} style={hiddenHandle} />
     </div>
@@ -307,10 +312,13 @@ function EmptyStartNode() {
   )
 }
 
-function StartNodeCard({ segIdx, geoIdx, geoSel }) {
+function StartNodeCard({ segIdx, geoIdx, geoSel, productRule }) {
   const reach = segIdx.reduce((a, i) => a + SEGMENTS[i].users, 0)
   const segNames = segIdx.map((i) => SEGMENTS[i].name)
   const geoNames = geoIdx.map((i) => GEOFENCES[i].name)
+
+  const hasRule = ruleActive(productRule)
+  const pr = hasRule ? productReach(productRule, segIdx.length ? reach : TOTAL_MEMBERS) : null
 
   const nEnter = geoIdx.filter((i) => geoSel[i].trigger === 'enter').length
   const nExit = geoIdx.filter((i) => geoSel[i].trigger === 'exit').length
@@ -333,8 +341,16 @@ function StartNodeCard({ segIdx, geoIdx, geoSel }) {
         <div>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated reach</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#17335f', lineHeight: 1, letterSpacing: '-.5px' }}>{reach ? `~${fmt(reach)}` : '0'}</div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>users</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#17335f', lineHeight: 1, letterSpacing: '-.5px' }}>
+              {pr ? `~${fmt(pr.members)}` : reach ? `~${fmt(reach)}` : '0'}
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+              {pr
+                ? pr.products !== null
+                  ? `members · ${fmt(pr.products)} matching ${PRODUCT_CATEGORIES[productRule.category].plural}`
+                  : 'members'
+                : 'users'}
+            </div>
           </div>
         </div>
         <SummaryLine
@@ -351,6 +367,15 @@ function StartNodeCard({ segIdx, geoIdx, geoSel }) {
           label={geoIdx.length ? `${geoIdx.length} ${geoIdx.length === 1 ? 'geofence active' : 'geofences active'}` : 'No geofences'}
           detail={parts.length ? parts.join(' · ') : geoNames.length ? geoNames.join(', ') : 'No location triggers'}
         />
+        {hasRule && (
+          <SummaryLine
+            icon={<ProductIcon size={17} />}
+            iconBg="#fbf1dc"
+            iconFg="#8a6d2e"
+            label="Product rule"
+            detail={ruleSentence(productRule)}
+          />
+        )}
       </div>
     </div>
   )

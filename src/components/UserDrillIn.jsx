@@ -1,23 +1,39 @@
 import { useState } from 'react'
-import { SEGMENTS, fmt, sampleUsers } from '../data'
-import { ChevronLeftIcon, SearchIcon } from '../icons'
+import {
+  SEGMENTS, PRODUCT_CATEGORIES, fmt, sampleUsers,
+  ruleActive, matchedProducts, memberSatisfies, productFactline,
+} from '../data'
+import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 
-export default function UserDrillIn({ segIndex, selected, onToggle, onBack }) {
+export default function UserDrillIn({ segIndex, selected, productRule, onToggle, onBack }) {
   const [query, setQuery] = useState('')
   const segment = SEGMENTS[segIndex]
+  const rule = ruleActive(productRule) ? productRule : null
 
   const shown = Math.min(8, segment.users)
-  const users = sampleUsers(segment.name, shown)
+  let users
+  if (rule) {
+    // sample a wider pool, keep members that satisfy the product rule
+    users = sampleUsers(segment.name, Math.min(48, segment.users))
+      .map((u) => ({ ...u, matches: matchedProducts(u.name + u.id, rule) }))
+      .filter((u) => memberSatisfies(u.matches.length, rule.quantifier))
+      .slice(0, shown)
+  } else {
+    users = shown ? sampleUsers(segment.name, shown) : []
+  }
+
   const q = query.trim().toLowerCase()
   const filtered = q
     ? users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
     : users
 
   const moreLabel = q
-    ? filtered.length ? `${filtered.length} of ${shown} shown users match` : 'No matching users in the loaded sample'
-    : segment.users > shown
-      ? `+ ${fmt(segment.users - shown)} more users`
-      : segment.users ? 'End of list' : 'This segment has no users yet'
+    ? filtered.length ? `${filtered.length} of ${users.length} shown users match` : 'No matching users in the loaded sample'
+    : rule
+      ? 'Sample of members matching the product rule'
+      : segment.users > shown
+        ? `+ ${fmt(segment.users - shown)} more users`
+        : segment.users ? 'End of list' : 'This segment has no users yet'
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#fff', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
@@ -65,15 +81,18 @@ export default function UserDrillIn({ segIndex, selected, onToggle, onBack }) {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {filtered.map((u) => (
-          <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 24px', borderBottom: '1px solid #f4f6fa' }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: u.avBg, color: u.avFg, fontSize: 13, fontWeight: 800 }}>
-              {u.initials}
+          <div key={u.id} style={{ padding: '11px 24px', borderBottom: '1px solid #f4f6fa' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: u.avBg, color: u.avFg, fontSize: 13, fontWeight: 800 }}>
+                {u.initials}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700, color: '#1b3a63', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#8a95a6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+              </div>
+              <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, fontWeight: 600, color: '#b1bccb', flex: 'none' }}>{u.id}</span>
             </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: '#1b3a63', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: '#8a95a6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
-            </div>
-            <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11, fontWeight: 600, color: '#b1bccb', flex: 'none' }}>{u.id}</span>
+            {rule && <MatchedProducts rule={rule} matches={u.matches} />}
           </div>
         ))}
         <div style={{ padding: '16px 24px', textAlign: 'center', fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>{moreLabel}</div>
@@ -100,6 +119,32 @@ export default function UserDrillIn({ segIndex, selected, onToggle, onBack }) {
           {selected ? 'Remove from entry' : 'Add to entry'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function MatchedProducts({ rule, matches }) {
+  if (rule.quantifier === 'none') {
+    return (
+      <div style={{ margin: '7px 0 0 48px', fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
+        Holds no matching {PRODUCT_CATEGORIES[rule.category].label.toLowerCase()}
+      </div>
+    )
+  }
+  return (
+    <div style={{ margin: '7px 0 0 48px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {matches.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#f4f7fb', border: '1px solid #e7edf5', borderRadius: 8, padding: '5px 9px' }}>
+          <ProductIcon size={12} stroke="#5a7db0" />
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: '#1b3a63' }}>{p.label}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{productFactline(p)}</span>
+        </div>
+      ))}
+      {matches.length >= 2 && (
+        <div style={{ fontSize: 11, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 7, padding: '4px 9px', alignSelf: 'flex-start' }}>
+          Will be enrolled once per matching product · {matches.length} enrollments
+        </div>
+      )}
     </div>
   )
 }

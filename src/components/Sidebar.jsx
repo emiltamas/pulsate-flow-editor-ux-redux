@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import {
   SEGMENTS, GEOFENCES, SEG_GROUPS, GEO_GROUPS,
-  TOTAL_SEGMENTS, TOTAL_GEOFENCES, REACH_CEILING,
+  TOTAL_SEGMENTS, TOTAL_GEOFENCES, REACH_CEILING, TOTAL_MEMBERS,
+  PRODUCT_CATEGORIES, productReach, ruleActive, ruleSentence,
   tagColor, fmt, trigLabel,
 } from '../data'
 import {
   CloseIcon, UsersIcon, PinIcon, SearchIcon, ChevronDownIcon,
-  CheckIcon, EyeIcon, EnterIcon, ExitIcon, DwellIcon,
+  CheckIcon, EyeIcon, EnterIcon, ExitIcon, DwellIcon, ProductIcon,
 } from '../icons'
 import UserDrillIn from './UserDrillIn'
+import ProductsPanel from './ProductsPanel'
 
 export default function Sidebar({
   mode, setMode,
   segSel, toggleSeg,
   geoSel, toggleGeo, setTrigger, bumpDwell,
+  productRule, setProductRule, freqCap, setFreqCap,
   saved, onClose, onSave,
 }) {
   const [grpOpen, setGrpOpen] = useState(false)
@@ -24,6 +27,8 @@ export default function Sidebar({
   const [query, setQuery] = useState('')
 
   const isSeg = mode === 'segments'
+  const isGeo = mode === 'geofences'
+  const isProd = mode === 'products'
   const segCount = segSel.size
   const geoCount = Object.keys(geoSel).length
 
@@ -81,13 +86,15 @@ export default function Sidebar({
           </div>
           <div style={{ marginTop: 14, display: 'flex', background: '#eef1f6', borderRadius: 11, padding: 4, gap: 4 }}>
             <Tab active={isSeg} onClick={() => switchMode('segments')} icon={<UsersIcon size={15} />} label="Segments" count={segCount} />
-            <Tab active={!isSeg} onClick={() => switchMode('geofences')} icon={<PinIcon size={15} />} label="Geofences" count={geoCount} />
+            <Tab active={isGeo} onClick={() => switchMode('geofences')} icon={<PinIcon size={15} />} label="Geofences" count={geoCount} />
+            <Tab active={isProd} onClick={() => switchMode('products')} icon={<ProductIcon size={15} />} label="Products" count={ruleActive(productRule) ? 1 : 0} />
           </div>
         </div>
 
-        <ReachHero isSeg={isSeg} segSel={segSel} geoCount={geoCount} />
+        <ReachHero mode={mode} segSel={segSel} geoCount={geoCount} productRule={productRule} />
 
         {/* toolbar */}
+        {!isProd && (
         <div style={{ padding: '12px 24px 8px', display: 'flex', gap: 9 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #d8e0ea', borderRadius: 10, padding: '0 12px', height: 40 }}>
             <SearchIcon size={16} stroke="#8a95a6" />
@@ -108,6 +115,7 @@ export default function Sidebar({
             onClear={() => setActiveGroups(new Set())}
           />
         </div>
+        )}
 
         {/* selected chips (segments only) */}
         {isSeg && segCount > 0 && (
@@ -129,7 +137,7 @@ export default function Sidebar({
         )}
 
         {/* active-only filter (geofences) */}
-        {!isSeg && (
+        {isGeo && (
           <div style={{ padding: '2px 24px 8px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={() => setGeoActiveOnly((v) => !v)}
@@ -145,12 +153,20 @@ export default function Sidebar({
         )}
 
         {/* column head */}
+        {!isProd && (
         <div style={{ padding: '6px 24px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #edf1f6' }}>
           <span style={colHeadStyle}>{isSeg ? 'Segment name' : 'Geofence name'}</span>
           <span style={colHeadStyle}>{isSeg ? 'Approx. users' : 'Set trigger'}</span>
         </div>
+        )}
+
+        {/* products rule builder */}
+        {isProd && (
+          <ProductsPanel rule={productRule} onChange={setProductRule} freqCap={freqCap} onFreqCapChange={setFreqCap} />
+        )}
 
         {/* list */}
+        {!isProd && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {isSeg
             ? visible.map(({ item, i }) => (
@@ -183,12 +199,14 @@ export default function Sidebar({
             </div>
           )}
         </div>
+        )}
 
         {/* drill-in: users in segment */}
         {isSeg && viewSeg !== null && (
           <UserDrillIn
             segIndex={viewSeg}
             selected={segSel.has(viewSeg)}
+            productRule={productRule}
             onToggle={() => toggleSeg(viewSeg)}
             onBack={() => setViewSeg(null)}
           />
@@ -196,12 +214,14 @@ export default function Sidebar({
 
         {/* footer */}
         <div style={{ borderTop: '1px solid #edf1f6', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6', maxWidth: 230 }}>
             {isSeg
               ? segCount ? `${segCount} of ${TOTAL_SEGMENTS} selected` : 'Nothing selected yet'
-              : geoActiveOnly
-                ? geoCount ? `Showing ${geoCount} active` : '0 active'
-                : geoCount ? `${geoCount} of ${TOTAL_GEOFENCES} geofences` : 'No geofences selected'}
+              : isProd
+                ? ruleActive(productRule) ? ruleSentence(productRule) : 'No product rule yet'
+                : geoActiveOnly
+                  ? geoCount ? `Showing ${geoCount} active` : '0 active'
+                  : geoCount ? `${geoCount} of ${TOTAL_GEOFENCES} geofences` : 'No geofences selected'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
@@ -209,7 +229,7 @@ export default function Sidebar({
             </button>
             <button
               onClick={onSave}
-              style={{ background: '#2f5aa0', border: 'none', borderRadius: 10, padding: '10px 24px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,90,160,.3)' }}
+              style={{ background: '#2f5aa0', border: 'none', borderRadius: 10, padding: '10px 24px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,90,160,.3)', whiteSpace: 'nowrap' }}
             >
               {saved ? 'Save changes' : 'Add audience'}
             </button>
@@ -250,18 +270,36 @@ function Tab({ active, onClick, icon, label, count }) {
   )
 }
 
-function ReachHero({ isSeg, segSel, geoCount }) {
+function ReachHero({ mode, segSel, geoCount, productRule }) {
+  const isSeg = mode === 'segments'
+  const isProd = mode === 'products'
   const reach = [...segSel].reduce((a, i) => a + SEGMENTS[i].users, 0)
   const segCount = segSel.size
 
-  const label = isSeg ? 'Estimated reach' : 'Location triggers'
-  const big = isSeg ? (segCount ? `~${fmt(reach)}` : '0') : geoCount ? fmt(geoCount) : '0'
-  const sub = isSeg
+  let label = isSeg ? 'Estimated reach' : 'Location triggers'
+  let big = isSeg ? (segCount ? `~${fmt(reach)}` : '0') : geoCount ? fmt(geoCount) : '0'
+  let sub = isSeg
     ? segCount ? `users · ${segCount} ${segCount === 1 ? 'segment' : 'segments'}` : 'no audience yet'
     : geoCount ? (geoCount === 1 ? 'geofence active' : 'geofences active') : 'none active yet'
-  const pct = isSeg
+  let pct = isSeg
     ? segCount ? Math.min(100, Math.round((reach / REACH_CEILING) * 100)) : 0
     : geoCount ? Math.min(100, Math.round((geoCount / TOTAL_GEOFENCES) * 100)) : 0
+
+  if (isProd) {
+    const base = segCount ? reach : TOTAL_MEMBERS
+    const pr = productReach(productRule, base)
+    label = 'Estimated reach'
+    if (pr) {
+      const plural = PRODUCT_CATEGORIES[productRule.category].plural
+      big = `~${fmt(pr.members)}`
+      sub = pr.products !== null ? `members · ${fmt(pr.products)} matching ${plural}` : 'members'
+      pct = Math.min(100, Math.round((pr.members / base) * 100))
+    } else {
+      big = `~${fmt(base)}`
+      sub = segCount ? 'members · no product rule yet' : 'all members · no product rule yet'
+      pct = 0
+    }
+  }
 
   return (
     <div style={{ margin: '14px 24px 6px', borderRadius: 13, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '14px 16px', color: '#fff' }}>
@@ -274,7 +312,7 @@ function ReachHero({ isSeg, segSel, geoCount }) {
           </div>
         </div>
         <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isSeg ? <UsersIcon size={21} stroke="#fff" /> : <PinIcon size={21} stroke="#fff" />}
+          {isSeg ? <UsersIcon size={21} stroke="#fff" /> : isProd ? <ProductIcon size={21} stroke="#fff" /> : <PinIcon size={21} stroke="#fff" />}
         </div>
       </div>
       <div style={{ marginTop: 11, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
