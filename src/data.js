@@ -419,6 +419,43 @@ export const AUDIENCE_TEMPLATES = [
   },
 ]
 
+/* ── product catalog: FI codes → labels + categories ──────────────
+   The marketer-facing face of the data model. Codes arrive from the
+   FI's feed; mapping them is the only "modeling" a customer ever does.
+   The registry (categories + fields) is Pulsate-managed. */
+export const seedProductCodes = () => [
+  { code: 'SH01', rawCols: 'SHR_SAV_BAL', label: 'Share Savings', category: 'deposit', holders: 11200 },
+  { code: 'CLUB2', rawCols: 'HOL_CLB_BAL', label: 'Holiday Club', category: 'deposit', holders: 1840 },
+  { code: 'MM01', rawCols: 'MMKT_BAL', label: 'Money Market', category: 'deposit', holders: 2630 },
+  { code: 'LN03', rawCols: 'AUTO_LN*_BAL · DUE_DT · RATE', label: 'Auto Loan', category: 'loan', holders: 4310 },
+  { code: 'LN07', rawCols: 'PERS_LN_BAL · PERS_LN_DUE', label: 'Personal Loan', category: 'loan', holders: 2110 },
+  { code: 'LN12', rawCols: 'HM_EQ_BAL · HM_EQ_DUE_DT', label: 'Home Equity', category: 'loan', holders: 980 },
+  { code: 'LN19', rawCols: 'STU_LN_BAL · STU_LN_DUE', label: 'Student Loan', category: 'loan', holders: 640 },
+  { code: 'CD06', rawCols: 'CERT6_BAL · CERT6_MAT_DT', label: '6-Month Certificate', category: 'certificate', holders: 1490 },
+  { code: 'CD12', rawCols: 'CERT12_BAL · CERT12_MAT_DT', label: '12-Month Certificate', category: 'certificate', holders: 1120 },
+  { code: 'CC02', rawCols: 'VISA_PLT_BAL · MIN_PMT', label: 'Visa Platinum', category: 'card', holders: 5230 },
+  { code: 'CC05', rawCols: 'VISA_RW_BAL · MIN_PMT', label: 'Visa Rewards', category: 'card', holders: 3470 },
+  { code: 'HSA01', rawCols: 'HSA_BAL', label: '', category: null, holders: 312 },
+  { code: 'RV22', rawCols: 'RV_LN_BAL · RV_LN_DUE_DT', label: '', category: null, holders: 87 },
+]
+
+export const codeMapped = (c) => !!(c.label.trim() && c.category)
+
+export const FEED_FILES = [
+  { file: 'member_export_2026_07_29.csv', when: 'Today · 04:12', rows: 18400, status: 'ok', note: '2 new product codes discovered — HSA01, RV22' },
+  { file: 'member_export_2026_07_28.csv', when: 'Yesterday · 04:09', rows: 18391, status: 'ok', note: null },
+  { file: 'cert_maturities_2026_07_27.csv', when: 'Jul 27 · 04:15', rows: 2610, status: 'ok', note: null },
+  { file: 'member_export_2026_07_26.csv', when: 'Jul 26 · 04:11', rows: 9182, status: 'partial', note: 'Stopped at row 9,182 — malformed date in AUTO_LN2_DUE_DT ("13/45/26")' },
+]
+
+/* Matches the mock generator: ~1 in 6 loans/cards has no due date. */
+export const DUE_DATE_GAP = { field: 'Payment due date', missingPct: 17, count: 1230 }
+
+export const GAP_AUDIENCE_RULE = {
+  quantifier: 'any', category: 'loan', types: [],
+  conditions: [{ id: 1, field: 'dueDate', op: 'not_set', value: '', n: 3 }],
+}
+
 /* ── flat-file mock for the data-model story (invented, core-export
       flavored; no real FI data) ─────────────────────────────────── */
 

@@ -5,7 +5,7 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences } from './data'
+import { seedAudiences, seedProductCodes, codeMapped, GAP_AUDIENCE_RULE } from './data'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -17,7 +17,8 @@ export default function App() {
   })
   const [entrySaved, setEntrySaved] = useState(false)
   const [audiences, setAudiences] = useState(seedAudiences)
-  const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry' }
+  const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
+  const [productCodes, setProductCodes] = useState(seedProductCodes)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)
@@ -69,7 +70,14 @@ export default function App() {
         fontFamily: "'Nunito', system-ui, sans-serif",
       }}
     >
-      <AppHeader view={view} onNav={setView} showPerf={showPerf} onTogglePerf={setShowPerf} perfVisible={view === 'canvas'} />
+      <AppHeader
+        view={view}
+        onNav={setView}
+        showPerf={showPerf}
+        onTogglePerf={setShowPerf}
+        perfVisible={view === 'canvas'}
+        dataBadge={productCodes.filter((c) => !codeMapped(c)).length || null}
+      />
 
       <div style={{ position: 'absolute', top: 56, left: 0, right: 0, bottom: 0 }}>
         {view === 'canvas' && (
@@ -94,7 +102,17 @@ export default function App() {
             onActivateTemplate={activateTemplate}
           />
         )}
-        {view === 'data' && <DataModelView />}
+        {view === 'data' && (
+          <DataModelView
+            codes={productCodes}
+            onMapCode={(code, patch) =>
+              setProductCodes((prev) => prev.map((c) => (c.code === code ? { ...c, ...patch } : c)))
+            }
+            onCreateGapAudience={() =>
+              setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: { ...GAP_AUDIENCE_RULE } })
+            }
+          />
+        )}
       </div>
 
       {view === 'canvas' && editor === 'entry' && (
@@ -133,6 +151,7 @@ export default function App() {
         <AudienceBuilder
           audiences={audiences}
           audience={audiences.find((a) => a.id === builderCtx.audienceId) ?? null}
+          initialRule={builderCtx.initialRule}
           onCancel={() => setBuilderCtx(null)}
           onSave={upsertAudience}
         />
@@ -141,11 +160,11 @@ export default function App() {
   )
 }
 
-function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible }) {
+function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge }) {
   const NAV = [
     { key: 'canvas', label: 'Flow' },
     { key: 'library', label: 'Audiences' },
-    { key: 'data', label: 'Data' },
+    { key: 'data', label: 'Data', badge: dataBadge },
   ]
   return (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 56, background: '#fff', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 14, zIndex: 10, borderBottom: '1px solid #edf1f6', boxSizing: 'border-box' }}>
@@ -158,11 +177,12 @@ function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible }) {
       <span style={{ fontSize: 12, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 20 }}>Draft</span>
 
       <div style={{ marginLeft: 18, display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
-        {NAV.map(({ key, label }) => (
+        {NAV.map(({ key, label, badge }) => (
           <button
             key={key}
             onClick={() => onNav(key)}
             style={{
+              display: 'flex', alignItems: 'center', gap: 6,
               border: 'none', borderRadius: 7, padding: '6px 14px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
               ...(view === key
                 ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
@@ -170,6 +190,9 @@ function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible }) {
             }}
           >
             {label}
+            {badge != null && (
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '1px 6px', borderRadius: 20 }}>{badge}</span>
+            )}
           </button>
         ))}
       </div>

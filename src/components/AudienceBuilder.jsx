@@ -16,11 +16,13 @@ const selectStyle = {
 
 /* Full-screen audience builder: heavy building happens here, not in the
    journey drawer. Conditions are explicit and ANDed. */
-export default function AudienceBuilder({ audiences, audience, onCancel, onSave }) {
+export default function AudienceBuilder({ audiences, audience, initialRule, onCancel, onSave }) {
   const isNew = !audience
   const [name, setName] = useState(audience?.name ?? '')
   const [baseIds, setBaseIds] = useState(audience?.baseIds ?? [])
-  const [rule, setRule] = useState(audience?.rule ? { ...audience.rule } : { ...EMPTY_PRODUCT_RULE })
+  const [rule, setRule] = useState(
+    audience?.rule ? { ...audience.rule } : initialRule ? { ...initialRule } : { ...EMPTY_PRODUCT_RULE }
+  )
   const [aiText, setAiText] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
 
