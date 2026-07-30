@@ -113,20 +113,46 @@ export const QUANTIFIERS = [
   { key: 'two_plus', label: 'Has 2+' },
 ]
 
+/* Operator families per field type. Every type supports set/blank checks
+   (false-vs-never-set must stay distinguishable); dates get relative
+   past/future windows AND fixed calendar-date comparisons. */
 export const OPERATORS = {
   currency: [
     { key: 'gt', label: 'is more than' },
     { key: 'lt', label: 'is less than' },
+    { key: 'not_set', label: 'is not set', noValue: true },
+    { key: 'is_set', label: 'is set', noValue: true },
   ],
   number: [
     { key: 'gt', label: 'is more than' },
     { key: 'lt', label: 'is less than' },
+    { key: 'not_set', label: 'is not set', noValue: true },
+    { key: 'is_set', label: 'is set', noValue: true },
   ],
   date: [
     { key: 'next_n', label: 'is in the next N days', hasN: true },
+    { key: 'more_than_n_away', label: 'is more than N days away', hasN: true },
     { key: 'tomorrow', label: 'is tomorrow' },
+    { key: 'before_date', label: 'is before', hasDate: true },
+    { key: 'after_date', label: 'is after', hasDate: true },
     { key: 'past_n', label: 'was more than N days ago', hasN: true },
+    { key: 'not_set', label: 'is not set', noValue: true },
+    { key: 'is_set', label: 'is set', noValue: true },
   ],
+}
+
+/* Days from today to a yyyy-mm-dd string; null when unparsable. */
+const daysUntil = (v) => {
+  if (!v) return null
+  const d = new Date(v + 'T00:00:00')
+  if (isNaN(d)) return null
+  return Math.round((d - new Date().setHours(0, 0, 0, 0)) / 86400000)
+}
+
+const fmtDateValue = (v) => {
+  if (!v) return '…'
+  const d = new Date(v + 'T00:00:00')
+  return isNaN(d) ? '…' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export const EMPTY_PRODUCT_RULE = { quantifier: 'any', category: null, types: [], conditions: [], recurring: false }
@@ -137,16 +163,22 @@ export const ruleActive = (rule) => !!(rule && rule.category)
 
 export function conditionText(category, c) {
   const f = fieldByKey(category, c.field)
+  const name = f.label.toLowerCase()
+  if (c.op === 'not_set') return `${name} is not set`
+  if (c.op === 'is_set') return `${name} is set`
   if (f.type === 'date') {
-    if (c.op === 'tomorrow') return `${f.label.toLowerCase()} is tomorrow`
-    if (c.op === 'next_n') return `${f.label.toLowerCase()} is in the next ${Number(c.n) || 3} days`
-    return `${f.label.toLowerCase()} was more than ${Number(c.n) || 30} days ago`
+    if (c.op === 'tomorrow') return `${name} is tomorrow`
+    if (c.op === 'next_n') return `${name} is in the next ${Number(c.n) || 3} days`
+    if (c.op === 'more_than_n_away') return `${name} is more than ${Number(c.n) || 30} days away`
+    if (c.op === 'before_date') return `${name} is before ${fmtDateValue(c.value)}`
+    if (c.op === 'after_date') return `${name} is after ${fmtDateValue(c.value)}`
+    return `${name} was more than ${Number(c.n) || 30} days ago`
   }
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
   const v = f.type === 'currency'
     ? `$${fmt(Number(c.value) || 0)}`
     : `${Number(c.value) || 0}${f.key === 'apy' || f.key === 'rate' ? '%' : ''}`
-  return `${f.label.toLowerCase()} ${op.label} ${v}`
+  return `${name} ${op.label} ${v}`
 }
 
 export function ruleSentence(rule) {
@@ -199,7 +231,11 @@ export function memberProducts(seed) {
       payment: 60 + (((h >>> 3) + k * 17) % 540),
       rate: 3 + (((h >>> 5) + k) % 15),
       apy: 1 + (((h >>> 7) + k) % 5),
-      dueInDays: twinLoans && k < 2 ? (k === 0 ? 1 : 3) : ((((h >>> 2) + k * 5) % 27) - 6),
+      // ~1 in 6 non-twin products has no due date on file — the blank-check
+      // gap needs real unset data to be demonstrable
+      dueInDays: twinLoans && k < 2
+        ? (k === 0 ? 1 : 3)
+        : ((((h >>> 6) + k * 7) % 6) === 0 ? null : ((((h >>> 2) + k * 5) % 27) - 6)),
       maturityInDays: (((h >>> 4) + k * 11) % 180),
     })
   }
@@ -213,12 +249,21 @@ export function productMatches(product, rule) {
     const f = fieldByKey(rule.category, c.field)
     if (f.type === 'date') {
       const d = c.field === 'maturity' ? product.maturityInDays : product.dueInDays
+      if (c.op === 'not_set') return d == null
+      if (c.op === 'is_set') return d != null
+      if (d == null) return false // unset never matches a value comparison
       if (c.op === 'tomorrow') return d === 1
       if (c.op === 'next_n') return d >= 0 && d <= (Number(c.n) || 3)
+      if (c.op === 'more_than_n_away') return d > (Number(c.n) || 30)
+      if (c.op === 'before_date') { const t = daysUntil(c.value); return t != null && d <= t }
+      if (c.op === 'after_date') { const t = daysUntil(c.value); return t != null && d > t }
       return d < -(Number(c.n) || 30)
     }
+    const pv = product[c.field]
+    if (c.op === 'not_set') return pv == null
+    if (c.op === 'is_set') return pv != null
+    if (pv == null) return false
     const v = Number(c.value) || 0
-    const pv = product[c.field] ?? 0
     return c.op === 'gt' ? pv > v : pv < v
   })
 }
@@ -252,9 +297,14 @@ export function parseAudiencePhrase(text) {
   }
   if (!category) return null
 
+  // pull out "no/missing due date" clauses BEFORE quantifier detection, so
+  // "loans with no due date on file" doesn't read as "has no loan"
+  const blankDue = /(?:with |having )?(?:no|missing|without an?) due date(?: on file| set)?/.test(t)
+  const tq = t.replace(/(?:with |having )?(?:no|missing|without an?) due date(?: on file| set)?/g, '')
+
   let quantifier = 'any'
-  if (/\bno\b|\bwithout\b|doesn'?t have|\bnone\b/.test(t)) quantifier = 'none'
-  else if (/two or more|2 or more|\b2\+|more than one|\bmultiple\b/.test(t)) quantifier = 'two_plus'
+  if (/\bno\b|\bwithout\b|doesn'?t have|\bnone\b/.test(tq)) quantifier = 'none'
+  else if (/two or more|2 or more|\b2\+|more than one|\bmultiple\b/.test(tq)) quantifier = 'two_plus'
 
   const conditions = []
   let id = 1
@@ -263,8 +313,12 @@ export function parseAudiencePhrase(text) {
   let m
 
   if (hasField('dueDate')) {
-    if ((m = t.match(/due (?:in |within )?(?:the )?next (\d+) days?/))) {
+    if (blankDue) {
+      conditions.push({ id: id++, field: 'dueDate', op: 'not_set', value: '', n: 3 })
+    } else if ((m = t.match(/due (?:in |within )?(?:the )?next (\d+) days?/))) {
       conditions.push({ id: id++, field: 'dueDate', op: 'next_n', value: '', n: Number(m[1]) })
+    } else if ((m = t.match(/due (?:in )?more than (\d+) days?(?: away| from now)?/))) {
+      conditions.push({ id: id++, field: 'dueDate', op: 'more_than_n_away', value: '', n: Number(m[1]) })
     } else if (/due tomorrow/.test(t)) {
       conditions.push({ id: id++, field: 'dueDate', op: 'tomorrow', value: '', n: 3 })
     } else if ((m = t.match(/overdue (?:by )?(?:more than )?(\d+) days?/))) {
@@ -375,7 +429,8 @@ export function productFactline(p) {
   const parts = [`$${fmt(p.balance)}`]
   if (p.category === 'loan' || p.category === 'card') {
     parts.push(
-      p.dueInDays < 0 ? `${-p.dueInDays}d overdue`
+      p.dueInDays == null ? 'no due date on file'
+        : p.dueInDays < 0 ? `${-p.dueInDays}d overdue`
         : p.dueInDays === 0 ? 'due today'
         : p.dueInDays === 1 ? 'due tomorrow'
         : `due in ${p.dueInDays} days`

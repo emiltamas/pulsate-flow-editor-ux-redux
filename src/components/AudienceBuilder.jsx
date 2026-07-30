@@ -366,7 +366,7 @@ function ConditionRow({ category, condition, onPatch, onRemove }) {
             <option key={o.key} value={o.key}>{o.hasN ? o.label.replace('N days', '… days') : o.label}</option>
           ))}
         </select>
-        {field.type !== 'date' && (
+        {field.type !== 'date' && !op.noValue && (
           <input type="number" value={condition.value} placeholder="0" onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 84, textAlign: 'center' }} />
         )}
         {field.type === 'date' && op.hasN && (
@@ -374,6 +374,9 @@ function ConditionRow({ category, condition, onPatch, onRemove }) {
             <input type="number" min={1} value={condition.n} onChange={(e) => onPatch({ n: e.target.value })} style={{ ...selectStyle, width: 60, textAlign: 'center' }} />
             <span style={{ fontSize: 12.5, fontWeight: 700, color: '#5a6b85' }}>days</span>
           </>
+        )}
+        {field.type === 'date' && op.hasDate && (
+          <input type="date" value={condition.value} onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 150 }} />
         )}
       </div>
       <button
