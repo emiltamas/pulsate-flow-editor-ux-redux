@@ -378,6 +378,13 @@ function ConditionRow({ category, condition, onPatch, onRemove }) {
         {field.type === 'date' && op.hasDate && (
           <input type="date" value={condition.value} onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 150 }} />
         )}
+        {field.type === 'date' && op.hasDateRange && (
+          <>
+            <input type="date" value={condition.value} onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 150 }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#5a6b85' }}>and</span>
+            <input type="date" value={condition.value2 ?? ''} onChange={(e) => onPatch({ value2: e.target.value })} style={{ ...selectStyle, width: 150 }} />
+          </>
+        )}
       </div>
       <button
         onClick={onRemove}

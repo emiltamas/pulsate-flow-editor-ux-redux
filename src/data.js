@@ -135,6 +135,7 @@ export const OPERATORS = {
     { key: 'tomorrow', label: 'is tomorrow' },
     { key: 'before_date', label: 'is before', hasDate: true },
     { key: 'after_date', label: 'is after', hasDate: true },
+    { key: 'between_dates', label: 'is between', hasDateRange: true },
     { key: 'past_n', label: 'was more than N days ago', hasN: true },
     { key: 'not_set', label: 'is not set', noValue: true },
     { key: 'is_set', label: 'is set', noValue: true },
@@ -172,6 +173,7 @@ export function conditionText(category, c) {
     if (c.op === 'more_than_n_away') return `${name} is more than ${Number(c.n) || 30} days away`
     if (c.op === 'before_date') return `${name} is before ${fmtDateValue(c.value)}`
     if (c.op === 'after_date') return `${name} is after ${fmtDateValue(c.value)}`
+    if (c.op === 'between_dates') return `${name} is between ${fmtDateValue(c.value)} and ${fmtDateValue(c.value2)}`
     return `${name} was more than ${Number(c.n) || 30} days ago`
   }
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
@@ -198,7 +200,7 @@ export function ruleSentence(rule) {
 /* Mocked audience math — deterministic per rule so numbers feel stable. */
 export function productReach(rule, baseMembers) {
   if (!ruleActive(rule)) return null
-  const h = hash(JSON.stringify([rule.quantifier, rule.category, [...rule.types].sort(), rule.conditions.map((c) => [c.field, c.op, c.value, c.n])]))
+  const h = hash(JSON.stringify([rule.quantifier, rule.category, [...rule.types].sort(), rule.conditions.map((c) => [c.field, c.op, c.value, c.value2, c.n])]))
   const catShare = { loan: 0.34, deposit: 0.62, certificate: 0.18, card: 0.41 }[rule.category]
   let f = catShare
   if (rule.types.length) {
@@ -257,6 +259,11 @@ export function productMatches(product, rule) {
       if (c.op === 'more_than_n_away') return d > (Number(c.n) || 30)
       if (c.op === 'before_date') { const t = daysUntil(c.value); return t != null && d <= t }
       if (c.op === 'after_date') { const t = daysUntil(c.value); return t != null && d > t }
+      if (c.op === 'between_dates') {
+        const t1 = daysUntil(c.value)
+        const t2 = daysUntil(c.value2)
+        return t1 != null && t2 != null && d >= Math.min(t1, t2) && d <= Math.max(t1, t2)
+      }
       return d < -(Number(c.n) || 30)
     }
     const pv = product[c.field]
