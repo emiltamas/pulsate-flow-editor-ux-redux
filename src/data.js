@@ -419,6 +419,65 @@ export const AUDIENCE_TEMPLATES = [
   },
 ]
 
+/* ── sources: the ingestion layer. Pulsate is not a data lake — every
+      source maps into the curated registry; store only what activates. */
+export const seedSources = () => [
+  { id: 'src-symitar', name: 'Symitar core feed', type: 'core', cadence: 'SFTP · nightly 04:12', records: '18,400 members', identity: 'Member number', fields: 26, status: 'healthy', note: '2 new product codes in last night’s file' },
+  { id: 'src-hubspot', name: 'HubSpot', type: 'crm', cadence: 'API · hourly', records: '13,620 contacts', identity: 'Email → member # · 74% match', fields: 12, status: 'healthy', note: null },
+  { id: 'src-sdk', name: 'Mobile SDK', type: 'sdk', cadence: 'Real-time events', records: '9,850 devices linked', identity: 'Device → member link', fields: 8, status: 'healthy', note: null },
+  { id: 'src-csv', name: 'Winback list — March', type: 'file', cadence: 'One-off upload', records: '5,310 rows', identity: 'Member number', fields: 4, status: 'healthy', note: null },
+]
+
+export const SOURCE_TYPE_META = {
+  core: { label: 'Core banking', fg: '#1f4a86', bg: '#e6effb' },
+  crm: { label: 'CRM', fg: '#c05a8a', bg: '#fbe8f1' },
+  sdk: { label: 'SDK', fg: '#1f6f4a', bg: '#e2f4ea' },
+  file: { label: 'File', fg: '#8a6d2e', bg: '#fbf1dc' },
+}
+
+export const SOURCE_GALLERY = ['Fiserv DNA', 'Corelation KeyStone', 'Banno', 'Q2', 'Salesforce', 'Snowflake']
+
+export const IDENTITY_SUMMARY = {
+  canonical: 'Member number — assigned by the core',
+  joins: [
+    { source: 'HubSpot', method: 'email match', rate: 74 },
+    { source: 'Mobile SDK', method: 'device link', rate: 92 },
+  ],
+  unresolved: 312,
+}
+
+export const HUBSPOT_FIELD_MAP = [
+  ['lifecyclestage', 'Member attribute · Lifecycle stage'],
+  ['last_meeting_date', 'Member attribute · Last branch visit'],
+  ['hubspot_owner', 'Member attribute · Relationship manager'],
+]
+
+/* Mock upload for the self-serve import wizard. */
+export const WIZARD_FILE = {
+  name: 'aacu_member_products_2026_07.csv',
+  size: '2.4 MB',
+  rows: 18400,
+  columns: [
+    { col: 'MBR_NUM', sample: '100482', target: 'Identity · Member number', confidence: 'auto' },
+    { col: 'SHR_SAV_BAL', sample: '4,210', target: 'Deposit · Balance', confidence: 'auto' },
+    { col: 'AUTO_LN1_BAL', sample: '12,400', target: 'Loan · Balance', confidence: 'auto' },
+    { col: 'AUTO_LN1_DUE_DT', sample: '08/01', target: 'Loan · Payment due date', confidence: 'auto' },
+    { col: 'AUTO_LN1_RATE', sample: '6.1', target: 'Loan · Interest rate', confidence: 'suggested' },
+    { col: 'CERT6_MAT_DT', sample: '01/12', target: 'Certificate · Maturity date', confidence: 'auto' },
+    { col: 'VISA_PLT_MIN_PMT', sample: '35', target: 'Card · Minimum payment', confidence: 'suggested' },
+    { col: 'SSN', sample: '•••-••-1234', target: null, confidence: 'pii' },
+    { col: 'RV_LN_BAL', sample: '18,220', target: null, confidence: 'unmapped' },
+  ],
+  preview: { matched: 18388, unmatched: 12, newCodes: ['HSA01', 'RV22'] },
+}
+
+export const wizardTargetOptions = () => [
+  ...CATEGORY_ORDER.flatMap((k) =>
+    PRODUCT_CATEGORIES[k].fields.map((f) => `${PRODUCT_CATEGORIES[k].label} · ${f.label}`)
+  ),
+  'Member attribute · Custom',
+]
+
 /* ── product catalog: FI codes → labels + categories ──────────────
    The marketer-facing face of the data model. Codes arrive from the
    FI's feed; mapping them is the only "modeling" a customer ever does.

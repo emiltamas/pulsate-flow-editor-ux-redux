@@ -5,7 +5,8 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences, seedProductCodes, codeMapped, GAP_AUDIENCE_RULE } from './data'
+import SourceWizard from './components/SourceWizard'
+import { seedAudiences, seedProductCodes, seedSources, codeMapped, GAP_AUDIENCE_RULE } from './data'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -19,6 +20,8 @@ export default function App() {
   const [audiences, setAudiences] = useState(seedAudiences)
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
   const [productCodes, setProductCodes] = useState(seedProductCodes)
+  const [sources, setSources] = useState(seedSources)
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)
@@ -111,6 +114,8 @@ export default function App() {
             onCreateGapAudience={() =>
               setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: { ...GAP_AUDIENCE_RULE } })
             }
+            sources={sources}
+            onOpenWizard={() => setWizardOpen(true)}
           />
         )}
       </div>
@@ -143,6 +148,16 @@ export default function App() {
           onSave={(m) => {
             setMessage(m)
             setEditor(null)
+          }}
+        />
+      )}
+
+      {wizardOpen && (
+        <SourceWizard
+          onCancel={() => setWizardOpen(false)}
+          onFinish={(src) => {
+            setSources((prev) => [...prev, src])
+            setWizardOpen(false)
           }}
         />
       )}

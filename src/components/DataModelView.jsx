@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
   FLAT_FILE_SAMPLE, FEED_FILES, DUE_DATE_GAP, PRODUCT_CATEGORIES, CATEGORY_ORDER,
+  SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, HUBSPOT_FIELD_MAP,
   codeMapped, fmt,
 } from '../data'
-import { ProductIcon } from '../icons'
+import { ProductIcon, UsersIcon, SendIcon, RepeatIcon } from '../icons'
 
 const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
 const mono = 'ui-monospace, Menlo, monospace'
@@ -16,8 +17,8 @@ const selectStyle = {
 /* The Data section is a working surface, not a diagram: marketers map the
    FI's product codes into the Pulsate-managed registry, watch feed health,
    and (in "How it works") see why the relational model matters. */
-export default function DataModelView({ codes, onMapCode, onCreateGapAudience }) {
-  const [tab, setTab] = useState('catalog')
+export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, onOpenWizard }) {
+  const [tab, setTab] = useState('sources')
   const unmapped = codes.filter((c) => !codeMapped(c)).length
 
   return (
@@ -29,11 +30,13 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience })
         </p>
 
         <div style={{ margin: '18px 0 20px', display: 'inline-flex', background: '#e4e9f1', borderRadius: 11, padding: 4, gap: 4 }}>
+          <ModeTab on={tab === 'sources'} onClick={() => setTab('sources')} label="Sources" />
           <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Product catalog" badge={unmapped || null} />
           <ModeTab on={tab === 'feeds'} onClick={() => setTab('feeds')} label="Feeds" />
           <ModeTab on={tab === 'model'} onClick={() => setTab('model')} label="How it works" />
         </div>
 
+        {tab === 'sources' && <SourcesTab sources={sources} onOpenWizard={onOpenWizard} />}
         {tab === 'catalog' && <CatalogTab codes={codes} onMapCode={onMapCode} unmapped={unmapped} />}
         {tab === 'feeds' && <FeedsTab onCreateGapAudience={onCreateGapAudience} />}
         {tab === 'model' && <ModelTab />}
@@ -57,6 +60,124 @@ function ModeTab({ on, onClick, label, badge }) {
         <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '2px 7px', borderRadius: 20 }}>{badge}</span>
       )}
     </button>
+  )
+}
+
+/* ── Sources ──────────────────────────────────────────────────────── */
+
+const PIPELINE = [
+  { icon: RepeatIcon, title: 'Sources', caption: 'Files, cores, CRMs, SDK' },
+  { icon: UsersIcon, title: 'Identity', caption: 'One member across systems' },
+  { icon: ProductIcon, title: 'Registry', caption: 'Codes → labeled products & attributes' },
+  { icon: SendIcon, title: 'Activation', caption: 'Audiences, triggers, messages' },
+]
+
+function SourcesTab({ sources, onOpenWizard }) {
+  return (
+    <>
+      {/* the spine */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, padding: '12px 8px', marginBottom: 16 }}>
+        {PIPELINE.map((s, i) => {
+          const Icon = s.icon
+          return (
+            <div key={s.title} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1, textAlign: 'center', padding: '2px 8px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 800, color: '#17335f' }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 8, background: '#e6effb', color: '#2f6fc4', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon size={13} />
+                  </span>
+                  {s.title}
+                </div>
+                <div style={{ marginTop: 3, fontSize: 11, fontWeight: 600, color: '#8a95a6' }}>{s.caption}</div>
+              </div>
+              {i < PIPELINE.length - 1 && <span style={{ color: '#c3ccd9', fontWeight: 800, fontSize: 15 }}>→</span>}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* connected sources */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {sources.map((s) => {
+          const meta = SOURCE_TYPE_META[s.type]
+          return (
+            <div key={s.id} style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#17335f' }}>{s.name}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: meta.fg, background: meta.bg, padding: '2px 8px', borderRadius: 20 }}>{meta.label}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 20 }}>Healthy</span>
+              </div>
+              <div style={{ marginTop: 9, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 14px', fontSize: 12, fontWeight: 600, color: '#5a6b85' }}>
+                <span>{s.cadence}</span>
+                <span>{s.records}</span>
+                <span>Identity: {s.identity}</span>
+                <span>{s.fields} fields mapped</span>
+              </div>
+              {s.id === 'src-hubspot' && (
+                <div style={{ marginTop: 9, borderTop: '1px solid #f4f6fa', paddingTop: 8 }}>
+                  {HUBSPOT_FIELD_MAP.map(([raw, target]) => (
+                    <div key={raw} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11.5, padding: '2px 0' }}>
+                      <span style={{ fontFamily: mono, fontWeight: 600, color: '#c05a8a' }}>{raw}</span>
+                      <span style={{ color: '#c3ccd9' }}>→</span>
+                      <span style={{ fontWeight: 700, color: '#1b3a63' }}>{target}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {s.note && (
+                <div style={{ marginTop: 9, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 8, padding: '6px 10px' }}>{s.note}</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* identity resolution */}
+      <div style={{ marginTop: 12, background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, padding: '14px 16px' }}>
+        <span style={sectionLabel}>Identity resolution</span>
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a95a6' }}>Canonical key</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>{IDENTITY_SUMMARY.canonical}</div>
+          </div>
+          {IDENTITY_SUMMARY.joins.map((j) => (
+            <div key={j.source}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#8a95a6' }}>{j.source} · {j.method}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 90, height: 6, borderRadius: 6, background: '#eef1f6', overflow: 'hidden' }}>
+                  <div style={{ width: `${j.rate}%`, height: '100%', background: j.rate >= 85 ? '#1f6f4a' : '#d9a13c' }} />
+                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: '#17335f' }}>{j.rate}%</span>
+              </div>
+            </div>
+          ))}
+          <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '5px 11px', borderRadius: 20 }}>
+            {fmt(IDENTITY_SUMMARY.unresolved)} unresolved records
+          </span>
+        </div>
+      </div>
+
+      {/* add a source */}
+      <div style={{ marginTop: 12 }}>
+        <span style={sectionLabel}>Add a source</span>
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={onOpenWizard}
+            style={{ border: '1.5px dashed #7ba4d6', background: '#f7fafd', color: '#1f4a86', borderRadius: 10, padding: '9px 16px', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+          >
+            + Upload a file
+          </button>
+          {SOURCE_GALLERY.map((g) => (
+            <span key={g} style={{ border: '1px solid #e2e8f1', background: '#fff', color: '#b1bccb', borderRadius: 10, padding: '9px 16px', fontSize: 13, fontWeight: 800 }}>
+              {g}
+            </span>
+          ))}
+        </div>
+        <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>
+          Your warehouse is a source, not a competitor — Pulsate stores only what it can activate.
+        </p>
+      </div>
+    </>
   )
 }
 
@@ -160,6 +281,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
 function FeedsTab({ onCreateGapAudience }) {
   return (
     <>
+      <div style={{ margin: '0 0 10px', fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>Symitar core feed · recent drops</div>
       <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, overflow: 'hidden' }}>
         {FEED_FILES.map((f, i) => (
           <div key={f.file} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: i ? '1px solid #f4f6fa' : 'none' }}>
