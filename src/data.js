@@ -415,6 +415,16 @@ const accountProducts = (a) =>
     }
   })
 
+/* FI-label scope chips come from the live catalog mapping, not the
+   static registry defaults — the builder shows the CU's own products. */
+export const categoryTypes = (category) => {
+  const labels = [...activeCodeMap.values()]
+    .filter((c) => c.category === category && c.label.trim())
+    .sort((a, b) => (b.holders ?? 0) - (a.holders ?? 0))
+    .map((c) => c.label)
+  return labels.length ? labels : PRODUCT_CATEGORIES[category].types
+}
+
 export const unmappedLoanCount = () =>
   SYMITAR_ACCOUNTS.reduce((s, a) => s + a.loans.filter((l) => {
     const m = activeCodeMap.get(l.code)

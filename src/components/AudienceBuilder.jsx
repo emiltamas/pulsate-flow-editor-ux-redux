@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   PRODUCT_CATEGORIES, CATEGORY_ORDER, QUANTIFIERS, EMPTY_PRODUCT_RULE, TOTAL_MEMBERS,
   fieldByKey, operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
-  tagColor, fmt, productFactline, datasetMatchedMembers, SYMITAR_STATS,
+  tagColor, fmt, productFactline, datasetMatchedMembers, SYMITAR_STATS, categoryTypes,
 } from '../data'
 import { CloseIcon, SparkleIcon, UsersIcon, ProductIcon } from '../icons'
 
@@ -199,7 +199,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 <>
                   <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     <TypeChip label={`All ${cat.label.toLowerCase()} types`} on={rule.types.length === 0} onClick={() => setRule({ ...rule, types: [] })} />
-                    {cat.types.map((t) => (
+                    {categoryTypes(rule.category).map((t) => (
                       <TypeChip key={t} label={t} on={rule.types.includes(t)} onClick={() => toggleType(t)} />
                     ))}
                   </div>
