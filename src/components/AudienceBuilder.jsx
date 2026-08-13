@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   PRODUCT_CATEGORIES, CATEGORY_ORDER, QUANTIFIERS, EMPTY_PRODUCT_RULE, TOTAL_MEMBERS,
   fieldByKey, operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
-  tagColor, fmt, sampleUsers, matchedProducts, memberSatisfies, productFactline,
+  tagColor, fmt, productFactline, datasetMatchedMembers, SYMITAR_STATS,
 } from '../data'
 import { CloseIcon, SparkleIcon, UsersIcon, ProductIcon } from '../icons'
 
@@ -248,22 +248,38 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
         {/* right — live preview */}
         <div style={{ width: 420, flex: 'none', borderLeft: '1px solid #edf1f6', background: '#f7f9fc', overflowY: 'auto', padding: '22px 24px 40px' }}>
           <div style={{ borderRadius: 13, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '16px 18px', color: '#fff' }}>
-            <div style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>Estimated reach</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>
+                {reach.source === 'extract' ? 'Exact reach' : 'Estimated reach'}
+              </span>
+              {reach.source === 'extract' && (
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 20 }}>
+                  081126 extract · {fmt(SYMITAR_STATS.accounts)} members
+                </span>
+              )}
+            </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
-              <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>~{fmt(reach.members)}</span>
+              <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{reach.source === 'extract' ? '' : '~'}{fmt(reach.members)}</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
                 members{reach.products !== null && ` · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[rule.category].plural}`}
               </span>
             </div>
             <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, Math.round((reach.members / TOTAL_MEMBERS) * 100))}%`, height: '100%', background: '#fff', transition: 'width .2s' }} />
+              <div style={{ width: `${Math.min(100, Math.round((reach.members / (reach.source === 'extract' ? SYMITAR_STATS.accounts : TOTAL_MEMBERS)) * 100))}%`, height: '100%', background: '#fff', transition: 'width .2s' }} />
             </div>
           </div>
+
+          {reach.source === 'extract' && reach.unmappable > 0 && (
+            <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
+              {reach.unmappable} loan{reach.unmappable === 1 ? ' has an' : 's have'} unmapped product codes and can’t be targeted —
+              map them in Data → Product catalog.
+            </div>
+          )}
 
           <div style={{ marginTop: 20 }}>
             <span style={sectionLabel}>Sample matching members</span>
             {active ? (
-              <SampleMembers name={name || 'preview'} rule={rule} />
+              <SampleMembers rule={rule} />
             ) : (
               <p style={helperText}>Add product conditions to preview exactly who matches — and which of their products qualified.</p>
             )}
@@ -274,14 +290,11 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   )
 }
 
-function SampleMembers({ name, rule }) {
-  const members = sampleUsers(name + '·sample', 48)
-    .map((u) => ({ ...u, matches: matchedProducts(u.name + u.id, rule) }))
-    .filter((u) => memberSatisfies(u.matches.length, rule.quantifier))
-    .slice(0, 6)
+function SampleMembers({ rule }) {
+  const members = datasetMatchedMembers(rule, 6)
 
   if (!members.length) {
-    return <p style={helperText}>No members in the sample match yet — try loosening a condition.</p>
+    return <p style={helperText}>No members in the extract match yet — try loosening a condition.</p>
   }
   return (
     <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -1,3 +1,6 @@
+import { SYMITAR_STATS, SYMITAR_ACCOUNTS } from './symitarDataset.js'
+export { SYMITAR_STATS }
+
 export const SEGMENTS = [
   { name: 'Active — last 30 days', group: 'Smart', users: 184230 },
   { name: 'New signups this week', group: 'Smart', users: 6842 },
@@ -78,6 +81,7 @@ export const PRODUCT_CATEGORIES = {
       { key: 'balance', label: 'Balance', type: 'currency' },
       { key: 'payment', label: 'Monthly payment', type: 'currency' },
       { key: 'dueDate', label: 'Payment due date', type: 'date' },
+      { key: 'maturity', label: 'Maturity date', type: 'date' },
       { key: 'rate', label: 'Interest rate', type: 'number' },
     ],
   },
@@ -158,6 +162,14 @@ const fmtDateValue = (v) => {
 
 export const EMPTY_PRODUCT_RULE = { quantifier: 'any', category: null, types: [], conditions: [], recurring: false }
 
+/* N-value with default, treating 0 as a real value ("more than 0 days
+   ago" = any past date). */
+const nOr = (v, d) => {
+  if (v === '' || v == null) return d
+  const n = Number(v)
+  return Number.isFinite(n) ? n : d
+}
+
 export const fieldByKey = (category, key) => PRODUCT_CATEGORIES[category].fields.find((f) => f.key === key)
 export const operatorsFor = (type) => OPERATORS[type] ?? OPERATORS.number
 export const ruleActive = (rule) => !!(rule && rule.category)
@@ -169,12 +181,12 @@ export function conditionText(category, c) {
   if (c.op === 'is_set') return `${name} is set`
   if (f.type === 'date') {
     if (c.op === 'tomorrow') return `${name} is tomorrow`
-    if (c.op === 'next_n') return `${name} is in the next ${Number(c.n) || 3} days`
-    if (c.op === 'more_than_n_away') return `${name} is more than ${Number(c.n) || 30} days away`
+    if (c.op === 'next_n') return `${name} is in the next ${nOr(c.n, 3)} days`
+    if (c.op === 'more_than_n_away') return `${name} is more than ${nOr(c.n, 30)} days away`
     if (c.op === 'before_date') return `${name} is before ${fmtDateValue(c.value)}`
     if (c.op === 'after_date') return `${name} is after ${fmtDateValue(c.value)}`
     if (c.op === 'between_dates') return `${name} is between ${fmtDateValue(c.value)} and ${fmtDateValue(c.value2)}`
-    return `${name} was more than ${Number(c.n) || 30} days ago`
+    return nOr(c.n, 30) === 0 ? `${name} is in the past` : `${name} was more than ${nOr(c.n, 30)} days ago`
   }
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
   const v = f.type === 'currency'
@@ -255,8 +267,8 @@ export function productMatches(product, rule) {
       if (c.op === 'is_set') return d != null
       if (d == null) return false // unset never matches a value comparison
       if (c.op === 'tomorrow') return d === 1
-      if (c.op === 'next_n') return d >= 0 && d <= (Number(c.n) || 3)
-      if (c.op === 'more_than_n_away') return d > (Number(c.n) || 30)
+      if (c.op === 'next_n') return d >= 0 && d <= nOr(c.n, 3)
+      if (c.op === 'more_than_n_away') return d > nOr(c.n, 30)
       if (c.op === 'before_date') { const t = daysUntil(c.value); return t != null && d <= t }
       if (c.op === 'after_date') { const t = daysUntil(c.value); return t != null && d > t }
       if (c.op === 'between_dates') {
@@ -264,7 +276,7 @@ export function productMatches(product, rule) {
         const t2 = daysUntil(c.value2)
         return t1 != null && t2 != null && d >= Math.min(t1, t2) && d <= Math.max(t1, t2)
       }
-      return d < -(Number(c.n) || 30)
+      return d < -nOr(c.n, 30)
     }
     const pv = product[c.field]
     if (c.op === 'not_set') return pv == null
@@ -363,18 +375,102 @@ export const DEMO_RULE = {
   conditions: [{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 3 }],
 }
 
+const symRule = (conditions, quantifier = 'any') => ({ quantifier, category: 'loan', types: [], conditions })
+
+/* The first four audiences evaluate live against the 081126 extract. */
 export const seedAudiences = () => [
+  { id: 'aud-sym-pastdue', name: 'Loans past due', kind: 'Rule', rule: symRule([{ id: 1, field: 'dueDate', op: 'past_n', value: '', n: 0 }, { id: 2, field: 'balance', op: 'gt', value: '0', n: 3 }]), baseIds: [], usedIn: 1 },
+  { id: 'aud-sym-due30', name: 'Payment due — next 30 days', kind: 'Rule', rule: symRule([{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 30 }]), baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-nomaturity', name: 'No maturity date on file', kind: 'Rule', rule: symRule([{ id: 1, field: 'maturity', op: 'not_set', value: '', n: 3 }]), baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-multiloan', name: 'Members with 2+ loans', kind: 'Rule', rule: symRule([], 'two_plus'), baseIds: [], usedIn: 0 },
   { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 2 },
   ...SEGMENTS.map((s, i) => ({ id: `aud-seg-${i}`, name: s.name, kind: s.group, users: s.users, rule: null, baseIds: [], usedIn: (i * 7) % 4 })),
 ]
 
-/* Reach for an audience object; rule audiences narrow their base
-   (all members, or the union of their start-from audiences). */
+/* ── Symitar real-data evaluation ──────────────────────────────────
+   Rule audiences evaluate against the derived extract dataset — exact
+   counts, not mocked math. Category/label resolution flows through the
+   ACTIVE product-code map, so mapping a code in the catalog visibly
+   changes audience reach. */
+
+let activeCodeMap = new Map()
+export const setActiveCodeMap = (codes) => {
+  activeCodeMap = new Map(codes.map((c) => [c.code, c]))
+}
+
+const accountProducts = (a) =>
+  a.loans.map((l) => {
+    const m = activeCodeMap.get(l.code)
+    const mapped = m && m.label.trim() && m.category
+    return {
+      category: mapped ? m.category : null,
+      label: mapped ? m.label : `Type ${l.code}`,
+      code: l.code,
+      balance: l.balance ?? 0,
+      payment: l.payment ?? 0,
+      rate: l.rate ?? 0,
+      apy: 0,
+      dueInDays: l.dueInDays,
+      maturityInDays: l.maturityInDays,
+    }
+  })
+
+export const unmappedLoanCount = () =>
+  SYMITAR_ACCOUNTS.reduce((s, a) => s + a.loans.filter((l) => {
+    const m = activeCodeMap.get(l.code)
+    return !(m && m.label.trim() && m.category)
+  }).length, 0)
+
+export function realReach(rule) {
+  if (!ruleActive(rule)) return null
+  let members = 0
+  let products = 0
+  for (const a of SYMITAR_ACCOUNTS) {
+    const matches = accountProducts(a).filter((p) => p.category && productMatches(p, rule))
+    if (memberSatisfies(matches.length, rule.quantifier)) members++
+    products += matches.length
+  }
+  return {
+    members,
+    products: rule.quantifier === 'none' ? null : products,
+    source: 'extract',
+    unmappable: unmappedLoanCount(),
+  }
+}
+
+/* Real matched members for drill-ins: sequential extract IDs with
+   deterministic synthetic display names (real names never leave the
+   source files). Multi-match members sort first. */
+export function datasetMatchedMembers(rule, limit = 8) {
+  const out = []
+  for (const a of SYMITAR_ACCOUNTS) {
+    const matches = accountProducts(a).filter((p) => p.category && productMatches(p, rule))
+    if (!memberSatisfies(matches.length, rule.quantifier)) continue
+    const h = hash(a.id)
+    const f = FIRST[h % FIRST.length]
+    const l = LAST[(h >>> 3) % LAST.length]
+    const [avFg, avBg] = AVATAR_PALETTE[hash(f + l) % AVATAR_PALETTE.length]
+    out.push({
+      name: `${f} ${l}`,
+      email: `member-${a.id.toLowerCase()}@example.com`,
+      initials: f[0] + l[0],
+      id: '#' + a.id,
+      avFg,
+      avBg,
+      matches,
+    })
+  }
+  return out.sort((x, y) => y.matches.length - x.matches.length).slice(0, limit)
+}
+
+/* Reach for an audience object. Rule audiences → exact extract counts;
+   synced audiences keep their reported size. (Start-from narrowing is
+   not applied to extract evaluation.) */
 export function audienceReach(a, all = []) {
+  if (a.rule) return realReach(a.rule)
   const base = a.baseIds?.length
     ? Math.min(TOTAL_MEMBERS, a.baseIds.reduce((s, id) => s + (all.find((x) => x.id === id)?.users || 0), 0))
     : TOTAL_MEMBERS
-  if (a.rule) return productReach(a.rule, base)
   return { members: a.users ?? base, products: null }
 }
 
@@ -496,6 +592,32 @@ export const seedProductCodes = () => [
   { code: 'CC05', rawCols: 'VISA_RW_BAL · MIN_PMT', label: 'Visa Rewards', category: 'card', holders: 3470 },
   { code: 'HSA01', rawCols: 'HSA_BAL', label: '', category: null, holders: 312 },
   { code: 'RV22', rawCols: 'RV_LN_BAL · RV_LN_DUE_DT', label: '', category: null, holders: 87 },
+]
+
+/* Real Loan Type codes from the 081126 VIP extract, with real record
+   counts. Labels are invented placeholders (each CU defines its own
+   code meanings) — the five rare codes ship unmapped as the demo task. */
+const TC = SYMITAR_STATS.typeCounts
+export const seedSymitarCodes = () => [
+  { code: '0010', rawCols: 'Loan Type · VIP.LOAN', label: 'Auto Loan', category: 'loan', holders: TC['0010'] ?? 0 },
+  { code: '0011', rawCols: 'Loan Type · VIP.LOAN', label: 'Used Auto Loan', category: 'loan', holders: TC['0011'] ?? 0 },
+  { code: '0040', rawCols: 'Loan Type · VIP.LOAN', label: 'Personal Loan', category: 'loan', holders: TC['0040'] ?? 0 },
+  { code: '0000', rawCols: 'Loan Type · VIP.LOAN', label: 'Signature Loan', category: 'loan', holders: TC['0000'] ?? 0 },
+  { code: '0001', rawCols: 'Loan Type · VIP.LOAN', label: 'Share Secured Loan', category: 'loan', holders: TC['0001'] ?? 0 },
+  { code: '0030', rawCols: 'Loan Type · VIP.LOAN', label: 'Home Equity', category: 'loan', holders: TC['0030'] ?? 0 },
+  { code: '0031', rawCols: 'Loan Type · VIP.LOAN', label: 'Home Equity — 2nd', category: 'loan', holders: TC['0031'] ?? 0 },
+  { code: '0032', rawCols: 'Loan Type · VIP.LOAN', label: 'HELOC', category: 'loan', holders: TC['0032'] ?? 0 },
+  { code: '0052', rawCols: 'Loan Type · VIP.LOAN', label: 'Student Loan', category: 'loan', holders: TC['0052'] ?? 0 },
+  { code: '0090', rawCols: 'Loan Type · VIP.LOAN', label: 'Visa Classic', category: 'card', holders: TC['0090'] ?? 0 },
+  { code: '0091', rawCols: 'Loan Type · VIP.LOAN', label: 'Visa Gold', category: 'card', holders: TC['0091'] ?? 0 },
+  { code: '0092', rawCols: 'Loan Type · VIP.LOAN', label: 'Visa Platinum', category: 'card', holders: TC['0092'] ?? 0 },
+  { code: '0093', rawCols: 'Loan Type · VIP.LOAN', label: 'Visa Rewards', category: 'card', holders: TC['0093'] ?? 0 },
+  { code: '0094', rawCols: 'Loan Type · VIP.LOAN', label: 'Business Visa', category: 'card', holders: TC['0094'] ?? 0 },
+  { code: '0005', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0005'] ?? 0 },
+  { code: '0009', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0009'] ?? 0 },
+  { code: '0020', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0020'] ?? 0 },
+  { code: '0089', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0089'] ?? 0 },
+  { code: '0420', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0420'] ?? 0 },
 ]
 
 export const codeMapped = (c) => !!(c.label.trim() && c.category)

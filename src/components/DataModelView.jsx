@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import {
   FLAT_FILE_SAMPLE, FEED_FILES, DUE_DATE_GAP, PRODUCT_CATEGORIES, CATEGORY_ORDER,
-  SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, HUBSPOT_FIELD_MAP,
+  SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, HUBSPOT_FIELD_MAP, SYMITAR_STATS,
   codeMapped, fmt,
 } from '../data'
 import { ProductIcon, UsersIcon, SendIcon, RepeatIcon, CloseIcon, ChevronDownIcon } from '../icons'
+import SymitarConnect from './SymitarConnect'
 
 const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
 const mono = 'ui-monospace, Menlo, monospace'
@@ -21,6 +22,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
   const [tab, setTab] = useState('sources')
   const [expanded, setExpanded] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [symitarOpen, setSymitarOpen] = useState(false)
   const unmapped = codes.filter((c) => !codeMapped(c)).length
 
   return (
@@ -63,7 +65,19 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
         {tab === 'model' && <ModelTab />}
       </div>
 
-      {addOpen && <AddSourceModal onClose={() => setAddOpen(false)} onUpload={() => { setAddOpen(false); onOpenWizard() }} />}
+      {addOpen && (
+        <AddSourceModal
+          onClose={() => setAddOpen(false)}
+          onUpload={() => { setAddOpen(false); onOpenWizard() }}
+          onSymitar={() => { setAddOpen(false); setSymitarOpen(true) }}
+        />
+      )}
+      {symitarOpen && (
+        <SymitarConnect
+          onClose={() => setSymitarOpen(false)}
+          onGoCatalog={() => { setSymitarOpen(false); setTab('catalog') }}
+        />
+      )}
     </div>
   )
 }
@@ -94,6 +108,10 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
     unmapped > 0 && {
       text: `${unmapped} product ${unmapped === 1 ? 'code needs' : 'codes need'} mapping — arrived in last night’s file`,
       action: 'Map codes', onClick: onMapCodes,
+    },
+    {
+      text: `${Math.round((100 * SYMITAR_STATS.duePast) / SYMITAR_STATS.loans)}% of due dates in the last core file are in the past — the extract may be stale`,
+      action: 'View feed', onClick: onViewFeed,
     },
     {
       text: 'One feed file partially ingested — malformed date in AUTO_LN2_DUE_DT',
@@ -252,7 +270,7 @@ function SourceDetail({ source }) {
 
 const CONNECTED = ['Symitar', 'HubSpot']
 
-function AddSourceModal({ onClose, onUpload }) {
+function AddSourceModal({ onClose, onUpload, onSymitar }) {
   return (
     <>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(20,34,60,.34)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', zIndex: 30 }} />
@@ -274,12 +292,17 @@ function AddSourceModal({ onClose, onUpload }) {
             Upload a file
             <div style={{ marginTop: 3, fontSize: 10.5, fontWeight: 600, color: '#5a7db0' }}>CSV or SFTP export</div>
           </button>
-          {CONNECTED.map((g) => (
-            <div key={g} style={{ border: '1px solid #dcefe3', background: '#f6fbf8', borderRadius: 11, padding: '16px 10px', textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63' }}>{g}</div>
-              <div style={{ marginTop: 3, fontSize: 10.5, fontWeight: 800, color: '#1f6f4a' }}>✓ Connected</div>
-            </div>
-          ))}
+          <button
+            onClick={onSymitar}
+            style={{ border: '1px solid #dcefe3', background: '#f6fbf8', borderRadius: 11, padding: '16px 10px', textAlign: 'center', fontFamily: 'inherit', cursor: 'pointer' }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63' }}>Symitar</div>
+            <div style={{ marginTop: 3, fontSize: 10.5, fontWeight: 800, color: '#1f6f4a' }}>✓ Connected · view setup</div>
+          </button>
+          <div style={{ border: '1px solid #dcefe3', background: '#f6fbf8', borderRadius: 11, padding: '16px 10px', textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63' }}>HubSpot</div>
+            <div style={{ marginTop: 3, fontSize: 10.5, fontWeight: 800, color: '#1f6f4a' }}>✓ Connected</div>
+          </div>
           {SOURCE_GALLERY.filter((g) => !CONNECTED.includes(g)).map((g) => (
             <div key={g} style={{ border: '1px solid #e2e8f1', background: '#fafbfd', borderRadius: 11, padding: '16px 10px', textAlign: 'center' }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#b1bccb' }}>{g}</div>

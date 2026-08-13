@@ -6,7 +6,7 @@ import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
 import SourceWizard from './components/SourceWizard'
-import { seedAudiences, seedProductCodes, seedSources, codeMapped, GAP_AUDIENCE_RULE } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, GAP_AUDIENCE_RULE } from './data'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -19,9 +19,13 @@ export default function App() {
   const [entrySaved, setEntrySaved] = useState(false)
   const [audiences, setAudiences] = useState(seedAudiences)
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
-  const [productCodes, setProductCodes] = useState(seedProductCodes)
+  const [productCodes, setProductCodes] = useState(seedSymitarCodes)
   const [sources, setSources] = useState(seedSources)
   const [wizardOpen, setWizardOpen] = useState(false)
+
+  // keep the module-level code map in sync so rule evaluation (reach,
+  // drill-ins) resolves categories through the live catalog mapping
+  setActiveCodeMap(productCodes)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)

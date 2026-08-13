@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   PRODUCT_CATEGORIES, fmt, sampleUsers,
-  matchedProducts, memberSatisfies, productFactline,
+  datasetMatchedMembers, productFactline,
 } from '../data'
 import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 
@@ -13,10 +13,7 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
   const shown = Math.min(8, count)
   let users
   if (rule) {
-    users = sampleUsers(name, 48)
-      .map((u) => ({ ...u, matches: matchedProducts(u.name + u.id, rule) }))
-      .filter((u) => memberSatisfies(u.matches.length, rule.quantifier))
-      .slice(0, shown)
+    users = datasetMatchedMembers(rule, shown || 8)
   } else {
     users = shown ? sampleUsers(name, shown) : []
   }
@@ -29,7 +26,7 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
   const moreLabel = q
     ? filtered.length ? `${filtered.length} of ${users.length} shown members match` : 'No matching members in the loaded sample'
     : rule
-      ? 'Sample of members matching the rule'
+      ? 'Matched in the 081126 extract · synthetic display names'
       : count > shown
         ? `+ ${fmt(count - shown)} more members`
         : count ? 'End of list' : 'No members yet'
