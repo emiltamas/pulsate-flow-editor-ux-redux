@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PRODUCT_CATEGORIES, AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach } from '../data'
+import { PRODUCT_CATEGORIES, AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
 import { SearchIcon, EyeIcon, PencilIcon, SparkleIcon } from '../icons'
 import UserDrillIn from './UserDrillIn'
 
@@ -132,7 +132,7 @@ function AudienceCard({ audience, audiences, selected, onUse, onView, onEdit }) 
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ fontSize: 20, fontWeight: 800, color: '#17335f', letterSpacing: '-.4px' }}>~{fmt(reach.members)}</span>
           <span style={{ fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
-            members{reach.products !== null && ` · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[audience.rule.category].plural}`}
+            members{reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`}
           </span>
         </div>
         <div style={{ marginTop: 3, fontSize: 11, fontWeight: 700, color: '#b1bccb' }}>

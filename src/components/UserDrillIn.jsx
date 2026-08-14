@@ -101,7 +101,7 @@ function MatchedProducts({ rule, matches }) {
   if (rule.quantifier === 'none') {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
-        Holds no matching {PRODUCT_CATEGORIES[rule.category].label.toLowerCase()}
+        Holds no matching {rule.entity === 'offer' ? 'offer' : PRODUCT_CATEGORIES[rule.category].label.toLowerCase()}
       </div>
     )
   }
@@ -111,7 +111,7 @@ function MatchedProducts({ rule, matches }) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#f4f7fb', border: '1px solid #e7edf5', borderRadius: 8, padding: '5px 9px' }}>
           <ProductIcon size={12} stroke="#5a7db0" />
           <span style={{ fontSize: 11.5, fontWeight: 800, color: '#1b3a63' }}>{p.label}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{productFactline(p)}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{p.fact ?? productFactline(p)}</span>
         </div>
       ))}
       {matches.length >= 2 && (

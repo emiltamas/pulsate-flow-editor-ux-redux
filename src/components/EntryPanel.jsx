@@ -1,4 +1,4 @@
-import { GEOFENCES, PRODUCT_CATEGORIES, tagColor, fmt, trigLabel, ruleSentence, audienceReach } from '../data'
+import { GEOFENCES, PRODUCT_CATEGORIES, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
 import {
   CloseIcon, CheckIcon, UsersIcon, PinIcon, DwellIcon, RepeatIcon,
   EnterIcon, ExitIcon, ProductIcon, PencilIcon,
@@ -18,6 +18,7 @@ export const TRIGGER_ORDER = ['audience', 'date', 'location', 'schedule']
 const DATE_FIELDS = [
   { key: 'dueDate', label: 'Payment due date' },
   { key: 'maturity', label: 'Maturity date' },
+  { key: 'expires', label: 'Offer expiration' },
 ]
 
 export default function EntryPanel({
@@ -158,7 +159,7 @@ export default function EntryPanel({
                   <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
                     <UsersIcon size={13} />
                     ~{fmt(reach.members)} members
-                    {reach.products !== null && ` · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[audience.rule.category].plural}`}
+                    {reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`}
                   </div>
                 </div>
                 <div style={{ display: 'flex', borderTop: '1px solid #edf1f6' }}>

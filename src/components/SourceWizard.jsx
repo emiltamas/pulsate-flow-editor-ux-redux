@@ -123,6 +123,24 @@ function StepFile() {
 function StepMap({ columns, onResolve, unmappedLeft }) {
   return (
     <>
+      {/* imports land in an entity class — detection picks, you confirm */}
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={sectionLabel}>Destination</span>
+        {['Products', 'Offers', 'Member attributes'].map((d) => (
+          <span
+            key={d}
+            style={{
+              fontSize: 12, fontWeight: 800, padding: '5px 12px', borderRadius: 20,
+              ...(d === 'Products'
+                ? { background: '#e6effb', color: '#1f4a86', border: '1px solid #cfe1f6' }
+                : { background: '#fff', color: '#b1bccb', border: '1px solid #e2e8f1' }),
+            }}
+          >
+            {d}
+          </span>
+        ))}
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>detected from the column shape</span>
+      </div>
       <span style={sectionLabel}>Map columns → registry</span>
       <p style={{ margin: '5px 0 12px', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5 }}>
         Auto-mapping works because the target schema is known — confirm the suggestions, resolve the rest.

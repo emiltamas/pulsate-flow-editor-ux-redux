@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   FLAT_FILE_SAMPLE, FEED_FILES, DUE_DATE_GAP, PRODUCT_CATEGORIES, CATEGORY_ORDER,
   SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, HUBSPOT_FIELD_MAP, SYMITAR_STATS,
+  OFFER_FIELDS, expiringOffersCount,
   codeMapped, fmt,
 } from '../data'
 import { ProductIcon, UsersIcon, SendIcon, RepeatIcon, CloseIcon, ChevronDownIcon } from '../icons'
@@ -18,12 +19,12 @@ const selectStyle = {
 /* Data is a workspace, prioritized by the marketer's jobs: fix what needs
    fixing (attention queue), check health (KPIs + source list), add
    sources (header CTA), learn how it works (last tab, once). */
-export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, onOpenWizard }) {
+export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, onOpenWizard, offerCodes, onMapOfferCode, onCreateExpiringAudience }) {
   const [tab, setTab] = useState('sources')
   const [expanded, setExpanded] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
   const [symitarOpen, setSymitarOpen] = useState(false)
-  const unmapped = codes.filter((c) => !codeMapped(c)).length
+  const unmapped = codes.filter((c) => !codeMapped(c)).length + offerCodes.filter((c) => !c.label.trim()).length
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#f4f6fa', overflowY: 'auto' }}>
@@ -59,9 +60,10 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
             onMapCodes={() => setTab('catalog')}
             onViewFeed={() => setExpanded('src-symitar')}
             onCreateGapAudience={onCreateGapAudience}
+            onCreateExpiringAudience={onCreateExpiringAudience}
           />
         )}
-        {tab === 'catalog' && <CatalogTab codes={codes} onMapCode={onMapCode} unmapped={unmapped} />}
+        {tab === 'catalog' && <CatalogTab codes={codes} onMapCode={onMapCode} unmapped={unmapped} offerCodes={offerCodes} onMapOfferCode={onMapOfferCode} />}
         {tab === 'model' && <ModelTab />}
       </div>
 
@@ -102,7 +104,7 @@ function ModeTab({ on, onClick, label, badge }) {
 
 /* ── Sources (workspace) ─────────────────────────────────────────── */
 
-function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience }) {
+function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience, onCreateExpiringAudience }) {
   const weakestJoin = IDENTITY_SUMMARY.joins.reduce((a, b) => (a.rate < b.rate ? a : b))
   const attention = [
     unmapped > 0 && {
@@ -124,6 +126,10 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
     {
       text: `${DUE_DATE_GAP.field} is blank on ${DUE_DATE_GAP.missingPct}% of loans (≈${fmt(DUE_DATE_GAP.count)} records)`,
       action: 'Create audience', onClick: onCreateGapAudience,
+    },
+    {
+      text: `${expiringOffersCount(14)} offers expire in the next 14 days — campaign window closing`,
+      action: 'Create audience', onClick: onCreateExpiringAudience,
     },
   ].filter(Boolean)
 
@@ -178,7 +184,10 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
                 <span style={{ width: 140, flex: 'none', fontSize: 12, fontWeight: 600, color: '#5a6b85' }}>{s.cadence}</span>
                 <span style={{ width: 130, flex: 'none', fontSize: 12, fontWeight: 700, color: '#4a6088' }}>{s.records}</span>
                 <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: '#5a6b85', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.identity}</span>
-                <span style={{ width: 90, flex: 'none', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{s.fields} fields</span>
+                {s.feeds && (
+                  <span style={{ flex: 'none', fontSize: 11, fontWeight: 800, color: '#7a4fc0', background: '#efe8fb', padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>→ {s.feeds}</span>
+                )}
+                <span style={{ width: 70, flex: 'none', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{s.fields} fields</span>
                 <span style={{ fontSize: 10.5, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 20, flex: 'none' }}>Healthy</span>
                 <span style={{ flex: 'none', color: '#8a95a6', display: 'flex', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
                   <ChevronDownIcon size={14} />
@@ -320,7 +329,7 @@ function AddSourceModal({ onClose, onUpload, onSymitar }) {
 
 /* ── Product catalog ─────────────────────────────────────────────── */
 
-function CatalogTab({ codes, onMapCode, unmapped }) {
+function CatalogTab({ codes, onMapCode, unmapped, offerCodes, onMapOfferCode }) {
   return (
     <>
       {unmapped > 0 && (
@@ -381,6 +390,49 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         </table>
       </div>
 
+      {/* offer types — the second entity's vocabulary */}
+      <div style={{ margin: '18px 0 8px', fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+        Offer types — from your insights feed
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+          <thead>
+            <tr>
+              {['Code', 'Source', 'Offers', 'Label — what marketers see', 'Status'].map((h) => (
+                <th key={h} style={{ ...sectionLabel, textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #edf1f6', background: '#fafbfd' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {offerCodes.map((c) => {
+              const mapped = !!c.label.trim()
+              return (
+                <tr key={c.code} style={{ background: mapped ? '#fff' : '#fffdf5' }}>
+                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #f4f6fa' }}>
+                    <span style={{ fontFamily: mono, fontSize: 11.5, fontWeight: 700, color: '#17335f', background: '#efe8fb', padding: '3px 8px', borderRadius: 6 }}>{c.code}</span>
+                  </td>
+                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #f4f6fa', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{c.source}</td>
+                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #f4f6fa', fontWeight: 700, color: '#4a6088' }}>{c.offers}</td>
+                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #f4f6fa' }}>
+                    <input
+                      value={c.label}
+                      placeholder="e.g. RV loan pre-approval"
+                      onChange={(e) => onMapOfferCode(c.code, { label: e.target.value })}
+                      style={{ ...selectStyle, width: 230 }}
+                    />
+                  </td>
+                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #f4f6fa' }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 9px', borderRadius: 20, color: mapped ? '#1f6f4a' : '#8a6d2e', background: mapped ? '#e2f4ea' : '#fbf1dc', whiteSpace: 'nowrap' }}>
+                      {mapped ? 'Mapped' : 'Needs mapping'}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
       {/* the registry — the Pulsate-managed opinion */}
       <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, padding: 16 }}>
         <span style={sectionLabel}>The registry — managed by Pulsate</span>
@@ -388,7 +440,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
           Categories and their fields are curated and versioned by Pulsate — they’re what operators, rule sentences, playbooks and
           date anchors bind to. Your labels above stay yours; the semantics underneath stay consistent for every FI.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           {CATEGORY_ORDER.map((k) => {
             const cat = PRODUCT_CATEGORIES[k]
             return (
@@ -407,6 +459,22 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
               </div>
             )
           })}
+          <div style={{ border: '1px solid #e4dcf5', background: '#faf8fe', borderRadius: 11, padding: '11px 13px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 800, color: '#5b3a9e' }}>
+              <ProductIcon size={13} stroke="#7a4fc0" />
+              Offer
+            </div>
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {OFFER_FIELDS.map((f) => (
+                <div key={f.key} style={{ fontSize: 11.5, fontWeight: 600, color: '#5a6b85' }}>
+                  {f.label} <span style={{ color: '#b1bccb' }}>· {f.type}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 4, fontSize: 10.5, fontWeight: 700, color: '#8a6d2e' }}>
+                Provenance tracked — FCRA firm-offer rules apply to credit-derived offers.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </>

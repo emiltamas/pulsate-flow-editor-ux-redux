@@ -161,6 +161,20 @@ export default function MessageSidebar({ message, onClose, onSave }) {
             </div>
             <Field label="Title" value={draft.title} onChange={(v) => patch({ title: v })} max={48} placeholder="Grab your users’ attention" />
             <Field label="Text" value={draft.body} onChange={(v) => patch({ body: v })} max={140} placeholder="Add 1–2 lines that make this worth a tap." textarea />
+            <div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {Object.keys(TOKEN_SAMPLES).map((tok) => (
+                  <button
+                    key={tok}
+                    onClick={() => patch({ body: (draft.body + ' ' + tok).trimStart() })}
+                    style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 10.5, fontWeight: 700, color: '#5b3a9e', background: '#faf8fe', border: '1px solid #e4dcf5', borderRadius: 7, padding: '4px 8px', cursor: 'pointer' }}
+                  >
+                    {tok}
+                  </button>
+                ))}
+              </div>
+              <p style={helperText}>Tokens fill from the enrolling product or offer — the preview shows sample values.</p>
+            </div>
             <Field label="Button label" value={draft.cta} onChange={(v) => patch({ cta: v })} max={24} placeholder="Open app" />
           </div>
 
@@ -289,10 +303,19 @@ function RowButton({ disabled, onClick, children }) {
   )
 }
 
+const TOKEN_SAMPLES = {
+  '{{first_name}}': 'Amara',
+  '{{product.label}}': 'Auto Loan',
+  '{{product.due_date}}': 'Aug 14',
+  '{{offer.amount}}': '$25,000',
+  '{{offer.expires}}': 'in 12 days',
+}
+const fillTokens = (s) => Object.entries(TOKEN_SAMPLES).reduce((x, [k, v]) => x.split(k).join(v), s)
+
 function Preview({ channel, draft }) {
-  const title = draft.title || 'Grab your users’ attention'
-  const body = draft.body || 'Add 1–2 lines that make this worth a tap.'
-  const cta = draft.cta || 'Open app'
+  const title = fillTokens(draft.title || 'Grab your users’ attention')
+  const body = fillTokens(draft.body || 'Add 1–2 lines that make this worth a tap.')
+  const cta = fillTokens(draft.cta || 'Open app')
 
   if (!channel) {
     return (

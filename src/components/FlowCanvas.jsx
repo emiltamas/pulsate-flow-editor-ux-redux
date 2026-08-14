@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { CHANNELS, PRODUCT_CATEGORIES, audienceReach, ruleSentence, mockPerformance, fmtMoney, fmt, trigLabel } from '../data'
+import { CHANNELS, PRODUCT_CATEGORIES, audienceReach, ruleSentence, mockPerformance, fmtMoney, fmt, trigLabel, rulePlural } from '../data'
 import { PlayIcon, PencilIcon, UsersIcon, SendIcon, TypeIcon, DwellIcon, BranchIcon, ChartIcon } from '../icons'
 import { TRIGGER_META } from './EntryPanel'
 
@@ -151,7 +151,7 @@ function triggerDetail(trigger) {
   if (trigger.type === 'audience') return 'Always on — enters on joining the audience'
   if (trigger.type === 'schedule') return 'One-time send · not scheduled yet'
   if (trigger.type === 'date') {
-    const field = trigger.dateField === 'maturity' ? 'maturity date' : 'payment due date'
+    const field = trigger.dateField === 'maturity' ? 'maturity date' : trigger.dateField === 'expires' ? 'offer expiration' : 'payment due date'
     return `${trigger.dateDays} days before ${field} · recurring`
   }
   const geoSel = trigger.geoSel
@@ -185,7 +185,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
             <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
               {reach.members
                 ? reach.products !== null
-                  ? `members · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[audience.rule.category].plural}`
+                  ? `members · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`
                   : 'members'
                 : 'all who trigger'}
             </div>

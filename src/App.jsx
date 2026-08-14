@@ -6,7 +6,7 @@ import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
 import SourceWizard from './components/SourceWizard'
-import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, GAP_AUDIENCE_RULE } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, seedOfferCodes, codeMapped, setActiveCodeMap, setActiveOfferMap, GAP_AUDIENCE_RULE } from './data'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -20,12 +20,14 @@ export default function App() {
   const [audiences, setAudiences] = useState(seedAudiences)
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
   const [productCodes, setProductCodes] = useState(seedSymitarCodes)
+  const [offerCodes, setOfferCodes] = useState(seedOfferCodes)
   const [sources, setSources] = useState(seedSources)
   const [wizardOpen, setWizardOpen] = useState(false)
 
-  // keep the module-level code map in sync so rule evaluation (reach,
-  // drill-ins) resolves categories through the live catalog mapping
+  // keep the module-level maps in sync so rule evaluation (reach,
+  // drill-ins) resolves labels through the live catalog mappings
   setActiveCodeMap(productCodes)
+  setActiveOfferMap(offerCodes)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)
@@ -120,6 +122,17 @@ export default function App() {
             }
             sources={sources}
             onOpenWizard={() => setWizardOpen(true)}
+            offerCodes={offerCodes}
+            onMapOfferCode={(code, patch) =>
+              setOfferCodes((prev) => prev.map((c) => (c.code === code ? { ...c, ...patch } : c)))
+            }
+            onCreateExpiringAudience={() =>
+              setBuilderCtx({
+                audienceId: null,
+                returnTo: 'library',
+                initialRule: { quantifier: 'any', entity: 'offer', category: null, types: [], conditions: [{ id: 1, field: 'expires', op: 'next_n', value: '', n: 14 }] },
+              })
+            }
           />
         )}
       </div>

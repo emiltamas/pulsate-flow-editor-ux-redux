@@ -83,6 +83,7 @@ export const PRODUCT_CATEGORIES = {
       { key: 'dueDate', label: 'Payment due date', type: 'date' },
       { key: 'maturity', label: 'Maturity date', type: 'date' },
       { key: 'rate', label: 'Interest rate', type: 'number' },
+      { key: 'drift', label: 'Payment drift (days)', type: 'number' },
     ],
   },
   deposit: {
@@ -160,7 +161,78 @@ const fmtDateValue = (v) => {
   return isNaN(d) ? '…' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export const EMPTY_PRODUCT_RULE = { quantifier: 'any', category: null, types: [], conditions: [], recurring: false }
+export const EMPTY_PRODUCT_RULE = { quantifier: 'any', entity: 'product', category: null, types: [], conditions: [], recurring: false }
+
+/* ── Offers: the registry's second instance entity. One curated field
+   set; offer TYPES are the scope vocabulary, labeled per vendor code
+   through the catalog (same pattern as product codes). */
+export const OFFER_FIELDS = [
+  { key: 'amount', label: 'Approved amount', type: 'currency' },
+  { key: 'offerRate', label: 'Offer rate', type: 'number' },
+  { key: 'expires', label: 'Expiration date', type: 'date' },
+]
+
+export const seedOfferCodes = () => [
+  { code: 'CNX-AUTO', source: 'Prequal engine', label: 'Auto loan pre-approval', offers: 41 },
+  { code: 'CNX-PL', source: 'Prequal engine', label: 'Personal loan pre-approval', offers: 28 },
+  { code: 'CNX-HE', source: 'Prequal engine', label: 'HELOC pre-approval', offers: 19 },
+  { code: 'CNX-RV22', source: 'Prequal engine', label: '', offers: 8 },
+]
+
+let activeOfferMap = new Map()
+export const setActiveOfferMap = (codes) => {
+  activeOfferMap = new Map(codes.map((c) => [c.code, c]))
+}
+export const offerTypeLabels = () =>
+  [...activeOfferMap.values()].filter((c) => c.label.trim()).map((c) => c.label)
+
+/* Deterministic synthetic offers riding on the real member dataset
+   (~40% of members hold 1–2). Real extract carries no offer data. */
+const OFFER_CODE_KEYS = ['CNX-AUTO', 'CNX-PL', 'CNX-HE', 'CNX-AUTO', 'CNX-PL', 'CNX-RV22']
+export function memberOffers(accountId) {
+  const h = hash('offers·' + accountId)
+  if (h % 5 >= 2) return [] // ~40% of members hold offers
+  const count = 1 + (h % 2)
+  const out = []
+  for (let k = 0; k < count; k++) {
+    // Knuth multiplicative mix — consecutive k must diverge in high bits too
+    const hk = Math.imul(hash(accountId + '·' + k), 2654435761) >>> 0
+    out.push({
+      code: OFFER_CODE_KEYS[(hk >>> 2) % OFFER_CODE_KEYS.length],
+      amount: 2500 + ((hk >>> 4) % 24) * 2500,
+      offerRate: 5 + ((hk >>> 6) % 60) / 10,
+      // cluster: ~1/3 expiring within 14 days, some already expired
+      expiresInDays: (hk >>> 3) % 3 === 0 ? ((hk >>> 5) % 21) - 6 : 15 + ((hk >>> 5) % 76),
+    })
+  }
+  return out
+}
+
+const resolvedOffers = (accountId) =>
+  memberOffers(accountId).flatMap((o) => {
+    const m = activeOfferMap.get(o.code)
+    if (!m || !m.label.trim()) return []
+    return [{ ...o, label: m.label }]
+  })
+
+export const unmappedOfferCount = () =>
+  SYMITAR_ACCOUNTS.reduce((s, a) => s + memberOffers(a.id).filter((o) => {
+    const m = activeOfferMap.get(o.code)
+    return !(m && m.label.trim())
+  }).length, 0)
+
+export const expiringOffersCount = (days = 14) =>
+  SYMITAR_ACCOUNTS.reduce((s, a) => s + memberOffers(a.id).filter((o) => o.expiresInDays >= 0 && o.expiresInDays <= days).length, 0)
+
+export function offerFactline(o) {
+  const parts = [`up to $${fmt(o.amount)}`, `${o.offerRate.toFixed(1)}%`]
+  parts.push(
+    o.expiresInDays < 0 ? `expired ${-o.expiresInDays}d ago`
+      : o.expiresInDays === 0 ? 'expires today'
+      : `expires in ${o.expiresInDays} days`
+  )
+  return parts.join(' · ')
+}
 
 /* N-value with default, treating 0 as a real value ("more than 0 days
    ago" = any past date). */
@@ -172,10 +244,18 @@ const nOr = (v, d) => {
 
 export const fieldByKey = (category, key) => PRODUCT_CATEGORIES[category].fields.find((f) => f.key === key)
 export const operatorsFor = (type) => OPERATORS[type] ?? OPERATORS.number
-export const ruleActive = (rule) => !!(rule && rule.category)
+export const ruleActive = (rule) => !!rule && (rule.entity === 'offer' || !!rule.category)
 
-export function conditionText(category, c) {
-  const f = fieldByKey(category, c.field)
+/* Field set for a rule, per entity class. */
+export const fieldsFor = (rule) =>
+  rule.entity === 'offer' ? OFFER_FIELDS : rule.category ? PRODUCT_CATEGORIES[rule.category].fields : []
+
+export const rulePlural = (rule) =>
+  rule.entity === 'offer' ? 'offers' : PRODUCT_CATEGORIES[rule.category]?.plural ?? 'products'
+
+export function conditionText(rule, c) {
+  const f = fieldsFor(rule).find((x) => x.key === c.field)
+  if (!f) return ''
   const name = f.label.toLowerCase()
   if (c.op === 'not_set') return `${name} is not set`
   if (c.op === 'is_set') return `${name} is set`
@@ -191,20 +271,21 @@ export function conditionText(category, c) {
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
   const v = f.type === 'currency'
     ? `$${fmt(Number(c.value) || 0)}`
-    : `${Number(c.value) || 0}${f.key === 'apy' || f.key === 'rate' ? '%' : ''}`
+    : `${Number(c.value) || 0}${f.key === 'apy' || f.key === 'rate' || f.key === 'offerRate' ? '%' : ''}`
   return `${name} ${op.label} ${v}`
 }
 
 export function ruleSentence(rule) {
   if (!ruleActive(rule)) return null
-  const cat = PRODUCT_CATEGORIES[rule.category]
   const plural = rule.quantifier === 'two_plus'
-  const scope = rule.types.length
-    ? rule.types.join(' or ') + (plural ? 's' : '')
-    : plural ? cat.plural : cat.label.toLowerCase()
+  const scope = rule.entity === 'offer'
+    ? (rule.types.length ? rule.types.join(' or ') + (plural ? 's' : '') : plural ? 'offers' : 'offer')
+    : (rule.types.length
+        ? rule.types.join(' or ') + (plural ? 's' : '')
+        : plural ? PRODUCT_CATEGORIES[rule.category].plural : PRODUCT_CATEGORIES[rule.category].label.toLowerCase())
   const lead = rule.quantifier === 'any' ? 'Any' : rule.quantifier === 'none' ? 'No' : '2 or more'
   const conds = rule.conditions.length
-    ? ` where ${rule.conditions.map((c) => conditionText(rule.category, c)).join(' and ')}`
+    ? ` where ${rule.conditions.map((c) => conditionText(rule, c)).join(' and ')}`
     : ''
   return `${lead} ${scope}${conds}`
 }
@@ -256,13 +337,16 @@ export function memberProducts(seed) {
   return out
 }
 
-export function productMatches(product, rule) {
-  if (product.category !== rule.category) return false
-  if (rule.types.length && !rule.types.includes(product.label)) return false
-  return rule.conditions.every((c) => {
-    const f = fieldByKey(rule.category, c.field)
+/* Days-value for a date field on any instance (product or offer). */
+const dateValueOf = (inst, key) =>
+  key === 'maturity' ? inst.maturityInDays : key === 'expires' ? inst.expiresInDays : inst.dueInDays
+
+const conditionsMatch = (inst, rule) =>
+  rule.conditions.every((c) => {
+    const f = fieldsFor(rule).find((x) => x.key === c.field)
+    if (!f) return false
     if (f.type === 'date') {
-      const d = c.field === 'maturity' ? product.maturityInDays : product.dueInDays
+      const d = dateValueOf(inst, c.field)
       if (c.op === 'not_set') return d == null
       if (c.op === 'is_set') return d != null
       if (d == null) return false // unset never matches a value comparison
@@ -278,13 +362,23 @@ export function productMatches(product, rule) {
       }
       return d < -nOr(c.n, 30)
     }
-    const pv = product[c.field]
+    const pv = inst[c.field]
     if (c.op === 'not_set') return pv == null
     if (c.op === 'is_set') return pv != null
     if (pv == null) return false
     const v = Number(c.value) || 0
     return c.op === 'gt' ? pv > v : pv < v
   })
+
+export function productMatches(product, rule) {
+  if (product.category !== rule.category) return false
+  if (rule.types.length && !rule.types.includes(product.label)) return false
+  return conditionsMatch(product, rule)
+}
+
+export function offerMatches(offer, rule) {
+  if (rule.types.length && !rule.types.includes(offer.label)) return false
+  return conditionsMatch(offer, rule)
 }
 
 export const matchedProducts = (seed, rule) => memberProducts(seed).filter((p) => productMatches(p, rule))
@@ -297,6 +391,23 @@ export const memberSatisfies = (matchCount, quantifier) =>
 export function parseAudiencePhrase(text) {
   const t = (text || '').toLowerCase()
   if (!t.trim()) return null
+
+  // offer-shaped phrases → the offers entity (checked before product
+  // categories so "pre-approved for $10,000" needs no product word)
+  if (/pre-?approved|pre-?qualif|qualifies for|eligible for/.test(t)) {
+    const conditions = []
+    let oid = 1
+    let om
+    if ((om = t.match(/(?:more than|over|above) \$?([\d,]+)/))) {
+      conditions.push({ id: oid++, field: 'amount', op: 'gt', value: om[1].replace(/,/g, ''), n: 3 })
+    }
+    if ((om = t.match(/expir\w* (?:in |within )?(?:the )?next (\d+) days?/))) {
+      conditions.push({ id: oid++, field: 'expires', op: 'next_n', value: '', n: Number(om[1]) })
+    }
+    const types = offerTypeLabels().filter((l) => t.includes(l.toLowerCase().replace(' pre-approval', '')))
+    const quantifier = /\btwo or more|2 or more|\b2\+|multiple\b/.test(t) ? 'two_plus' : 'any'
+    return { quantifier, entity: 'offer', category: null, types, conditions, recurring: false }
+  }
 
   let category = null
   const types = []
@@ -383,6 +494,9 @@ export const seedAudiences = () => [
   { id: 'aud-sym-due30', name: 'Payment due — next 30 days', kind: 'Rule', rule: symRule([{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 30 }]), baseIds: [], usedIn: 0 },
   { id: 'aud-sym-nomaturity', name: 'No maturity date on file', kind: 'Rule', rule: symRule([{ id: 1, field: 'maturity', op: 'not_set', value: '', n: 3 }]), baseIds: [], usedIn: 0 },
   { id: 'aud-sym-multiloan', name: 'Members with 2+ loans', kind: 'Rule', rule: symRule([], 'two_plus'), baseIds: [], usedIn: 0 },
+  { id: 'aud-off-auto', name: 'Pre-approved — auto loan', kind: 'Rule', rule: { quantifier: 'any', entity: 'offer', category: null, types: ['Auto loan pre-approval'], conditions: [] }, baseIds: [], usedIn: 0 },
+  { id: 'aud-off-expiring', name: 'Offers expiring — next 30 days', kind: 'Rule', rule: { quantifier: 'any', entity: 'offer', category: null, types: [], conditions: [{ id: 1, field: 'expires', op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-drift', name: 'Loans drifting 10+ days', kind: 'Rule', rule: symRule([{ id: 1, field: 'drift', op: 'gt', value: '10', n: 3 }]), baseIds: [], usedIn: 0 },
   { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 2 },
   ...SEGMENTS.map((s, i) => ({ id: `aud-seg-${i}`, name: s.name, kind: s.group, users: s.users, rule: null, baseIds: [], usedIn: (i * 7) % 4 })),
 ]
@@ -399,9 +513,12 @@ export const setActiveCodeMap = (codes) => {
 }
 
 const accountProducts = (a) =>
-  a.loans.map((l) => {
+  a.loans.map((l, i) => {
     const m = activeCodeMap.get(l.code)
     const mapped = m && m.label.trim() && m.category
+    // synthetic per-loan payment-drift signal (vendor-computed in reality):
+    // ~40% of loans drift 3–21 days, deterministic per loan
+    const dh = hash('drift·' + a.id + '·' + i)
     return {
       category: mapped ? m.category : null,
       label: mapped ? m.label : `Type ${l.code}`,
@@ -412,6 +529,7 @@ const accountProducts = (a) =>
       apy: 0,
       dueInDays: l.dueInDays,
       maturityInDays: l.maturityInDays,
+      drift: dh % 5 < 2 ? 3 + (dh >>> 3) % 19 : 0,
     }
   })
 
@@ -431,20 +549,25 @@ export const unmappedLoanCount = () =>
     return !(m && m.label.trim() && m.category)
   }).length, 0)
 
+const ruleInstances = (a, rule) =>
+  rule.entity === 'offer'
+    ? resolvedOffers(a.id).filter((o) => offerMatches(o, rule))
+    : accountProducts(a).filter((p) => p.category && productMatches(p, rule))
+
 export function realReach(rule) {
   if (!ruleActive(rule)) return null
   let members = 0
   let products = 0
   for (const a of SYMITAR_ACCOUNTS) {
-    const matches = accountProducts(a).filter((p) => p.category && productMatches(p, rule))
+    const matches = ruleInstances(a, rule)
     if (memberSatisfies(matches.length, rule.quantifier)) members++
     products += matches.length
   }
   return {
     members,
     products: rule.quantifier === 'none' ? null : products,
-    source: 'extract',
-    unmappable: unmappedLoanCount(),
+    source: rule.entity === 'offer' ? 'insights' : 'extract',
+    unmappable: rule.entity === 'offer' ? unmappedOfferCount() : unmappedLoanCount(),
   }
 }
 
@@ -454,7 +577,9 @@ export function realReach(rule) {
 export function datasetMatchedMembers(rule, limit = 8) {
   const out = []
   for (const a of SYMITAR_ACCOUNTS) {
-    const matches = accountProducts(a).filter((p) => p.category && productMatches(p, rule))
+    const matches = ruleInstances(a, rule).map((m) =>
+      rule.entity === 'offer' ? { ...m, fact: offerFactline(m) } : m
+    )
     if (!memberSatisfies(matches.length, rule.quantifier)) continue
     const h = hash(a.id)
     const f = FIRST[h % FIRST.length]
@@ -528,10 +653,11 @@ export const AUDIENCE_TEMPLATES = [
 /* ── sources: the ingestion layer. Pulsate is not a data lake — every
       source maps into the curated registry; store only what activates. */
 export const seedSources = () => [
-  { id: 'src-symitar', name: 'Symitar core feed', type: 'core', cadence: 'SFTP · nightly 04:12', records: '18,400 members', identity: 'Member number', fields: 26, status: 'healthy', note: '2 new product codes in last night’s file' },
-  { id: 'src-hubspot', name: 'HubSpot', type: 'crm', cadence: 'API · hourly', records: '13,620 contacts', identity: 'Email → member # · 74% match', fields: 12, status: 'healthy', note: null },
-  { id: 'src-sdk', name: 'Mobile SDK', type: 'sdk', cadence: 'Real-time events', records: '9,850 devices linked', identity: 'Device → member link', fields: 8, status: 'healthy', note: null },
-  { id: 'src-csv', name: 'Winback list — March', type: 'file', cadence: 'One-off upload', records: '5,310 rows', identity: 'Member number', fields: 4, status: 'healthy', note: null },
+  { id: 'src-symitar', name: 'Symitar core feed', type: 'core', cadence: 'SFTP · nightly 04:12', records: '18,400 members', identity: 'Member number', fields: 26, status: 'healthy', feeds: 'Products · Member attributes', note: '2 new product codes in last night’s file' },
+  { id: 'src-insights', name: 'Prequalification insights', type: 'insights', cadence: 'API · daily', records: '96 offers', identity: 'Member number', fields: 4, status: 'healthy', feeds: 'Offers', note: 'Provenance: credit prescreen — FCRA firm-offer rules apply' },
+  { id: 'src-hubspot', name: 'HubSpot', type: 'crm', cadence: 'API · hourly', records: '13,620 contacts', identity: 'Email → member # · 74% match', fields: 12, status: 'healthy', feeds: 'Member attributes', note: null },
+  { id: 'src-sdk', name: 'Mobile SDK', type: 'sdk', cadence: 'Real-time events', records: '9,850 devices linked', identity: 'Device → member link', fields: 8, status: 'healthy', feeds: 'Events', note: null },
+  { id: 'src-csv', name: 'Winback list — March', type: 'file', cadence: 'One-off upload', records: '5,310 rows', identity: 'Member number', fields: 4, status: 'healthy', feeds: 'Member attributes', note: null },
 ]
 
 export const SOURCE_TYPE_META = {
@@ -539,6 +665,7 @@ export const SOURCE_TYPE_META = {
   crm: { label: 'CRM', fg: '#c05a8a', bg: '#fbe8f1' },
   sdk: { label: 'SDK', fg: '#1f6f4a', bg: '#e2f4ea' },
   file: { label: 'File', fg: '#8a6d2e', bg: '#fbf1dc' },
+  insights: { label: 'Insights', fg: '#7a4fc0', bg: '#efe8fb' },
 }
 
 export const SOURCE_GALLERY = ['Fiserv DNA', 'Corelation KeyStone', 'Banno', 'Q2', 'Salesforce', 'Snowflake']
@@ -672,6 +799,7 @@ export function productFactline(p) {
     )
   }
   if (p.category === 'certificate') parts.push(`matures in ${p.maturityInDays} days`)
+  if (p.drift > 0) parts.push(`drifting +${p.drift}d`)
   return parts.join(' · ')
 }
 

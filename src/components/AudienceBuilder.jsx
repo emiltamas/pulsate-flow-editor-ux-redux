@@ -3,6 +3,7 @@ import {
   PRODUCT_CATEGORIES, CATEGORY_ORDER, QUANTIFIERS, EMPTY_PRODUCT_RULE, TOTAL_MEMBERS,
   fieldByKey, operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
   tagColor, fmt, productFactline, datasetMatchedMembers, SYMITAR_STATS, categoryTypes,
+  fieldsFor, offerTypeLabels, rulePlural,
 } from '../data'
 import { CloseIcon, SparkleIcon, UsersIcon, ProductIcon } from '../icons'
 
@@ -27,7 +28,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const [aiStatus, setAiStatus] = useState('idle')
 
   const active = ruleActive(rule)
-  const cat = active ? PRODUCT_CATEGORIES[rule.category] : null
+  const cat = active && rule.category ? PRODUCT_CATEGORIES[rule.category] : null
   const preview = { rule: active ? rule : null, baseIds, users: null }
   const reach = audienceReach(preview, audiences)
   const canSave = active || baseIds.length > 0
@@ -44,8 +45,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
       : { ...EMPTY_PRODUCT_RULE, quantifier: rule.quantifier, category: key })
   const toggleType = (t) =>
     setRule({ ...rule, types: rule.types.includes(t) ? rule.types.filter((x) => x !== t) : [...rule.types, t] })
+  const setEntity = (entity) =>
+    entity !== (rule.entity ?? 'product') && setRule({ ...EMPTY_PRODUCT_RULE, entity, quantifier: rule.quantifier })
   const addCondition = () => {
-    const f = cat.fields[0]
+    const f = fieldsFor(rule)[0]
     const id = (rule.conditions[rule.conditions.length - 1]?.id ?? 0) + 1
     setRule({ ...rule, conditions: [...rule.conditions, { id, field: f.key, op: operatorsFor(f.type)[0].key, value: '', n: 3 }] })
   }
@@ -149,10 +152,36 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               </div>
             </div>
 
-            {/* product conditions */}
+            {/* entity conditions */}
             <div style={{ marginBottom: 18 }}>
-              <span style={sectionLabel}>Product conditions</span>
-              <p style={helperText}>Members are matched on your own product labels — grouped so “any loan” works in one click.</p>
+              <span style={sectionLabel}>Conditions</span>
+              <p style={helperText}>
+                {rule.entity === 'offer'
+                  ? 'Match on offers the member qualifies for — amounts, rates, expirations from your insights feed.'
+                  : 'Members are matched on your own product labels — grouped so “any loan” works in one click.'}
+              </p>
+
+              {/* entity: what kind of thing are we matching? */}
+              <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 440 }}>
+                {[{ k: 'product', label: 'Member holds — products' }, { k: 'offer', label: 'Member qualifies — offers' }].map(({ k, label }) => {
+                  const on = (rule.entity ?? 'product') === k
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setEntity(k)}
+                      style={{
+                        flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit',
+                        fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                        ...(on
+                          ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                          : { background: 'transparent', color: '#5a6b85' }),
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
 
               <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>
                 {QUANTIFIERS.map((qd) => {
@@ -175,31 +204,37 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 })}
               </div>
 
-              <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {CATEGORY_ORDER.map((key) => {
-                  const on = rule.category === key
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setCategory(key)}
-                      style={{
-                        padding: '10px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                        border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
-                        background: on ? '#eef5fc' : '#fff',
-                        color: on ? '#1f4a86' : '#17335f',
-                      }}
-                    >
-                      Any {PRODUCT_CATEGORIES[key].label.toLowerCase()}
-                    </button>
-                  )
-                })}
-              </div>
+              {rule.entity !== 'offer' && (
+                <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  {CATEGORY_ORDER.map((key) => {
+                    const on = rule.category === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setCategory(key)}
+                        style={{
+                          padding: '10px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                          border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
+                          background: on ? '#eef5fc' : '#fff',
+                          color: on ? '#1f4a86' : '#17335f',
+                        }}
+                      >
+                        Any {PRODUCT_CATEGORIES[key].label.toLowerCase()}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               {active && (
                 <>
                   <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <TypeChip label={`All ${cat.label.toLowerCase()} types`} on={rule.types.length === 0} onClick={() => setRule({ ...rule, types: [] })} />
-                    {categoryTypes(rule.category).map((t) => (
+                    <TypeChip
+                      label={rule.entity === 'offer' ? 'All offer types' : `All ${cat.label.toLowerCase()} types`}
+                      on={rule.types.length === 0}
+                      onClick={() => setRule({ ...rule, types: [] })}
+                    />
+                    {(rule.entity === 'offer' ? offerTypeLabels() : categoryTypes(rule.category)).map((t) => (
                       <TypeChip key={t} label={t} on={rule.types.includes(t)} onClick={() => toggleType(t)} />
                     ))}
                   </div>
@@ -211,7 +246,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                       {rule.conditions.map((c) => (
                         <ConditionRow
                           key={c.id}
-                          category={rule.category}
+                          rule={rule}
                           condition={c}
                           onPatch={(p) => patchCondition(c.id, p)}
                           onRemove={() => removeCondition(c.id)}
@@ -237,7 +272,9 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                   </div>
 
                   <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 11, padding: '10px 14px', fontSize: 12.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
-                    Each matching product enrolls separately — a member with two qualifying loans gets each reminder.
+                    {rule.entity === 'offer'
+                      ? 'Each qualifying offer enrolls separately — “expires Friday” always means that offer.'
+                      : 'Each matching product enrolls separately — a member with two qualifying loans gets each reminder.'}
                   </div>
                 </>
               )}
@@ -261,7 +298,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
               <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{reach.source === 'extract' ? '' : '~'}{fmt(reach.members)}</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
-                members{reach.products !== null && ` · ${fmt(reach.products)} matching ${PRODUCT_CATEGORIES[rule.category].plural}`}
+                members{reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(rule)}`}
               </span>
             </div>
             <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
@@ -315,7 +352,7 @@ function SampleMembers({ rule }) {
             <div key={i} style={{ margin: '5px 0 0 40px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#5a6b85' }}>
               <ProductIcon size={11} stroke="#5a7db0" />
               <span style={{ color: '#1b3a63', fontWeight: 800 }}>{p.label}</span>
-              {productFactline(p)}
+              {p.fact ?? productFactline(p)}
             </div>
           ))}
         </div>
@@ -358,13 +395,14 @@ function TypeChip({ label, on, onClick }) {
   )
 }
 
-function ConditionRow({ category, condition, onPatch, onRemove }) {
-  const field = fieldByKey(category, condition.field)
+function ConditionRow({ rule, condition, onPatch, onRemove }) {
+  const fields = fieldsFor(rule)
+  const field = fields.find((f) => f.key === condition.field) ?? fields[0]
   const ops = operatorsFor(field.type)
   const op = ops.find((o) => o.key === condition.op) ?? ops[0]
 
   const changeField = (key) => {
-    const f = fieldByKey(category, key)
+    const f = fields.find((x) => x.key === key)
     onPatch({ field: key, op: operatorsFor(f.type)[0].key, value: '', n: 3 })
   }
 
@@ -372,7 +410,7 @@ function ConditionRow({ category, condition, onPatch, onRemove }) {
     <div style={{ border: '1px solid #e2e8f1', borderRadius: 11, padding: 10, display: 'flex', gap: 8, background: '#fff' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={condition.field} onChange={(e) => changeField(e.target.value)} style={{ ...selectStyle, width: 180 }}>
-          {PRODUCT_CATEGORIES[category].fields.map((f) => (
+          {fields.map((f) => (
             <option key={f.key} value={f.key}>{f.label}</option>
           ))}
         </select>
