@@ -1,4 +1,4 @@
-import { GEOFENCES, PRODUCT_CATEGORIES, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
+import { GEOFENCES, PRODUCT_CATEGORIES, OFFER_FIELDS, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
 import {
   CloseIcon, CheckIcon, UsersIcon, PinIcon, DwellIcon, RepeatIcon,
   EnterIcon, ExitIcon, ProductIcon, PencilIcon,
@@ -15,10 +15,11 @@ export const TRIGGER_META = {
 }
 export const TRIGGER_ORDER = ['audience', 'date', 'location', 'schedule']
 
+/* Anchor-able date fields come from the registry — every label here is
+   a mapped field name, not product vocabulary we invented. */
 const DATE_FIELDS = [
-  { key: 'dueDate', label: 'Payment due date' },
-  { key: 'maturity', label: 'Maturity date' },
-  { key: 'expires', label: 'Offer expiration' },
+  ...PRODUCT_CATEGORIES.loan.fields.filter((f) => f.type === 'date').map((f) => ({ key: f.key, label: f.label })),
+  ...OFFER_FIELDS.filter((f) => f.type === 'date').map((f) => ({ key: f.key, label: `Offer ${f.label.toLowerCase()}` })),
 ]
 
 export default function EntryPanel({
@@ -113,7 +114,7 @@ export default function EntryPanel({
                           {DATE_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()}</option>)}
                         </select>
                         <span style={{ width: '100%', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
-                          Recurring — members re-enter for each new date, e.g. every month’s payment.
+                          Recurring — members re-enter each time this date field rolls forward in your synced data.
                         </span>
                       </div>
                     )}
@@ -205,11 +206,15 @@ export default function EntryPanel({
                   style={{ marginTop: 7, width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 9, padding: '8px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
                 >
                   <option value="none">No goal — run to the end</option>
-                  <option value="payment">Payment made on the enrolling loan</option>
-                  <option value="offer_accepted">Enrolling offer is accepted</option>
+                  <option value="engaged">Clicked any message in this flow</option>
+                  <option value="field_change">Payment due date advanced on the enrolling record</option>
+                  <option value="offer_accepted">Offer status becomes accepted (from insights feed)</option>
                 </select>
                 {entry.exits.goal !== 'none' && (
-                  <p style={helperText}>Counted as a conversion in Performance — leaving as success.</p>
+                  <p style={helperText}>
+                    Counted as a conversion in Performance — leaving as success.
+                    {entry.exits.goal === 'field_change' && ' Sync-derived: inferred from the field changing between syncs, not from a payment event — Pulsate never sees payments.'}
+                  </p>
                 )}
               </div>
 
@@ -217,7 +222,7 @@ export default function EntryPanel({
                 armed={entry.exits.instanceExit}
                 onToggle={() => setEntry((s) => ({ ...s, exits: { ...s.exits, instanceExit: !s.exits.instanceExit } }))}
                 title="Enrolling product or offer no longer qualifies"
-                desc="Instance-scoped — a member with two enrollments exits only the one that stopped qualifying (loan paid off, offer expired)."
+                desc="Instance-scoped — a member with two enrollments exits only the one whose record stopped matching the rule (balance reached zero, offer expired)."
               />
               <ExitToggle
                 armed={entry.exits.audienceExit}
@@ -273,7 +278,7 @@ export default function EntryPanel({
                 <option value="week">week</option>
               </select>
             </div>
-            <p style={helperText}>If two products qualify the same day, the closest due date sends first.</p>
+            <p style={helperText}>If two records qualify the same day, the closest anchor date sends first.</p>
           </div>
         </div>
 

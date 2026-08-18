@@ -469,13 +469,24 @@ export function parseAudiencePhrase(text) {
 
 /* Mocked closed-loop numbers, derived from the audience size so the
    performance view always agrees with the reach shown. */
-export function mockPerformance(members) {
+/* Only metrics Pulsate actually observes: delivery + engagement events,
+   plus goal counts when (and only when) a goal is defined. No payment or
+   revenue claims — Pulsate never sees payments. */
+export function mockPerformance(members, goalDefined = false) {
   const delivered = Math.round(members * 0.96)
   const opened = Math.round(delivered * 0.64)
-  const converted = Math.round(opened * 0.47)
+  const clicked = Math.round(opened * 0.47)
   const exited = Math.round(members * 0.18)
-  const goalExits = Math.round(exited * 0.72)
-  return { entered: members, delivered, opened, converted, revenue: converted * 168, goalExits, removed: exited - goalExits }
+  const goalExits = goalDefined ? Math.round(exited * 0.72) : 0
+  return {
+    entered: members,
+    delivered,
+    opened,
+    clicked,
+    goalReached: goalDefined ? Math.round(clicked * 0.62) : null,
+    goalExits,
+    removed: exited - goalExits,
+  }
 }
 
 export const fmtMoney = (n) =>
