@@ -190,6 +190,73 @@ export default function EntryPanel({
             )}
           </div>
 
+          {/* EXIT — explicit, never implicit */}
+          <div style={{ padding: '0 24px 20px' }}>
+            <span style={sectionLabel}>Exit — leaving the flow</span>
+            <p style={helperText}>
+              Members finish the flow once they enter — falling out of the entry audience never ejects them. Exits are armed explicitly.
+            </p>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ border: '1px solid #e2e8f1', borderRadius: 11, padding: '11px 13px' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>Goal — exit as converted</div>
+                <select
+                  value={entry.exits.goal}
+                  onChange={(e) => setEntry((s) => ({ ...s, exits: { ...s.exits, goal: e.target.value } }))}
+                  style={{ marginTop: 7, width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 9, padding: '8px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
+                >
+                  <option value="none">No goal — run to the end</option>
+                  <option value="payment">Payment made on the enrolling loan</option>
+                  <option value="offer_accepted">Enrolling offer is accepted</option>
+                </select>
+                {entry.exits.goal !== 'none' && (
+                  <p style={helperText}>Counted as a conversion in Performance — leaving as success.</p>
+                )}
+              </div>
+
+              <ExitToggle
+                armed={entry.exits.instanceExit}
+                onToggle={() => setEntry((s) => ({ ...s, exits: { ...s.exits, instanceExit: !s.exits.instanceExit } }))}
+                title="Enrolling product or offer no longer qualifies"
+                desc="Instance-scoped — a member with two enrollments exits only the one that stopped qualifying (loan paid off, offer expired)."
+              />
+              <ExitToggle
+                armed={entry.exits.audienceExit}
+                onToggle={() => setEntry((s) => ({ ...s, exits: { ...s.exits, audienceExit: !s.exits.audienceExit } }))}
+                title="No longer matches the entry audience"
+                desc="Re-checked continuously, including during waits."
+                warning={entry.exits.audienceExit ? 'Rolling windows eject mid-flow: with “account created 0–7 days”, members leave on day 8 even between steps.' : null}
+              />
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <span style={sectionLabel}>Re-enrollment</span>
+              <div style={{ marginTop: 7, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3 }}>
+                {[{ k: 'off', label: 'Off' }, { k: 'once', label: 'Once ever' }, { k: 'per_event', label: 'Every qualifying event' }].map(({ k, label }) => {
+                  const on = entry.reenroll === k
+                  return (
+                    <button
+                      key={k}
+                      onClick={() => setEntry((s) => ({ ...s, reenroll: k }))}
+                      style={{
+                        flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                        ...(on ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' } : { background: 'transparent', color: '#5a6b85' }),
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              <p style={helperText}>
+                {entry.reenroll === 'per_event'
+                  ? 'Right for recurring date anchors — each new due date or offer enrolls again.'
+                  : entry.reenroll === 'once'
+                    ? 'Members can enter this flow only once, ever.'
+                    : 'Members who exit cannot re-enter this flow.'}
+              </p>
+            </div>
+          </div>
+
           {/* governance */}
           <div style={{ padding: '0 24px' }}>
             <span style={sectionLabel}>Governance</span>
@@ -237,6 +304,31 @@ export default function EntryPanel({
         </div>
       </div>
     </>
+  )
+}
+
+function ExitToggle({ armed, onToggle, title, desc, warning }) {
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+        border: `1px solid ${armed ? '#cfe1f6' : '#e2e8f1'}`, background: armed ? '#eef5fc' : '#fff',
+      }}
+    >
+      <span style={{ width: 18, height: 18, borderRadius: 5, flex: 'none', marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${armed ? '#2f7fd6' : '#c3ccd9'}`, background: armed ? '#2f7fd6' : '#fff', boxSizing: 'border-box' }}>
+        {armed && <CheckIcon size={10} stroke="#fff" />}
+      </span>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>{title}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+        {warning && (
+          <div style={{ marginTop: 7, fontSize: 11.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 7, padding: '5px 9px' }}>
+            {warning}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

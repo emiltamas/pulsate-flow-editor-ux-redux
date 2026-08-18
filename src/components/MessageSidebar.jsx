@@ -7,7 +7,7 @@ import {
 
 const CHANNEL_ICONS = { push: BellIcon, inapp: SmartphoneIcon, feed: FeedIcon }
 
-const EMPTY_DRAFT = { name: '', channels: [], title: '', body: '', cta: '', skip: 'always' }
+const EMPTY_DRAFT = { name: '', channels: [], title: '', body: '', cta: '', skip: 'always', recheck: true }
 
 const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
 const helperText = { margin: '4px 0 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
@@ -194,6 +194,23 @@ export default function MessageSidebar({ message, onClose, onSave }) {
               desc="Matching members pass straight to the next step without it."
               note={draft.skip === 'conditional' ? 'Condition builder is coming next — saved as a placeholder for now.' : null}
             />
+            <div
+              onClick={() => patch({ recheck: !draft.recheck })}
+              style={{
+                display: 'flex', gap: 11, padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                border: `1px solid ${draft.recheck ? '#cfe1f6' : '#e2e8f1'}`, background: draft.recheck ? '#eef5fc' : '#fff',
+              }}
+            >
+              <span style={{ width: 18, height: 18, borderRadius: 5, flex: 'none', marginTop: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${draft.recheck ? '#2f7fd6' : '#c3ccd9'}`, background: draft.recheck ? '#2f7fd6' : '#fff', boxSizing: 'border-box' }}>
+                {draft.recheck && <CheckIcon size={10} stroke="#fff" />}
+              </span>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>Re-check audience before each send</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>
+                  Members who no longer match are skipped for this send — they stay in the flow. Gates the message, not the membership.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

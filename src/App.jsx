@@ -15,6 +15,8 @@ export default function App() {
   const [entry, setEntry] = useState({
     trigger: { type: 'audience', geoSel: {}, dateDays: 3, dateField: 'dueDate' },
     audienceId: null,
+    exits: { goal: 'none', instanceExit: false, audienceExit: false },
+    reenroll: 'off',
   })
   const [entrySaved, setEntrySaved] = useState(false)
   const [audiences, setAudiences] = useState(seedAudiences)

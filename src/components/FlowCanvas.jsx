@@ -173,7 +173,21 @@ function StartNodeCard({ entry, audience, reach, perf }) {
           <PlayIcon size={17} stroke="#fff" />
           <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.4px', textTransform: 'uppercase' }}>Start · Entry</span>
         </div>
-        <PencilIcon size={16} stroke="#fff" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {(() => {
+            const ex = entry.exits ?? {}
+            const n = (ex.goal !== 'none' && ex.goal ? 1 : 0) + (ex.instanceExit ? 1 : 0) + (ex.audienceExit ? 1 : 0)
+            const bits = []
+            if (n) bits.push(`${n} exit${n === 1 ? '' : 's'}`)
+            if (entry.reenroll && entry.reenroll !== 'off') bits.push(entry.reenroll === 'once' ? 're-enter once' : 're-enter per event')
+            return bits.length ? (
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                {bits.join(' · ')}
+              </span>
+            ) : null
+          })()}
+          <PencilIcon size={16} stroke="#fff" />
+        </div>
       </div>
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
@@ -211,7 +225,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
       {perf && (
         <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#1f6f4a', fontSize: 11.5, fontWeight: 800 }}>
           <ChartIcon size={13} />
-          {fmt(perf.entered)} members entered
+          {fmt(perf.entered)} entered · {fmt(perf.goalExits)} goal exits · {fmt(perf.removed)} removed
         </div>
       )}
     </div>
