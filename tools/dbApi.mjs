@@ -148,10 +148,10 @@ export async function bootstrapPayload() {
       const bucket = memberRecords.get(m.code)
       ;(bucket[ent] = bucket[ent] ?? []).push({ key: r.external_key, status: r.status, holders: holderCount.get(r.id) ?? 1, values })
     }
-    const members = [...memberRecords.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    const memberRows = [...memberRecords.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .map(([id, records]) => ({ id, records }))
 
-    return { available: true, fileDate, stats, accounts: out, codes, registry, members, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
+    return { available: true, fileDate, stats, accounts: out, codes, registry, members: memberRows, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
   } finally {
     db.close()
   }
