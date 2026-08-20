@@ -24,7 +24,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   // never open in a dead state: default to the first scope, and coerce
   // rules whose entity no longer exists (stale saves) back to it
   const normalizeRule = (r) => {
-    const first = segmentScopes()[0]?.scopes[0] ?? null
+    const first = segmentScopes()[0] ?? null
     if (!r) return { ...EMPTY_RULE, entity: first?.entity ?? null, codeCategory: first?.codeCategory ?? null }
     if (!r.entity || !entityDef(r.entity)) return { ...EMPTY_RULE, quantifier: r.quantifier ?? 'any', entity: first?.entity ?? null, codeCategory: first?.codeCategory ?? null }
     return { codeCategory: null, ...r }
@@ -177,40 +177,27 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 </div>
               ) : (
                 <>
-                  {/* what are we matching? Scopes come from BOTH category
-                      layers the model supports: the entity's category and
-                      the per-code categories mapped in the catalog. Cards
-                      on Loans records surface as a first-class scope. */}
-                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14, maxWidth: 640 }}>
-                    {segmentScopes().map((g) => (
-                      <div key={g.category}>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
-                          {g.label}
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                          {g.scopes.map((s) => {
-                            const on = rule.entity === s.entity && (rule.codeCategory ?? null) === s.codeCategory
-                            return (
-                              <button
-                                key={s.entity + '·' + s.codeCategory}
-                                onClick={() => setScope(s.entity, s.codeCategory)}
-                                style={{
-                                  minWidth: 120, padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer', textAlign: 'left',
-                                  border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
-                                  background: on ? '#eef5fc' : '#fff',
-                                  color: on ? '#1f4a86' : '#17335f',
-                                }}
-                              >
-                                {s.label}
-                                <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: on ? '#5a7db0' : '#8a95a6' }}>
-                                  {s.sub}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                  {/* what are we matching? One card per category the data
+                      actually carries — from the entity's category and the
+                      per-code categories mapped in the catalog. */}
+                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 640 }}>
+                    {segmentScopes().map((s) => {
+                      const on = rule.entity === s.entity && (rule.codeCategory ?? null) === s.codeCategory
+                      return (
+                        <button
+                          key={s.entity + '·' + s.codeCategory}
+                          onClick={() => setScope(s.entity, s.codeCategory)}
+                          style={{
+                            padding: '10px 18px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                            border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
+                            background: on ? '#eef5fc' : '#fff',
+                            color: on ? '#1f4a86' : '#17335f',
+                          }}
+                        >
+                          {s.label}
+                        </button>
+                      )
+                    })}
                   </div>
 
                   <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>

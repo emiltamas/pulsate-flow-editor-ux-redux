@@ -127,32 +127,28 @@ export const categoryLabel = (c) =>
    records DYNAMICALLY by their code's current category mapping, so a
    re-categorized code moves scopes instantly. */
 export const segmentScopes = () => {
-  const groups = new Map() // category → scopes
-  const push = (cat, scope) => {
-    const key = cat && PULSATE_CATEGORY_ORDER.includes(cat) ? cat : 'UNKNOWN'
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(scope)
-  }
+  const out = []
   for (const e of segmentEntities()) {
     const types = entityTypes(e.name)
     const cats = [...new Set(types.map((t) => activeCodeMap.get(t.code)?.category ?? null))]
-    const realCats = cats.filter(Boolean)
+    const realCats = PULSATE_CATEGORY_ORDER.filter((c) => cats.includes(c))
     if (!e.codeField || realCats.length === 0) {
-      push(e.category, { entity: e.name, codeCategory: null, label: e.name, sub: `${e.fields.length} fields` })
+      out.push({ entity: e.name, codeCategory: null, label: e.name })
       continue
     }
-    for (const c of realCats) {
-      const n = types.filter((t) => activeCodeMap.get(t.code)?.category === c).reduce((s, t) => s + t.count, 0)
-      push(c, { entity: e.name, codeCategory: c, label: categoryLabel(c), sub: `on ${e.name} records · ${n}`, })
-    }
-    if (cats.includes(null)) {
-      const n = types.filter((t) => !activeCodeMap.get(t.code)?.category).reduce((s, t) => s + t.count, 0)
-      push('UNKNOWN', { entity: e.name, codeCategory: 'UNKNOWN', label: 'Uncategorized', sub: `on ${e.name} records · ${n}` })
-    }
-    // the unfiltered entity itself stays reachable under its own category
-    push(e.category, { entity: e.name, codeCategory: null, label: `All ${e.name}`, sub: `every record · ${types.reduce((s, t) => s + t.count, 0)}` })
+    for (const c of realCats) out.push({ entity: e.name, codeCategory: c, label: categoryLabel(c) })
+    if (cats.includes(null)) out.push({ entity: e.name, codeCategory: 'UNKNOWN', label: 'Uncategorized' })
   }
-  return PULSATE_CATEGORY_ORDER.filter((c) => groups.has(c)).map((c) => ({ category: c, label: categoryLabel(c), scopes: groups.get(c) }))
+  return out
+}
+
+/* The category scope a rule over this entity should default to: the
+   entity's own category when its codes actually carry it, else none. */
+export const scopeCategoryFor = (entityName) => {
+  const def = entityDef(entityName)
+  if (!def?.codeField) return null
+  const hasOwn = entityTypes(entityName).some((t) => activeCodeMap.get(t.code)?.category === def.category)
+  return hasOwn ? def.category : null
 }
 
 /* Condition fields for an entity = its typed fields minus the code field
@@ -596,7 +592,7 @@ export const roleField = (role) => {
 const roleRule = (role, conditions, quantifier = 'any') => {
   const rf = roleField(role)
   if (!rf) return null
-  return { quantifier, entity: rf.entity, types: [], conditions: conditions(rf) }
+  return { quantifier, entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: conditions(rf) }
 }
 
 export const DEMO_RULE = roleRule('recurring_date', (rf) => [{ id: 1, field: rf.field, op: 'next_n', value: '', n: 3 }])
@@ -609,11 +605,12 @@ export const seedAudiences = () => {
   const due = roleField('recurring_date')
   const bal = roleField('balance')
   const firstEntity = segmentEntities()[0]?.name
+  const cat = (e) => scopeCategoryFor(e)
   return [
-    due && bal && { id: 'aud-sym-pastdue', name: `${due.entity} past due`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, types: [], conditions: [{ id: 1, field: due.field, op: 'past_n', value: '', n: 0 }, { id: 2, field: bal.field, op: 'gt', value: '0', n: 3 }] }, baseIds: [], usedIn: 0 },
-    due && { id: 'aud-sym-due30', name: `${due.label} — next 30 days`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, types: [], conditions: [{ id: 1, field: due.field, op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
-    { id: 'aud-sym-nomaturity', name: 'No Maturity Date on file', kind: 'Rule', rule: { quantifier: 'any', entity: 'Loans', types: [], conditions: [{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }] }, baseIds: [], usedIn: 0 },
-    firstEntity && { id: 'aud-sym-multi', name: `Members with 2+ ${firstEntity} records`, kind: 'Rule', rule: { quantifier: 'two_plus', entity: firstEntity, types: [], conditions: [] }, baseIds: [], usedIn: 0 },
+    due && bal && { id: 'aud-sym-pastdue', name: `${due.entity} past due`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'past_n', value: '', n: 0 }, { id: 2, field: bal.field, op: 'gt', value: '0', n: 3 }] }, baseIds: [], usedIn: 0 },
+    due && { id: 'aud-sym-due30', name: `${due.label} — next 30 days`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
+    { id: 'aud-sym-nomaturity', name: 'No Maturity Date on file', kind: 'Rule', rule: { quantifier: 'any', entity: 'Loans', codeCategory: cat('Loans'), types: [], conditions: [{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }] }, baseIds: [], usedIn: 0 },
+    firstEntity && { id: 'aud-sym-multi', name: `Members with 2+ ${firstEntity}`, kind: 'Rule', rule: { quantifier: 'two_plus', entity: firstEntity, codeCategory: cat(firstEntity), types: [], conditions: [] }, baseIds: [], usedIn: 0 },
     DEMO_RULE && { id: 'aud-due-soon', name: `${due?.label ?? 'Anchor'} — next 3 days`, kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 0 },
   ].filter(Boolean)
 }
@@ -769,7 +766,7 @@ export const dueDateGap = () => {
 export const gapAudienceRule = () => {
   const rf = roleField('recurring_date')
   if (!rf) return null
-  return { quantifier: 'any', entity: rf.entity, types: [], conditions: [{ id: 1, field: rf.field, op: 'not_set', value: '', n: 3 }] }
+  return { quantifier: 'any', entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: [{ id: 1, field: rf.field, op: 'not_set', value: '', n: 3 }] }
 }
 
 /* Display identities for real matched members: deterministic synthetic
