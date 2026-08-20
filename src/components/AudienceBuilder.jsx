@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, groupedSegmentEntities, entityTypes, entityDef,
+  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
   operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
   tagColor, fmt, datasetMatchedMembers, SYMITAR_STATS,
   fieldsFor, rulePlural, codeLabel,
@@ -21,13 +21,13 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const isNew = !audience
   const [name, setName] = useState(audience?.name ?? '')
   const [baseIds, setBaseIds] = useState(audience?.baseIds ?? [])
-  // never open in a dead state: default to the first entity, and coerce
+  // never open in a dead state: default to the first scope, and coerce
   // rules whose entity no longer exists (stale saves) back to it
   const normalizeRule = (r) => {
-    const first = segmentEntities()[0]?.name ?? null
-    if (!r) return { ...EMPTY_RULE, entity: first }
-    if (!r.entity || !entityDef(r.entity)) return { ...EMPTY_RULE, quantifier: r.quantifier ?? 'any', entity: first }
-    return { ...r }
+    const first = segmentScopes()[0]?.scopes[0] ?? null
+    if (!r) return { ...EMPTY_RULE, entity: first?.entity ?? null, codeCategory: first?.codeCategory ?? null }
+    if (!r.entity || !entityDef(r.entity)) return { ...EMPTY_RULE, quantifier: r.quantifier ?? 'any', entity: first?.entity ?? null, codeCategory: first?.codeCategory ?? null }
+    return { codeCategory: null, ...r }
   }
   const [rule, setRule] = useState(() => normalizeRule(audience?.rule ?? initialRule))
   const [aiText, setAiText] = useState('')
@@ -47,9 +47,9 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     if (parsed) { setRule(parsed); setAiStatus('ok') } else setAiStatus('fail')
   }
 
-  const setEntity = (name) => {
-    if (name === rule.entity) return // no deselect back into a dead state
-    setRule({ ...EMPTY_RULE, quantifier: rule.quantifier, entity: name })
+  const setScope = (entity, codeCategory) => {
+    if (entity === rule.entity && (rule.codeCategory ?? null) === codeCategory) return
+    setRule({ ...EMPTY_RULE, quantifier: rule.quantifier, entity, codeCategory })
   }
   const toggleType = (t) =>
     setRule({ ...rule, types: rule.types.includes(t) ? rule.types.filter((x) => x !== t) : [...rule.types, t] })
@@ -177,32 +177,33 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 </div>
               ) : (
                 <>
-                  {/* which entity are we matching records of? Entities keep
-                      the FI's own names; our curated categories only GROUP
-                      them so a long registry stays scannable. */}
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 640 }}>
-                    {groupedSegmentEntities().map((g) => (
+                  {/* what are we matching? Scopes come from BOTH category
+                      layers the model supports: the entity's category and
+                      the per-code categories mapped in the catalog. Cards
+                      on Loans records surface as a first-class scope. */}
+                  <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14, maxWidth: 640 }}>
+                    {segmentScopes().map((g) => (
                       <div key={g.category}>
                         <div style={{ fontSize: 10, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
                           {g.label}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                          {g.entities.map((e) => {
-                            const on = rule.entity === e.name
+                          {g.scopes.map((s) => {
+                            const on = rule.entity === s.entity && (rule.codeCategory ?? null) === s.codeCategory
                             return (
                               <button
-                                key={e.name}
-                                onClick={() => setEntity(e.name)}
+                                key={s.entity + '·' + s.codeCategory}
+                                onClick={() => setScope(s.entity, s.codeCategory)}
                                 style={{
-                                  minWidth: 130, padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer', textAlign: 'left',
+                                  minWidth: 120, padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer', textAlign: 'left',
                                   border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
                                   background: on ? '#eef5fc' : '#fff',
                                   color: on ? '#1f4a86' : '#17335f',
                                 }}
                               >
-                                {e.name}
+                                {s.label}
                                 <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: on ? '#5a7db0' : '#8a95a6' }}>
-                                  {e.fields.length} fields
+                                  {s.sub}
                                 </div>
                               </button>
                             )
@@ -237,14 +238,14 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
               {active && (
                 <>
-                  {entityTypes(rule.entity).length > 0 && (
+                  {entityTypes(rule.entity, rule.codeCategory ?? null).length > 0 && (
                     <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <TypeChip
-                        label={`All ${rule.entity} types`}
+                        label="All types in scope"
                         on={rule.types.length === 0}
                         onClick={() => setRule({ ...rule, types: [] })}
                       />
-                      {entityTypes(rule.entity).map((t) => (
+                      {entityTypes(rule.entity, rule.codeCategory ?? null).map((t) => (
                         <TypeChip
                           key={t.code}
                           label={t.labeled ? t.label : `${t.code} — unlabeled`}

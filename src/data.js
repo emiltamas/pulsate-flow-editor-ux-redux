@@ -119,16 +119,40 @@ export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card',
 export const categoryLabel = (c) =>
   c === 'UNKNOWN' || !c ? 'Uncategorized' : c === 'member' ? 'Member profile' : c[0].toUpperCase() + c.slice(1) + 's'
 
-/* Segment entities grouped by curated category, in canonical order —
-   the builder renders these groups so entity lists scale. */
-export const groupedSegmentEntities = () => {
-  const groups = new Map()
-  for (const e of segmentEntities()) {
-    const key = e.category && PULSATE_CATEGORY_ORDER.includes(e.category) ? e.category : 'UNKNOWN'
+/* Builder scopes: the top level marketers pick from. Categories come
+   from TWO places the model supports — the entity's own category, and
+   the per-code categories mapped in the catalog. An entity whose codes
+   span several categories (this CU's cards ride on Loans records)
+   contributes one scope per category: {entity, codeCategory} filters
+   records DYNAMICALLY by their code's current category mapping, so a
+   re-categorized code moves scopes instantly. */
+export const segmentScopes = () => {
+  const groups = new Map() // category → scopes
+  const push = (cat, scope) => {
+    const key = cat && PULSATE_CATEGORY_ORDER.includes(cat) ? cat : 'UNKNOWN'
     if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push(e)
+    groups.get(key).push(scope)
   }
-  return PULSATE_CATEGORY_ORDER.filter((c) => groups.has(c)).map((c) => ({ category: c, label: categoryLabel(c), entities: groups.get(c) }))
+  for (const e of segmentEntities()) {
+    const types = entityTypes(e.name)
+    const cats = [...new Set(types.map((t) => activeCodeMap.get(t.code)?.category ?? null))]
+    const realCats = cats.filter(Boolean)
+    if (!e.codeField || realCats.length === 0) {
+      push(e.category, { entity: e.name, codeCategory: null, label: e.name, sub: `${e.fields.length} fields` })
+      continue
+    }
+    for (const c of realCats) {
+      const n = types.filter((t) => activeCodeMap.get(t.code)?.category === c).reduce((s, t) => s + t.count, 0)
+      push(c, { entity: e.name, codeCategory: c, label: categoryLabel(c), sub: `on ${e.name} records · ${n}`, })
+    }
+    if (cats.includes(null)) {
+      const n = types.filter((t) => !activeCodeMap.get(t.code)?.category).reduce((s, t) => s + t.count, 0)
+      push('UNKNOWN', { entity: e.name, codeCategory: 'UNKNOWN', label: 'Uncategorized', sub: `on ${e.name} records · ${n}` })
+    }
+    // the unfiltered entity itself stays reachable under its own category
+    push(e.category, { entity: e.name, codeCategory: null, label: `All ${e.name}`, sub: `every record · ${types.reduce((s, t) => s + t.count, 0)}` })
+  }
+  return PULSATE_CATEGORY_ORDER.filter((c) => groups.has(c)).map((c) => ({ category: c, label: categoryLabel(c), scopes: groups.get(c) }))
 }
 
 /* Condition fields for an entity = its typed fields minus the code field
@@ -231,9 +255,10 @@ const fmtDateValue = (v) => {
   return isNaN(d) ? '…' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-/* Rule: quantifier over one entity's records. types are RAW code values
-   of the entity's code field (labels can change; codes are stable). */
-export const EMPTY_RULE = { quantifier: 'any', entity: null, types: [], conditions: [], recurring: false }
+/* Rule: quantifier over one entity's records, optionally scoped to a
+   code category (resolved live through the catalog mapping). types are
+   RAW code values (labels can change; codes are stable). */
+export const EMPTY_RULE = { quantifier: 'any', entity: null, codeCategory: null, types: [], conditions: [], recurring: false }
 
 /* N-value with default, treating 0 as a real value ("more than 0 days
    ago" = any past date). */
@@ -259,7 +284,7 @@ export const codeIsLabeled = (code) => !!activeCodeMap.get(code)?.label.trim()
 /* Scope chips for an entity: every raw code seen in its data, labeled
    where the catalog labels it, shown raw where it doesn't. Unlabeled
    codes stay targetable — the marketer sees exactly what the data says. */
-export const entityTypes = (entityName) => {
+export const entityTypes = (entityName, codeCategory = undefined) => {
   const def = entityDef(entityName)
   if (!def?.codeField) return []
   const counts = new Map()
@@ -272,6 +297,11 @@ export const entityTypes = (entityName) => {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([code, count]) => ({ code, label: codeLabel(code), labeled: codeIsLabeled(code), count }))
+    .filter((t) => {
+      if (codeCategory === undefined || codeCategory === null) return true
+      const cat = activeCodeMap.get(t.code)?.category ?? null
+      return codeCategory === 'UNKNOWN' ? cat === null : cat === codeCategory
+    })
 }
 
 export const unlabeledRecordCount = (entityName) => {
@@ -321,6 +351,10 @@ export function ruleSentence(rule) {
   const plural = rule.quantifier === 'two_plus'
   const lead = rule.quantifier === 'any' ? 'Any' : rule.quantifier === 'none' ? 'No' : '2 or more'
   let scope = `${rule.entity} record${plural ? 's' : ''}`
+  if (rule.codeCategory) {
+    const cl = rule.codeCategory === 'UNKNOWN' ? 'Uncategorized' : categoryLabel(rule.codeCategory)
+    if (cl !== rule.entity) scope += ` in ${cl}` // skip "Loans record in Loans"
+  }
   if (rule.types.length) scope += ` of type ${rule.types.map((c) => codeLabel(c)).join(' or ')}`
   const conds = rule.conditions.length
     ? ` where ${rule.conditions.map((c) => conditionText(rule, c)).join(' and ')}`
@@ -357,10 +391,14 @@ const conditionsMatch = (def, rec, rule) =>
   })
 
 const recordMatches = (def, rec, rule) => {
-  if (rule.types.length) {
-    const code = def.codeField ? rec.values[def.codeField] : null
-    if (!rule.types.includes(code)) return false
+  const code = def.codeField ? rec.values[def.codeField] : null
+  // category scope filters DYNAMICALLY through the live code mapping —
+  // re-categorizing a code moves its records between scopes
+  if (rule.codeCategory) {
+    const cat = code != null ? activeCodeMap.get(code)?.category ?? null : null
+    if (rule.codeCategory === 'UNKNOWN' ? cat !== null : cat !== rule.codeCategory) return false
   }
+  if (rule.types.length && !rule.types.includes(code)) return false
   return conditionsMatch(def, rec, rule)
 }
 
