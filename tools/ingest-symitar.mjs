@@ -87,7 +87,7 @@ const F = {
   type: upsertField(loansEntity, 'Loan Type', 'Loan Type', 'string', 'code'),
   balance: upsertField(loansEntity, 'Loan Balance', 'Loan Balance', 'currency', 'balance'),
   payment: upsertField(loansEntity, 'Payment', 'Payment', 'currency', null),
-  rate: upsertField(loansEntity, 'Interest Rate', 'Interest Rate', 'number', null),
+  rate: upsertField(loansEntity, 'Interest Rate', 'Interest Rate', 'number', 'rate'),
   due: upsertField(loansEntity, 'Due Date', 'Due Date', 'date', 'recurring_date'),
   maturity: upsertField(loansEntity, 'Maturity Date', 'Maturity Date', 'date', null),
   open: upsertField(loansEntity, 'Open Date', 'Open Date', 'date', null),

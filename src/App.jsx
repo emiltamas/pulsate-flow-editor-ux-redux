@@ -5,7 +5,7 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, GAP_AUDIENCE_RULE } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, gapAudienceRule } from './data'
 import { loadFromDb, persistCodeMapping } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
@@ -139,7 +139,7 @@ export default function App() {
               )
             }
             onCreateGapAudience={() =>
-              setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: { ...GAP_AUDIENCE_RULE } })
+              setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: gapAudienceRule() })
             }
             sources={sources}
           />

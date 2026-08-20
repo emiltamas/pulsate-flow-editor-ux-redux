@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
+import { audienceTemplates, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
 import { SearchIcon, EyeIcon, PencilIcon, SparkleIcon } from '../icons'
 import UserDrillIn from './UserDrillIn'
 
@@ -41,7 +41,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
           <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>Outcome playbooks — activate in one click, then open and edit the rule behind it. Only playbooks your ingested data can evaluate are shown.</span>
         </div>
         <div style={{ margin: '10px 0 6px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-          {AUDIENCE_TEMPLATES.map((tpl) => {
+          {audienceTemplates().map((tpl) => {
             const activated = audiences.some((a) => a.id === `aud-${tpl.id}`)
             return (
               <div key={tpl.id} style={{ background: '#fff', border: '1px solid #dfe7f2', borderRadius: 12, padding: '12px 13px', display: 'flex', flexDirection: 'column', gap: 6 }}>

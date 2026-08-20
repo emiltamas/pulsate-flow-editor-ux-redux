@@ -450,6 +450,11 @@ function ConditionRow({ rule, condition, onPatch, onRemove }) {
             <input type="date" value={condition.value2 ?? ''} onChange={(e) => onPatch({ value2: e.target.value })} style={{ ...selectStyle, width: 150 }} />
           </>
         )}
+        {/* what the model actually knows about this field: its type, and
+            the mapped semantic role when one exists */}
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#8a95a6', background: '#eef1f6', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+          {field.type}{field.role ? ` · ${field.role}` : ''}
+        </span>
       </div>
       <button
         onClick={onRemove}

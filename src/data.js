@@ -44,7 +44,7 @@ const FALLBACK_REGISTRY = [
       { name: 'Loan Type', label: 'Loan Type', type: 'string', role: 'code' },
       { name: 'Loan Balance', label: 'Loan Balance', type: 'currency', role: 'balance' },
       { name: 'Payment', label: 'Payment', type: 'currency', role: null },
-      { name: 'Interest Rate', label: 'Interest Rate', type: 'number', role: null },
+      { name: 'Interest Rate', label: 'Interest Rate', type: 'number', role: 'rate' },
       { name: 'Due Date', label: 'Due Date', type: 'date', role: 'recurring_date' },
       { name: 'Maturity Date', label: 'Maturity Date', type: 'date', role: null },
     ],
@@ -305,10 +305,12 @@ export function conditionText(rule, c) {
     if (c.op === 'between_dates') return `${name} is between ${fmtDateValue(c.value)} and ${fmtDateValue(c.value2)}`
     return nOr(c.n, 30) === 0 ? `${name} is in the past` : `${name} was more than ${nOr(c.n, 30)} days ago`
   }
+  // formatting comes ONLY from what the model declares: type → $,
+  // semantic_role 'rate' → % — never from guessing at labels
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
   const v = f.type === 'currency'
     ? `$${fmt(Number(c.value) || 0)}`
-    : `${Number(c.value) || 0}${/rate|apy/i.test(f.label) ? '%' : ''}`
+    : `${Number(c.value) || 0}${f.role === 'rate' ? '%' : ''}`
   return `${name} ${op?.label ?? c.op} ${v}`
 }
 
@@ -388,15 +390,17 @@ export function realReach(rule) {
   }
 }
 
-/* Human factline for any record: its type label plus the most salient
-   currency and date facts, using the entity's own field labels. */
+/* Human factline for any record. Salience comes from semantic roles the
+   FI mapped (balance, recurring_date) — when no roles exist we don't
+   guess which field matters; we show the first set values with their
+   own labels. */
 export function recordFactline(entityName, rec) {
   const def = entityDef(entityName)
   if (!def) return ''
   const parts = []
-  const cur = def.fields.find((f) => f.role === 'balance') ?? def.fields.find((f) => f.type === 'currency')
+  const cur = def.fields.find((f) => f.role === 'balance')
   if (cur && rec.values[cur.name] != null) parts.push(`$${fmt(rec.values[cur.name])}`)
-  const dt = def.fields.find((f) => f.role === 'recurring_date') ?? def.fields.find((f) => f.type === 'date')
+  const dt = def.fields.find((f) => f.role === 'recurring_date')
   if (dt) {
     const v = rec.values[dt.name]
     const label = dt.label
@@ -408,7 +412,17 @@ export function recordFactline(entityName, rec) {
         : `${label} in ${v} days`
     )
   }
-  return parts.join(' · ')
+  if (parts.length) return parts.join(' · ')
+  // no roles mapped on this entity — plain label: value facts, no guessing
+  return def.fields
+    .filter((f) => f.name !== def.codeField && rec.values[f.name] !== undefined)
+    .slice(0, 2)
+    .map((f) => {
+      const v = rec.values[f.name]
+      const shown = f.type === 'currency' ? `$${fmt(v)}` : f.type === 'date' ? `${v >= 0 ? 'in ' + v : -v} days${v < 0 ? ' ago' : ''}` : String(v)
+      return `${f.label} ${shown}`
+    })
+    .join(' · ')
 }
 
 export const recordTypeLabel = (entityName, rec) => {
@@ -485,8 +499,12 @@ export function parseAudiencePhrase(text) {
   const conditions = []
   let id = 1
   let m
-  const dateField = (kw) => def.fields.find((f) => f.type === 'date' && f.label.toLowerCase().includes(kw))
-  const currencyField = () => def.fields.find((f) => f.role === 'balance') ?? def.fields.find((f) => f.type === 'currency')
+  // meaning resolves through mapped roles first; a label-keyword match is
+  // the fallback (the user typed the field's own name — that's honest)
+  const dateField = (kw) =>
+    (kw === 'due' ? def.fields.find((f) => f.role === 'recurring_date') : null) ??
+    def.fields.find((f) => f.type === 'date' && f.label.toLowerCase().includes(kw))
+  const currencyField = () => def.fields.find((f) => f.role === 'balance') ?? def.fields.find((f) => f.type === 'currency' && f.label.toLowerCase().includes('balance'))
 
   if ((m = t.match(blankRe))) {
     const f = def.fields.find((x) => x.label.toLowerCase().includes(m[1].trim())) ?? dateField(m[1].trim())
@@ -526,35 +544,59 @@ export function parseAudiencePhrase(text) {
 
 /* ── audiences as first-class objects ────────────────────────────── */
 
-export const DEMO_RULE = {
-  quantifier: 'any', entity: 'Loans', types: [],
-  conditions: [{ id: 1, field: 'Due Date', op: 'next_n', value: '', n: 3 }],
+/* Role lookup: the entity+field pair that carries a given semantic role.
+   This is how anything needing MEANING (playbooks, gap checks, demo
+   rules) finds its field — never by hardcoding a field name. */
+export const roleField = (role) => {
+  for (const e of segmentEntities()) {
+    const f = e.fields.find((x) => x.role === role)
+    if (f) return { entity: e.name, field: f.name, label: f.label }
+  }
+  return null
 }
 
-const loansRule = (conditions, quantifier = 'any') => ({ quantifier, entity: 'Loans', types: [], conditions })
+const roleRule = (role, conditions, quantifier = 'any') => {
+  const rf = roleField(role)
+  if (!rf) return null
+  return { quantifier, entity: rf.entity, types: [], conditions: conditions(rf) }
+}
+
+export const DEMO_RULE = roleRule('recurring_date', (rf) => [{ id: 1, field: rf.field, op: 'next_n', value: '', n: 3 }])
 
 /* Every seeded audience is rule-backed and evaluates live against the
-   ingested data — no invented audiences with invented sizes. */
-export const seedAudiences = () => [
-  { id: 'aud-sym-pastdue', name: 'Loans past due', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Due Date', op: 'past_n', value: '', n: 0 }, { id: 2, field: 'Loan Balance', op: 'gt', value: '0', n: 3 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-due30', name: 'Payment due — next 30 days', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Due Date', op: 'next_n', value: '', n: 30 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-nomaturity', name: 'No maturity date on file', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-multiloan', name: 'Members with 2+ loans', kind: 'Rule', rule: loansRule([], 'two_plus'), baseIds: [], usedIn: 0 },
-  { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 0 },
-]
+   ingested data. Rules that need meaning bind to semantic roles; the
+   maturity one binds to this FI's own field name (their vocabulary,
+   their data — factual, not invented). */
+export const seedAudiences = () => {
+  const due = roleField('recurring_date')
+  const bal = roleField('balance')
+  const firstEntity = segmentEntities()[0]?.name
+  return [
+    due && bal && { id: 'aud-sym-pastdue', name: `${due.entity} past due`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, types: [], conditions: [{ id: 1, field: due.field, op: 'past_n', value: '', n: 0 }, { id: 2, field: bal.field, op: 'gt', value: '0', n: 3 }] }, baseIds: [], usedIn: 0 },
+    due && { id: 'aud-sym-due30', name: `${due.label} — next 30 days`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, types: [], conditions: [{ id: 1, field: due.field, op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
+    { id: 'aud-sym-nomaturity', name: 'No Maturity Date on file', kind: 'Rule', rule: { quantifier: 'any', entity: 'Loans', types: [], conditions: [{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }] }, baseIds: [], usedIn: 0 },
+    firstEntity && { id: 'aud-sym-multi', name: `Members with 2+ ${firstEntity} records`, kind: 'Rule', rule: { quantifier: 'two_plus', entity: firstEntity, types: [], conditions: [] }, baseIds: [], usedIn: 0 },
+    DEMO_RULE && { id: 'aud-due-soon', name: `${due?.label ?? 'Anchor'} — next 3 days`, kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 0 },
+  ].filter(Boolean)
+}
 
-/* Ready-to-launch audiences: only playbooks whose rule can actually
-   evaluate against ingested data. More appear as more entities arrive —
-   the library says so instead of listing predictive placeholders. */
-export const AUDIENCE_TEMPLATES = [
-  {
-    id: 'tpl-loan-reminder',
-    title: 'Loan payment reminders',
-    blurb: 'Every member with any Loans record due in the next 3 days — one reminder per qualifying record.',
-    kind: 'Rule',
-    rule: { ...DEMO_RULE },
-  },
-]
+/* Ready-to-launch playbooks are GENERATED from mapped semantic roles —
+   a playbook exists only when the data carries the meaning it needs.
+   The library explains what unlocks the rest. */
+export const audienceTemplates = () => {
+  const due = roleField('recurring_date')
+  const out = []
+  if (due && DEMO_RULE) {
+    out.push({
+      id: 'tpl-anchor-reminder',
+      title: `${due.label} reminders`,
+      blurb: `Every member with any ${due.entity} record whose ${due.label} is in the next 3 days — one reminder per qualifying record.`,
+      kind: 'Rule',
+      rule: { ...DEMO_RULE },
+    })
+  }
+  return out
+}
 
 /* Anchor-able date fields for the journey's date trigger: every date
    field of every segmentable entity, addressed as entity·field. */
@@ -676,15 +718,20 @@ export const feedFiles = () => {
   ]
 }
 
-/* Real blank-date gap, computed from the extract — never an estimate. */
+/* Real blank-date gap, computed from the extract — never an estimate.
+   The field it concerns is whichever one carries the recurring_date
+   role; without that role mapped there is no gap check to run. */
 export const dueDateGap = () => {
   const s = SYMITAR_STATS
-  return { field: 'Due Date', missingPct: Math.round((100 * s.dueUnset) / s.loans), count: s.dueUnset }
+  const rf = roleField('recurring_date')
+  if (!rf) return { field: null, missingPct: 0, count: 0 }
+  return { field: rf.label, entity: rf.entity, missingPct: Math.round((100 * s.dueUnset) / s.loans), count: s.dueUnset }
 }
 
-export const GAP_AUDIENCE_RULE = {
-  quantifier: 'any', entity: 'Loans', types: [],
-  conditions: [{ id: 1, field: 'Due Date', op: 'not_set', value: '', n: 3 }],
+export const gapAudienceRule = () => {
+  const rf = roleField('recurring_date')
+  if (!rf) return null
+  return { quantifier: 'any', entity: rf.entity, types: [], conditions: [{ id: 1, field: rf.field, op: 'not_set', value: '', n: 3 }] }
 }
 
 /* Display identities for real matched members: deterministic synthetic
