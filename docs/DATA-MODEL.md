@@ -1,12 +1,9 @@
-# Per-FI relational data model
+# Per-FI relational ingestion model
 
-**One universal mechanism: ingest any relational entity an FI sends — loans, deposits,
-offers, insurance, anything — through four tables plus one label dictionary.** Nothing about
-the domain is schema; entities, fields, and vocabularies are all rows. The only Pulsate
-opinion is a category tag and a type on each field, which is what makes audiences, segments,
-and personalization work on top.
-
-## The kernel
+Four tables plus one label dictionary. Any relational entity an FI sends — products, offers,
+eligibility, or any other member-related metadata — ingests as **rows**, never schema. Every
+table is scoped to the FI (`fi_id`) and every instance is related to a member. This is the
+complete model needed to build segments on that data and personalize campaigns from it.
 
 ```mermaid
 erDiagram
@@ -52,7 +49,9 @@ erDiagram
   }
 ```
 
-Worked example — a Romanian FI's consumer-credit lineup, zero schema changes:
+## Worked example
+
+Any FI, any vocabulary — here a consumer-credit lineup — with zero schema changes:
 
 | Table | Rows |
 |---|---|
@@ -61,146 +60,30 @@ Worked example — a Romanian FI's consumer-credit lineup, zero schema changes:
 | `RECORD` | `(r1, entity 1, member 7, key L-0001)` — the Flexi Credit loan · `(r2, entity 1, member 7, key L-0002)` — the Emag installment plan |
 | `VALUE` | `(r1, f1, "Flexi Credit")` `(r1, f2, 2026-09-01)` `(r1, f3, 4200)` · `(r2, f1, "Emag")` `(r2, f2, 2026-08-20)` `(r2, f3, 1150)` |
 
-Why each piece exists — all four are load-bearing:
+Offers are just another `ENTITY_DEF` (fields: amount, rate, expiration); so are eligibility
+facts, scores, and any other metadata. Member-level attributes (e.g. CRM fields) are an entity
+with one record per member.
 
-- **`RECORD` is the one thing a minimal entity→field→value sketch cannot skip.** It ties
+## Why each piece is load-bearing
+
+- **`RECORD`** — the one thing a minimal entity→field→value sketch cannot skip. It ties
   "Flexi Credit" and *its* due date and *its* balance together, so "any loan where due date is
-  in the next 7 days **and** balance > 0" evaluates per loan — and a member with two
-  qualifying loans enrolls twice. Values keyed by field alone cannot express same-instance
-  matching.
-- **`member_id`** connects instances to people; without it values float unattached and no
-  audience can be built.
-- **Typed values (not BLOBs)** are what make date windows, numeric comparisons, and
-  is-not-set checks possible; `type` lives on the field definition, values must honor it, and
-  null after sentinel decoding (`--/--/----` → null) means genuinely not-set.
-- **`external_key`** keeps an instance stable across syncs (the core's account + share/loan
-  ID — never column position); **`updated_at`** plus change capture below turn state
-  snapshots into date anchors and derived signals.
-- **`pulsate_category = UNKNOWN`** and unlabeled `CODE_MAP` rows are the "needs mapping"
-  tasks; mapping them is the only modeling a customer ever does.
+  in the next 7 days **and** balance > 0" evaluates per loan, and a member with two qualifying
+  loans is targetable per loan. Values keyed by field alone cannot express this.
+- **`member_id`** — relates every instance to a person; without it no segment can be built.
+- **Typed values, not BLOBs** — `type` on `FIELD_DEF` is what makes date windows, numeric
+  comparisons, and is-not-set checks possible; null means genuinely not-set (sentinels like
+  `--/--/----` decoded on ingest).
+- **`external_key`** — the source's stable instance id (e.g. account + loan ID), so a record
+  stays the same record across syncs; never identify by file column position.
+- **`pulsate_category = UNKNOWN`** and unlabeled `CODE_MAP` rows — the "needs mapping" queue;
+  mapping them is the only modeling a customer ever does.
 
-Everything the prototype demos is rows of this kernel: products are records of "Loans" /
-"Deposits"; offers are records of "Offers" (amount, rate, expiration as field defs);
-eligibility, scores, and CRM-fed member attributes are entities like any other (member
-attributes as a one-record-per-member entity). The audience builder's entity picker
-enumerates `ENTITY_DEF` rows.
+## How segments and personalization read it
 
-## The operational shell
-
-Plumbing around the kernel — how data gets in, how identities join, how changes become
-signals, and how activation consumes records. Domain-agnostic by construction.
-
-```mermaid
-erDiagram
-  SOURCE ||--o{ SYNC_RUN : runs
-  SOURCE ||--o{ FIELD_MAPPING : declares
-  FIELD_MAPPING }o--|| FIELD_DEF : targets
-  SOURCE ||--o{ IDENTITY_LINK : supplies
-  MEMBER ||--o{ IDENTITY_LINK : "known as"
-  RECORD ||--o{ RECORD_CHANGE : "changes tracked"
-  SYNC_RUN ||--o{ RECORD_CHANGE : detects
-  AUDIENCE ||--o{ FLOW : "entry audience of"
-  FLOW ||--o{ FLOW_STEP : contains
-  FLOW ||--o{ ENROLLMENT : enrolls
-  MEMBER ||--o{ ENROLLMENT : "enrolled in"
-  RECORD |o--o{ ENROLLMENT : "may anchor"
-  ENROLLMENT ||--o{ MESSAGE_EVENT : receives
-
-  SOURCE {
-    uuid id PK
-    uuid fi_id FK
-    string type "core | crm | insights | sdk | file"
-    json config
-  }
-  SYNC_RUN {
-    uuid id PK
-    uuid source_id FK
-    string status "ok | partial | failed"
-    int rows
-    json errors
-  }
-  FIELD_MAPPING {
-    uuid source_id FK
-    string raw_column
-    uuid field_def_id FK
-    string transform "coercion, sentinel decode"
-  }
-  MEMBER {
-    uuid id PK
-    uuid fi_id FK
-    string member_number UK
-  }
-  IDENTITY_LINK {
-    uuid member_id FK
-    uuid source_id FK
-    string external_id
-    string method "member_number | email | device"
-    float confidence
-  }
-  RECORD_CHANGE {
-    uuid record_id FK
-    uuid field_def_id FK
-    uuid sync_run_id FK
-    string old_value
-    string new_value
-    datetime detected_at
-  }
-  AUDIENCE {
-    uuid id PK
-    uuid fi_id FK
-    string name
-    string kind "rule | synced | predictive"
-    json rule "entity, quantifier, scope, conditions"
-  }
-  FLOW {
-    uuid id PK
-    uuid fi_id FK
-    uuid entry_audience_id FK
-    json entry_trigger
-    json exit_rules
-  }
-  FLOW_STEP {
-    uuid id PK
-    uuid flow_id FK
-    string type "message | delay | branch"
-    json config
-  }
-  ENROLLMENT {
-    uuid id PK
-    uuid flow_id FK
-    uuid member_id FK
-    uuid record_id FK "anchoring instance - nullable"
-    json snapshot "instance values at entry - token source"
-    datetime entered_at
-    datetime exited_at
-    string exit_type "goal | removed | completed"
-  }
-  MESSAGE_EVENT {
-    uuid enrollment_id FK
-    uuid flow_step_id FK
-    string type "delivered | opened | clicked"
-    datetime occurred_at
-  }
-```
-
-| Table | Purpose |
+| Use | Query shape |
 |---|---|
-| `SOURCE` / `SYNC_RUN` | Where data comes from; per-run health (rows, partial failures, row-level errors). |
-| `FIELD_MAPPING` | Source column → `FIELD_DEF`, with transforms (type coercion, sentinel decoding). Wizard output; shipped with the spec for standard extracts. |
-| `MEMBER` / `IDENTITY_LINK` | The person, keyed by the core's member number; each source's external id with match method + confidence. |
-| `RECORD_CHANGE` | Diff between syncs on kernel records — the mechanism that turns snapshots into date anchors, drift signals, and sync-derived goals. Pulsate never sees domain events (e.g. payments); it sees fields change. |
-| `AUDIENCE` | Reusable; the rule JSON references an `ENTITY_DEF` + quantifier + same-record conditions. |
-| `FLOW` / `FLOW_STEP` | Journey, entry trigger, explicit exit rules + re-enrollment policy. |
-| `ENROLLMENT` | One membership of one member in one flow, optionally anchored to a kernel `RECORD`, with a value snapshot at entry — the unit of per-instance enrollment, instance-scoped exits, and personalization tokens. |
-| `MESSAGE_EVENT` | Delivered / opened / clicked — the only engagement facts the platform claims. |
-
-## Evidence
-
-- One row per loan with stable Loan IDs, 46% multi-loan borrowers — real Symitar VIP extract
-  (see `SYMITAR-FINDINGS.md`); the extract is already relational, the kernel just preserves it.
-- 48% sentinel-encoded blanks (`--/--/----`) → typed values with real nulls.
-- 94% stale due dates in the sample file → freshness and recurrence must be change-driven
-  (`RECORD_CHANGE`), not assumed.
-- 19 per-FI numeric product codes → `CODE_MAP` is the only customer-facing modeling task.
-- Offers with amounts/rates/expirations (CuneXus-style prequalification) ingest as an entity
-  with three field defs — no schema work.
+| Segment on products ("any loan where Due Date in next 7 days and Balance > 0") | members having ≥1 `RECORD` of the entity whose `VALUE`s satisfy all conditions **on the same record**; quantifiers (any / none / 2+) count matching records per member |
+| Segment on offers / eligibility / other metadata | identical — only the `ENTITY_DEF` differs |
+| Cross-entity ("eligible for X, holds no X") | intersect per-member results across two entity defs |
+| Personalized campaign (`{{loan.due_date}}`, `{{offer.amount}}`) | the record that qualified the member supplies its `VALUE`s as tokens — per-record targeting means "your Emag installment is due Aug 20", not a guess between loans |
