@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import FlowCanvas from './components/FlowCanvas'
 import EntryPanel from './components/EntryPanel'
 import MessageSidebar from './components/MessageSidebar'
@@ -6,7 +6,8 @@ import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
 import SourceWizard from './components/SourceWizard'
-import { seedAudiences, seedSymitarCodes, seedSources, seedOfferCodes, codeMapped, setActiveCodeMap, setActiveOfferMap, GAP_AUDIENCE_RULE } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, seedOfferCodes, codeMapped, setActiveCodeMap, setActiveOfferMap, hydrateDataset, GAP_AUDIENCE_RULE } from './data'
+import { loadFromDb, persistCodeMapping } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -25,6 +26,18 @@ export default function App() {
   const [offerCodes, setOfferCodes] = useState(seedOfferCodes)
   const [sources, setSources] = useState(seedSources)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [dataSource, setDataSource] = useState(null) // { kind: 'sqlite', fileDate } once hydrated
+
+  // boot from the ingested SQLite kernel when available; the bundled
+  // sanitized dataset stays as the fallback for clones without the files
+  useEffect(() => {
+    loadFromDb().then((p) => {
+      if (!p) return
+      hydrateDataset(p)
+      setProductCodes(p.codes)
+      setDataSource({ kind: 'sqlite', fileDate: p.fileDate })
+    })
+  }, [])
 
   // keep the module-level maps in sync so rule evaluation (reach,
   // drill-ins) resolves labels through the live catalog mappings
@@ -88,6 +101,7 @@ export default function App() {
         onTogglePerf={setShowPerf}
         perfVisible={view === 'canvas'}
         dataBadge={productCodes.filter((c) => !codeMapped(c)).length || null}
+        dataSource={dataSource}
       />
 
       <div style={{ position: 'absolute', top: 56, left: 0, right: 0, bottom: 0 }}>
@@ -117,7 +131,14 @@ export default function App() {
           <DataModelView
             codes={productCodes}
             onMapCode={(code, patch) =>
-              setProductCodes((prev) => prev.map((c) => (c.code === code ? { ...c, ...patch } : c)))
+              setProductCodes((prev) =>
+                prev.map((c) => {
+                  if (c.code !== code) return c
+                  const next = { ...c, ...patch }
+                  if (dataSource?.kind === 'sqlite') persistCodeMapping(next)
+                  return next
+                })
+              )
             }
             onCreateGapAudience={() =>
               setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: { ...GAP_AUDIENCE_RULE } })
@@ -194,7 +215,7 @@ export default function App() {
   )
 }
 
-function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge }) {
+function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge, dataSource }) {
   const NAV = [
     { key: 'canvas', label: 'Flow' },
     { key: 'library', label: 'Audiences' },
@@ -209,6 +230,11 @@ function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge
       </button>
       <span style={{ fontSize: 16, fontWeight: 800, color: '#17335f', whiteSpace: 'nowrap' }}>Untitled automation</span>
       <span style={{ fontSize: 12, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 20 }}>Draft</span>
+      {dataSource?.kind === 'sqlite' && (
+        <span title={`Evaluating against db/pulsate.db — ingested VIP extract, file date ${dataSource.fileDate}`} style={{ fontSize: 11, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+        SQLite · {dataSource.fileDate}
+        </span>
+      )}
 
       <div style={{ marginLeft: 18, display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
         {NAV.map(({ key, label, badge }) => (

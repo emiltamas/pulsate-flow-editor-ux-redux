@@ -1,6 +1,17 @@
 import { SYMITAR_STATS, SYMITAR_ACCOUNTS } from './symitarDataset.js'
 export { SYMITAR_STATS }
 
+/* When the SQLite-backed API is live (db/pulsate.db ingested), the app
+   replaces the bundled dataset in place with the one reconstructed from
+   ENTITY_DEF → RECORD → VALUE rows. Same shape, same evaluation code —
+   the caller re-renders after hydration. */
+export function hydrateDataset({ accounts, stats }) {
+  SYMITAR_ACCOUNTS.length = 0
+  SYMITAR_ACCOUNTS.push(...accounts)
+  for (const k of Object.keys(SYMITAR_STATS)) delete SYMITAR_STATS[k]
+  Object.assign(SYMITAR_STATS, stats)
+}
+
 export const SEGMENTS = [
   { name: 'Active — last 30 days', group: 'Smart', users: 184230 },
   { name: 'New signups this week', group: 'Smart', users: 6842 },

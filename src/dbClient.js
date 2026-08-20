@@ -1,0 +1,23 @@
+/* Client for the SQLite-backed data API (tools/dbApi.mjs). The app boots
+   from /api/bootstrap when db/pulsate.db has been ingested, and falls back
+   to the bundled sanitized dataset when it hasn't (fresh clone). */
+export async function loadFromDb() {
+  try {
+    const r = await fetch('/api/bootstrap')
+    if (!r.ok) return null
+    const j = await r.json()
+    return j.available ? j : null
+  } catch {
+    return null
+  }
+}
+
+/* Fire-and-forget: catalog mappings persist into CODE_MAP so they survive
+   reloads — mapping a code is real work, not demo state. */
+export function persistCodeMapping({ code, label, category }) {
+  fetch('/api/code-map', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, label, category }),
+  }).catch(() => {})
+}

@@ -117,3 +117,13 @@ This is the logical model, not the storage plan. At query time the EAV shape is 
 typed projections (a materialized wide table per `ENTITY_DEF`, rebuilt on sync), so segment
 evaluation runs on real columns — the ERD above is the ingestion contract, not the index the
 rule engine scans.
+
+## Working implementation
+
+This model runs in the prototype against a real Symitar VIP extract: `db/schema.sql` is the
+kernel as SQLite DDL, `tools/ingest-symitar.mjs` ingests the raw `VIP.LOAN` + `VIP.NAME` files
+(`npm run ingest <VIP.LOAN> <VIP.NAME>` — idempotent; re-runs write only `VALUE_CHANGE` rows),
+and `tools/dbApi.mjs` serves the app from the DB in dev. `RECORD_MEMBER` is populated from real
+NAME records — account-level joint owners hold every loan, loan-scoped names (Name Location
+`L####`) hold only theirs. No PII reaches the DB: member identity is a salted hash, and names,
+SSNs, contact data, and raw account numbers never leave the source files.

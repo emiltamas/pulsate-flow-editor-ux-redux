@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "NODE_OPTIONS=--experimental-sqlite vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ingest": "node --experimental-sqlite tools/ingest-symitar.mjs"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.4",
