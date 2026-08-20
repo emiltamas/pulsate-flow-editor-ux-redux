@@ -33,7 +33,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
         {/* header: title + primary action */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>Member product data</h1>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>Member data</h1>
             <p style={{ margin: '5px 0 0', fontSize: 13.5, color: '#8a95a6', fontWeight: 500, maxWidth: 640 }}>
               Every audience, playbook and message reads from here. All counts come from the ingested extract — nothing is simulated.
             </p>
@@ -48,7 +48,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
 
         <div style={{ margin: '18px 0 20px', display: 'inline-flex', background: '#e4e9f1', borderRadius: 11, padding: 4, gap: 4 }}>
           <ModeTab on={tab === 'sources'} onClick={() => setTab('sources')} label="Sources" />
-          <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Product catalog" badge={unmapped || null} />
+          <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Catalog" badge={unmapped || null} />
           <ModeTab on={tab === 'model'} onClick={() => setTab('model')} label="How it works" />
         </div>
 
@@ -107,7 +107,7 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
   const gap = dueDateGap()
   const attention = [
     unmapped > 0 && {
-      text: `${unmapped} product ${unmapped === 1 ? 'code needs' : 'codes need'} mapping — discovered in the ${SYMITAR_STATS.fileDate} extract`,
+      text: `${unmapped} ${unmapped === 1 ? 'code needs' : 'codes need'} a label — discovered in the ${SYMITAR_STATS.fileDate} extract`,
       action: 'Map codes', onClick: onMapCodes,
     },
     {
@@ -279,7 +279,7 @@ function AddSourceModal({ onClose, onSymitar }) {
   )
 }
 
-/* ── Product catalog ─────────────────────────────────────────────── */
+/* ── Catalog: labels for whatever codes the data carries ──────────── */
 
 const PULSATE_CATEGORIES = ['loan', 'deposit', 'certificate', 'card', 'offer', 'other']
 
@@ -288,8 +288,8 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
     <>
       {unmapped > 0 && (
         <div style={{ marginBottom: 14, background: '#fbf1dc', borderRadius: 12, padding: '12px 16px', fontSize: 13, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.5 }}>
-          {unmapped} product {unmapped === 1 ? 'code' : 'codes'} from the extract {unmapped === 1 ? 'has' : 'have'} no label yet. Give {unmapped === 1 ? 'it' : 'them'} a label and a
-          category and {unmapped === 1 ? 'it becomes' : 'they become'} targetable everywhere — audiences, playbooks, messages.
+          {unmapped} {unmapped === 1 ? 'code' : 'codes'} from the extract {unmapped === 1 ? 'has' : 'have'} no label yet. Unlabeled codes are still targetable
+          by raw value — a label just makes {unmapped === 1 ? 'it' : 'them'} readable everywhere: audiences, playbooks, messages.
         </div>
       )}
 
@@ -297,7 +297,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
           <thead>
             <tr>
-              {['Code', 'Raw columns', 'Members', 'Label — what marketers see', 'Category', 'Status'].map((h) => (
+              {['Code', 'Source field', 'Records', 'Label — what marketers see', 'Category', 'Status'].map((h) => (
                 <th key={h} style={{ ...sectionLabel, textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #edf1f6', background: '#fafbfd' }}>{h}</th>
               ))}
             </tr>
@@ -399,7 +399,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
 const PIPELINE = [
   { icon: RepeatIcon, title: 'Sources', caption: 'Files, cores, CRMs, SDK' },
   { icon: UsersIcon, title: 'Identity', caption: 'One member across systems' },
-  { icon: ProductIcon, title: 'Registry', caption: 'Codes → labeled products & attributes' },
+  { icon: ProductIcon, title: 'Registry', caption: 'Entities, fields, labeled codes' },
   { icon: SendIcon, title: 'Activation', caption: 'Audiences, triggers, messages' },
 ]
 
@@ -476,11 +476,12 @@ function FlatView() {
   )
 }
 
-// real field bindings from the ingest pipeline, plus the two decode rules
+// real field bindings from the ingest pipeline, plus the two decode rules.
+// Field names stay the FI's own — ingestion never renames anything.
 const MAPPINGS = [
-  ['Loan Type', 'Loans record', 'Product code'],
-  ['Loan Balance', 'Loans record', 'Balance'],
-  ['Due Date', 'Loans record', 'Payment due date'],
+  ['Loan Type', 'Loans record', 'Loan Type · code'],
+  ['Loan Balance', 'Loans record', 'Loan Balance · currency'],
+  ['Due Date', 'Loans record', 'Due Date · date'],
   ['--/--/---- (sentinel)', 'decoded on ingest', 'not set'],
   ['0010 (type code)', 'label translation', 'your catalog label'],
 ]
@@ -501,7 +502,7 @@ function RelationalView() {
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#17335f' }}>{m.name}</div>
-              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color: '#b1bccb' }}>#{m.id} · holds {m.products.length} loans · synthetic display name</div>
+              <div style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, color: '#b1bccb' }}>#{m.id} · holds {m.products.length} records · synthetic display name</div>
             </div>
           </div>
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -525,14 +526,14 @@ function RelationalView() {
 
         {/* mapping */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, padding: 16 }}>
-          <span style={sectionLabel}>Import mapping — raw columns → product records</span>
+          <span style={sectionLabel}>Import mapping — raw columns → entity records</span>
           <p style={{ margin: '5px 0 10px', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }}>
-            Each FI’s columns and codes map once into shared product fields; marketers only ever see the FI’s own labels.
+            Each FI’s columns bind once into typed entity fields, keeping the FI’s own names; codes get labels in the catalog.
           </p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
             <thead>
               <tr>
-                {['Raw column', 'Product record', 'Field'].map((h) => (
+                {['Raw column', 'Lands on', 'Typed field'].map((h) => (
                   <th key={h} style={{ ...sectionLabel, textAlign: 'left', padding: '7px 10px', borderBottom: '1px solid #edf1f6' }}>{h}</th>
                 ))}
               </tr>

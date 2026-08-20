@@ -19,7 +19,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>Audiences</h1>
             <p style={{ margin: '5px 0 0', fontSize: 13.5, color: '#8a95a6', fontWeight: 500 }}>
-              Build once, reuse in any automation. Rule audiences stay in sync as member products change.
+              Build once, reuse in any automation. Rule audiences stay in sync as member data changes.
             </p>
           </div>
           <button

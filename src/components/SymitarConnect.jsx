@@ -169,7 +169,7 @@ export default function SymitarConnect({ onClose, onGoCatalog }) {
               fontSize: 14, fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,90,160,.3)', whiteSpace: 'nowrap',
             }}
           >
-            {step < 3 ? 'Continue' : 'Map product codes'}
+            {step < 3 ? 'Continue' : 'Label the codes'}
           </button>
         </div>
       </div>

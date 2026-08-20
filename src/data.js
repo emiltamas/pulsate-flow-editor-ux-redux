@@ -41,10 +41,10 @@ const FALLBACK_REGISTRY = [
   {
     name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type',
     fields: [
-      { name: 'Loan Type', label: 'Product code', type: 'string', role: 'code' },
-      { name: 'Loan Balance', label: 'Balance', type: 'currency', role: 'balance' },
-      { name: 'Payment', label: 'Payment amount', type: 'currency', role: null },
-      { name: 'Interest Rate', label: 'Interest rate', type: 'number', role: null },
+      { name: 'Loan Type', label: 'Loan Type', type: 'string', role: 'code' },
+      { name: 'Loan Balance', label: 'Loan Balance', type: 'currency', role: 'balance' },
+      { name: 'Payment', label: 'Payment', type: 'currency', role: null },
+      { name: 'Interest Rate', label: 'Interest Rate', type: 'number', role: null },
       { name: 'Due Date', label: 'Due Date', type: 'date', role: 'recurring_date' },
       { name: 'Maturity Date', label: 'Maturity Date', type: 'date', role: null },
     ],
@@ -52,8 +52,8 @@ const FALLBACK_REGISTRY = [
   {
     name: 'Member Contact', category: 'member', purpose: 'campaign', codeField: null,
     fields: [
-      { name: 'Has Email', label: 'Has email on file', type: 'bool', role: null },
-      { name: 'Has Mobile', label: 'Has mobile on file', type: 'bool', role: null },
+      { name: 'Has Email', label: 'Has Email', type: 'bool', role: null },
+      { name: 'Has Mobile', label: 'Has Mobile', type: 'bool', role: null },
     ],
   },
 ]
@@ -110,6 +110,26 @@ export const entityDef = (name) => REGISTRY.find((e) => e.name === name) ?? null
    (offers, eligibility, anything) appears here automatically. */
 export const segmentEntities = () =>
   REGISTRY.filter((e) => e.purpose === 'segment' || e.purpose === 'both')
+
+/* The curated semantic layer: pulsate_category on ENTITY_DEF is how many
+   FI-named entities stay ORGANIZED without renaming them. Entity names
+   and fields are always the FI's; categories are ours, used only for
+   grouping and defaults. */
+export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'member', 'UNKNOWN']
+export const categoryLabel = (c) =>
+  c === 'UNKNOWN' || !c ? 'Uncategorized' : c === 'member' ? 'Member profile' : c[0].toUpperCase() + c.slice(1) + 's'
+
+/* Segment entities grouped by curated category, in canonical order —
+   the builder renders these groups so entity lists scale. */
+export const groupedSegmentEntities = () => {
+  const groups = new Map()
+  for (const e of segmentEntities()) {
+    const key = e.category && PULSATE_CATEGORY_ORDER.includes(e.category) ? e.category : 'UNKNOWN'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(e)
+  }
+  return PULSATE_CATEGORY_ORDER.filter((c) => groups.has(c)).map((c) => ({ category: c, label: categoryLabel(c), entities: groups.get(c) }))
+}
 
 /* Condition fields for an entity = its typed fields minus the code field
    (the code is the scope chips, not a condition). */

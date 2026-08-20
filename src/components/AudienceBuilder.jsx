@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, entityTypes, entityDef,
+  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, groupedSegmentEntities, entityTypes, entityDef,
   operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
   tagColor, fmt, datasetMatchedMembers, SYMITAR_STATS,
   fieldsFor, rulePlural, codeLabel,
@@ -138,13 +138,13 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 </button>
               </div>
               {aiStatus === 'ok' && <p style={{ ...helperText, color: '#1f6f4a' }}>Built from your description — review below.</p>}
-              {aiStatus === 'fail' && <p style={helperText}>Couldn’t parse that — try mentioning a product type, e.g. “anyone with a loan due in the next 3 days”.</p>}
+              {aiStatus === 'fail' && <p style={helperText}>Couldn’t parse that — try mentioning one of your entities or labels, e.g. “anyone with a loan due in the next 3 days”.</p>}
             </div>
 
             {/* start from */}
             <div style={{ marginBottom: 22 }}>
               <span style={sectionLabel}>Start from</span>
-              <p style={helperText}>Narrow an existing audience, or start from all members. Combined with the product conditions below (AND).</p>
+              <p style={helperText}>Narrow an existing audience, or start from all members. Combined with the conditions below (AND).</p>
               <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                 <BaseChip label={`All members · ${fmt(totalMembers())}`} on={baseIds.length === 0} onClick={() => setBaseIds([])} />
                 {audiences.filter((a) => a.kind !== 'Rule').map((a) => (
@@ -177,28 +177,39 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 </div>
               ) : (
                 <>
-                  {/* which entity are we matching records of? */}
-                  <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: `repeat(${Math.min(4, entities.length)}, minmax(120px, 1fr))`, gap: 8, maxWidth: 640 }}>
-                    {entities.map((e) => {
-                      const on = rule.entity === e.name
-                      return (
-                        <button
-                          key={e.name}
-                          onClick={() => setEntity(e.name)}
-                          style={{
-                            padding: '10px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                            border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
-                            background: on ? '#eef5fc' : '#fff',
-                            color: on ? '#1f4a86' : '#17335f',
-                          }}
-                        >
-                          {e.name}
-                          <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: on ? '#5a7db0' : '#8a95a6' }}>
-                            {e.fields.length} fields
-                          </div>
-                        </button>
-                      )
-                    })}
+                  {/* which entity are we matching records of? Entities keep
+                      the FI's own names; our curated categories only GROUP
+                      them so a long registry stays scannable. */}
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 640 }}>
+                    {groupedSegmentEntities().map((g) => (
+                      <div key={g.category}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 5 }}>
+                          {g.label}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {g.entities.map((e) => {
+                            const on = rule.entity === e.name
+                            return (
+                              <button
+                                key={e.name}
+                                onClick={() => setEntity(e.name)}
+                                style={{
+                                  minWidth: 130, padding: '10px 14px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer', textAlign: 'left',
+                                  border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
+                                  background: on ? '#eef5fc' : '#fff',
+                                  color: on ? '#1f4a86' : '#17335f',
+                                }}
+                              >
+                                {e.name}
+                                <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: on ? '#5a7db0' : '#8a95a6' }}>
+                                  {e.fields.length} fields
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
                   <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>

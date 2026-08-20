@@ -79,21 +79,23 @@ const upsertField = (entityId, name, label, type, role = null) => {
   return db.prepare('SELECT id FROM field_def WHERE entity_def_id = ? AND name = ?').get(entityId, name).id
 }
 
-/* ---- entity + field declarations (the only "modeling" in the pipeline) ---- */
+/* ---- entity + field declarations (the only "modeling" in the pipeline).
+   Field labels DEFAULT to the source's own column names — we never invent
+   vocabulary; relabeling is an explicit catalog action later. ---- */
 const loansEntity = upsertEntity('Loans', 'loan', 'both')
 const F = {
-  type: upsertField(loansEntity, 'Loan Type', 'Product code', 'string', 'code'),
-  balance: upsertField(loansEntity, 'Loan Balance', 'Balance', 'currency', 'balance'),
-  payment: upsertField(loansEntity, 'Payment', 'Payment amount', 'currency', null),
-  rate: upsertField(loansEntity, 'Interest Rate', 'Interest rate', 'number', null),
+  type: upsertField(loansEntity, 'Loan Type', 'Loan Type', 'string', 'code'),
+  balance: upsertField(loansEntity, 'Loan Balance', 'Loan Balance', 'currency', 'balance'),
+  payment: upsertField(loansEntity, 'Payment', 'Payment', 'currency', null),
+  rate: upsertField(loansEntity, 'Interest Rate', 'Interest Rate', 'number', null),
   due: upsertField(loansEntity, 'Due Date', 'Due Date', 'date', 'recurring_date'),
   maturity: upsertField(loansEntity, 'Maturity Date', 'Maturity Date', 'date', null),
   open: upsertField(loansEntity, 'Open Date', 'Open Date', 'date', null),
 }
 const contactEntity = upsertEntity('Member Contact', 'member', 'campaign')
 const FC = {
-  email: upsertField(contactEntity, 'Has Email', 'Has email on file', 'bool', null),
-  mobile: upsertField(contactEntity, 'Has Mobile', 'Has mobile on file', 'bool', null),
+  email: upsertField(contactEntity, 'Has Email', 'Has Email', 'bool', null),
+  mobile: upsertField(contactEntity, 'Has Mobile', 'Has Mobile', 'bool', null),
 }
 
 /* ---- members from NAME: every person is a member row; the primary (Name
