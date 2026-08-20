@@ -1,4 +1,4 @@
-import { GEOFENCES, registryDateFields, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
+import { GEOFENCES, registryDateFields, tagColor, fmt, trigLabel, segmentSentence, audienceReach, segmentPlural } from '../data'
 import {
   CloseIcon, CheckIcon, UsersIcon, PinIcon, DwellIcon, RepeatIcon,
   EnterIcon, ExitIcon, ProductIcon, PencilIcon,
@@ -45,7 +45,7 @@ export default function EntryPanel({
     setTrigger({ geoSel: { ...trigger.geoSel, [i]: { ...cur, dwell: Math.max(1, Math.min(240, cur.dwell + d)) } } })
   }
 
-  const reach = audience ? audienceReach(audience, audiences) : null
+  const reach = audience ? audienceReach(audience) : null
 
   return (
     <>
@@ -160,13 +160,13 @@ export default function EntryPanel({
                   </div>
                   {audience.rule && (
                     <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: '#1f4a86', lineHeight: 1.45 }}>
-                      {ruleSentence(audience.rule)}
+                      {segmentSentence(audience.rule)}
                     </div>
                   )}
                   <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
                     <UsersIcon size={13} />
                     ~{fmt(reach.members)} members
-                    {reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`}
+                    {reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`}
                   </div>
                 </div>
                 <div style={{ display: 'flex', borderTop: '1px solid #edf1f6' }}>

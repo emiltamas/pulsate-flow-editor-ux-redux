@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fmt, SYMITAR_STATS, datasetMatchedMembers } from '../data'
+import { fmt, SYMITAR_STATS, datasetMatchedMembers, primaryBlock } from '../data'
 import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 
 /* Member preview for any audience. Only rule audiences have members to
@@ -89,10 +89,12 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
 }
 
 function MatchedProducts({ rule, matches }) {
-  if (rule.quantifier === 'none') {
+  // all-'none' segments are pure person-level filters — there are no
+  // enrolling records to list
+  if (!primaryBlock(rule)) {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
-        Holds no matching {rule.entity} record
+        Matches every filter in this audience
       </div>
     )
   }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { CHANNELS, registryDateFields, audienceReach, ruleSentence, fmt, trigLabel, rulePlural } from '../data'
+import { CHANNELS, registryDateFields, audienceReach, segmentSentence, fmt, trigLabel, segmentPlural } from '../data'
 import { PlayIcon, PencilIcon, UsersIcon, SendIcon, TypeIcon, DwellIcon, BranchIcon, ChartIcon } from '../icons'
 import { TRIGGER_META } from './EntryPanel'
 
@@ -64,7 +64,7 @@ export default function FlowCanvas({ entry, audience, audiences, message, showPe
     if (type === 'message') onOpenMessage()
   }
 
-  const reach = audience ? audienceReach(audience, audiences) : { members: 0, products: null }
+  const reach = audience ? audienceReach(audience) : { members: 0, products: null }
   // performance data comes only from observed sends; this flow has never
   // been activated, so the bands state that instead of simulating numbers
   const perf = showPerf && !isEmpty ? { empty: true } : null
@@ -201,7 +201,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
             <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
               {reach.members
                 ? reach.products !== null
-                  ? `members · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`
+                  ? `members · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`
                   : 'members'
                 : 'all who trigger'}
             </div>
@@ -220,7 +220,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
           iconFg="#2f6fc4"
           label={audience ? audience.name : 'No audience'}
           detail={audience
-            ? audience.rule ? ruleSentence(audience.rule) : `${audience.kind} audience`
+            ? audience.rule ? segmentSentence(audience.rule) : `${audience.kind} audience`
             : 'Everyone matching the trigger'}
         />
       </div>

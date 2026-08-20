@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { audienceTemplates, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
+import { audienceTemplates, tagColor, fmt, segmentSentence, audienceReach, segmentPlural } from '../data'
 import { SearchIcon, EyeIcon, PencilIcon, SparkleIcon } from '../icons'
 import UserDrillIn from './UserDrillIn'
 
@@ -106,7 +106,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
             <UserDrillIn
               name={viewing.name}
               kindLabel={`${viewing.kind} audience`}
-              count={audienceReach(viewing, audiences).members}
+              count={audienceReach(viewing).members}
               rule={viewing.rule}
               ctaLabel="Use in this flow"
               onCta={() => { setViewingId(null); onUse(viewing.id) }}
@@ -120,7 +120,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
 }
 
 function AudienceCard({ audience, audiences, selected, onUse, onView, onEdit }) {
-  const reach = audienceReach(audience, audiences)
+  const reach = audienceReach(audience)
   return (
     <div style={{ background: '#fff', border: `1px solid ${selected ? '#cfe1f6' : '#e2e8f1'}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: selected ? '0 0 0 2px rgba(47,127,214,.25)' : '0 4px 14px rgba(20,34,60,.06)' }}>
       <div style={{ padding: '14px 16px', flex: 1 }}>
@@ -133,12 +133,12 @@ function AudienceCard({ audience, audiences, selected, onUse, onView, onEdit }) 
           </span>
         </div>
         <div style={{ marginTop: 5, fontSize: 12, fontWeight: 600, color: audience.rule ? '#1f4a86' : '#8a95a6', lineHeight: 1.45, minHeight: 34 }}>
-          {audience.rule ? ruleSentence(audience.rule) : `${audience.kind} audience synced from your data.`}
+          {audience.rule ? segmentSentence(audience.rule) : `${audience.kind} audience synced from your data.`}
         </div>
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ fontSize: 20, fontWeight: 800, color: '#17335f', letterSpacing: '-.4px' }}>~{fmt(reach.members)}</span>
           <span style={{ fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
-            members{reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(audience.rule)}`}
+            members{reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`}
           </span>
         </div>
         <div style={{ marginTop: 3, fontSize: 11, fontWeight: 700, color: '#b1bccb' }}>

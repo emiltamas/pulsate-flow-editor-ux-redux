@@ -118,6 +118,26 @@ typed projections (a materialized wide table per `ENTITY_DEF`, rebuilt on sync),
 evaluation runs on real columns — the ERD above is the ingestion contract, not the index the
 rule engine scans.
 
+## Scopes and segments are views
+
+Nothing the segment builder shows is stored — it is all queries over the kernel:
+
+- A **scope** is `(entity, code category)`, resolved live through `CODE_MAP.category` on the
+  entity's code field. Re-categorizing a code moves its records between scopes instantly, the
+  same way relabeling changes display names. Constraint this relies on: **exactly one field
+  per entity carries the `code` role** — the binding step designates the primary classifier;
+  any second classifier is an ordinary string field.
+- A **segment** is an AND of blocks; each block is a quantifier (any / none / 2+) over one
+  scope with conditions that must match the same record. Membership = the intersection of
+  per-block member sets — the kernel answers each block independently. The first non-"none"
+  block is **primary**: its matching records drive per-record enrollment and supply
+  personalization values; "none" blocks are person-level filters.
+- Known limit, chartable evolution: blocks are entity-bound because conditions bind to one
+  entity's field names. When two sources contribute entities in the same category, a unified
+  category scope needs conditions expressed in **semantic roles** (each entity's balance-role
+  field) rather than field names — the role layer is the designated path. Production rules
+  should also reference `entity_def_id` / `field_def_id`, not display names.
+
 ## Working implementation
 
 This model runs in the prototype against a real Symitar VIP extract: `db/schema.sql` is the

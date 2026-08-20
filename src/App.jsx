@@ -19,9 +19,15 @@ export default function App() {
     reenroll: 'off',
   })
   const [entrySaved, setEntrySaved] = useState(false)
+  // the code map must be live BEFORE seeding — seeded audiences resolve
+  // their category scopes through it
+  const [productCodes, setProductCodes] = useState(() => {
+    const codes = seedSymitarCodes()
+    setActiveCodeMap(codes)
+    return codes
+  })
   const [audiences, setAudiences] = useState(seedAudiences)
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
-  const [productCodes, setProductCodes] = useState(seedSymitarCodes)
   const [sources, setSources] = useState(seedSources)
   const [dataSource, setDataSource] = useState(null) // { kind: 'sqlite', fileDate } once hydrated
 
@@ -58,7 +64,7 @@ export default function App() {
     setAudiences((prev) =>
       prev.some((a) => a.id === id)
         ? prev
-        : [{ id, name: tpl.title, kind: tpl.kind, rule: tpl.rule ? { ...tpl.rule } : null, users: tpl.users, baseIds: [], usedIn: 0 }, ...prev]
+        : [{ id, name: tpl.title, kind: tpl.kind, rule: tpl.rule ? structuredClone(tpl.rule) : null, users: tpl.users, usedIn: 0 }, ...prev]
     )
     selectAudience(id)
   }

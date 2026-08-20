@@ -251,10 +251,26 @@ const fmtDateValue = (v) => {
   return isNaN(d) ? '…' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-/* Rule: quantifier over one entity's records, optionally scoped to a
-   code category (resolved live through the catalog mapping). types are
-   RAW code values (labels can change; codes are stable). */
-export const EMPTY_RULE = { quantifier: 'any', entity: null, codeCategory: null, types: [], conditions: [], recurring: false }
+/* ── segments = AND of blocks ─────────────────────────────────────────
+   A BLOCK is the atom: quantifier over one entity's records, optionally
+   scoped to a code category (resolved live through the catalog mapping),
+   with conditions that must all match the SAME record. types are RAW
+   code values (labels can change; codes are stable).
+
+   A SEGMENT is { blocks: [block, ...] } — a member belongs iff EVERY
+   block is satisfied. The first non-'none' block is PRIMARY: its
+   matching records drive per-record enrollment, personalization tokens
+   and sample factlines; 'none' blocks are person-level filters.
+
+   Factories, not constants — shared array refs would alias across
+   audiences. */
+export const newBlock = () => ({ quantifier: 'any', entity: null, codeCategory: null, types: [], conditions: [] })
+export const emptySegment = () => ({ blocks: [newBlock()] })
+
+/* Legacy single-rule objects (older seeds, in-flight builder state)
+   wrap to a one-block segment; every segment-level function funnels
+   through this. */
+export const blocksOf = (x) => (!x ? [] : Array.isArray(x.blocks) ? x.blocks : [x])
 
 /* N-value with default, treating 0 as a real value ("more than 0 days
    ago" = any past date). */
@@ -340,8 +356,7 @@ export function conditionText(rule, c) {
   return `${name} ${op?.label ?? c.op} ${v}`
 }
 
-export const rulePlural = (rule) => `${rule.entity ?? 'record'} records`
-
+/* Block-level sentence — segments join these with AND. */
 export function ruleSentence(rule) {
   if (!ruleActive(rule)) return null
   const plural = rule.quantifier === 'two_plus'
@@ -401,28 +416,54 @@ const recordMatches = (def, rec, rule) => {
 export const memberSatisfies = (matchCount, quantifier) =>
   quantifier === 'none' ? matchCount === 0 : quantifier === 'two_plus' ? matchCount >= 2 : matchCount >= 1
 
-const ruleInstances = (member, rule) => {
-  const def = entityDef(rule.entity)
+const blockInstances = (member, block) => {
+  const def = entityDef(block.entity)
   if (!def) return []
-  return (member.records[rule.entity] ?? []).filter((r) => recordMatches(def, r, rule))
+  return (member.records[block.entity] ?? []).filter((r) => recordMatches(def, r, block))
 }
 
-export function realReach(rule) {
-  if (!ruleActive(rule)) return null
+/* ── segment evaluation: intersection of per-block member sets ─────── */
+const activeBlocks = (seg) => blocksOf(seg).filter(ruleActive)
+
+export const segmentActive = (seg) => activeBlocks(seg).length > 0
+
+/* The block whose matching records enroll and personalize: the first
+   active block that asks for presence. All-'none' segments have no
+   primary — they are pure person-level filters. */
+export const primaryBlock = (seg) => activeBlocks(seg).find((b) => b.quantifier !== 'none') ?? null
+
+export function segmentReach(seg) {
+  const blocks = activeBlocks(seg)
+  if (!blocks.length) return null
+  const primary = primaryBlock(seg)
   let members = 0
   let records = 0
   for (const m of MEMBERS) {
-    const matches = ruleInstances(m, rule)
-    if (memberSatisfies(matches.length, rule.quantifier)) members++
-    records += matches.length
+    let inAll = true
+    let primaryMatches = 0
+    for (const b of blocks) {
+      const matches = blockInstances(m, b)
+      if (!memberSatisfies(matches.length, b.quantifier)) { inAll = false; break }
+      if (b === primary) primaryMatches = matches.length
+    }
+    if (!inAll) continue
+    members++
+    records += primaryMatches
   }
   return {
     members,
-    products: rule.quantifier === 'none' ? null : records,
+    products: primary ? records : null,
     source: 'extract',
-    unlabeled: unlabeledRecordCount(rule.entity),
+    unlabeled: [...new Set(blocks.map((b) => b.entity))].reduce((s, e) => s + unlabeledRecordCount(e), 0),
   }
 }
+
+export const segmentSentence = (seg) => {
+  const parts = activeBlocks(seg).map((b) => ruleSentence(b)).filter(Boolean)
+  return parts.length ? parts.join(' AND ') : null
+}
+
+export const segmentPlural = (seg) => `${primaryBlock(seg)?.entity ?? 'record'} records`
 
 /* Human factline for any record. Salience comes from semantic roles the
    FI mapped (balance, recurring_date) — when no roles exist we don't
@@ -465,17 +506,27 @@ export const recordTypeLabel = (entityName, rec) => {
   return code != null ? codeLabel(code) : entityName
 }
 
-/* Real matched members for drill-ins: sequential extract IDs with
-   deterministic synthetic display names (real names never leave the
-   source files). Multi-match members sort first. */
-export function datasetMatchedMembers(rule, limit = 8) {
+/* Real matched members for drill-ins: members satisfying EVERY block,
+   with the PRIMARY block's matching records shown per member (empty for
+   all-'none' segments). Sequential extract IDs with deterministic
+   synthetic display names (real names never leave the source files).
+   Multi-match members sort first. */
+export function datasetMatchedMembers(seg, limit = 8) {
+  const blocks = activeBlocks(seg)
+  if (!blocks.length) return []
+  const primary = primaryBlock(seg)
   const out = []
   for (const m of MEMBERS) {
-    const matches = ruleInstances(m, rule).map((r) => ({
-      label: recordTypeLabel(rule.entity, r),
-      fact: recordFactline(rule.entity, r),
-    }))
-    if (!memberSatisfies(matches.length, rule.quantifier)) continue
+    let inAll = true
+    let matches = []
+    for (const b of blocks) {
+      const found = blockInstances(m, b)
+      if (!memberSatisfies(found.length, b.quantifier)) { inAll = false; break }
+      if (b === primary) {
+        matches = found.map((r) => ({ label: recordTypeLabel(b.entity, r), fact: recordFactline(b.entity, r) }))
+      }
+    }
+    if (!inAll) continue
     const h = hash(m.id)
     const f = FIRST[h % FIRST.length]
     const l = LAST[(h >>> 3) % LAST.length]
@@ -493,9 +544,10 @@ export function datasetMatchedMembers(rule, limit = 8) {
   return out.sort((x, y) => y.matches.length - x.matches.length).slice(0, limit)
 }
 
-/* Reach for an audience object — always the live evaluation. */
+/* Reach for an audience object — always the live evaluation. Never
+   returns null: inactive segments read as zero reach. */
 export function audienceReach(a) {
-  if (a.rule) return realReach(a.rule)
+  if (a.rule) return segmentReach(a.rule) ?? { members: 0, products: null, unlabeled: 0 }
   return { members: a.users ?? 0, products: null }
 }
 
@@ -503,8 +555,14 @@ export function audienceReach(a) {
    Entity detection runs against the LIVE registry names and the FI's
    live code labels; nothing is hardcoded. */
 export function parseAudiencePhrase(text) {
-  const t = (text || '').toLowerCase()
-  if (!t.trim()) return null
+  const raw = (text || '').toLowerCase()
+  if (!raw.trim()) return null
+
+  // "…and no card" style tails become a 'none' filter block. Split
+  // BEFORE quantifier detection so the tail can't read as "has none".
+  const split = raw.split(/\band (?:has |have |with |holds? )?(?:no|none of|without)\b/)
+  const t = split[0]
+  const noneText = split[1]?.trim() || null
 
   let entity = null
   const types = []
@@ -569,7 +627,43 @@ export function parseAudiencePhrase(text) {
     }
   }
 
-  return { quantifier, entity, types, conditions, recurring: false }
+  // scope the main block: matched codes' shared category, else the
+  // entity's own default category
+  const typeCats = [...new Set(types.map((c) => activeCodeMap.get(c)?.category ?? null))]
+  const codeCategory = typeCats.length === 1 && typeCats[0] ? typeCats[0] : scopeCategoryFor(entity)
+  const blocks = [{ quantifier, entity, codeCategory, types, conditions }]
+
+  // resolve the "and no …" tail against live scopes, code labels, and
+  // entity names — in that order
+  if (noneText) {
+    let noneBlock = null
+    for (const s of segmentScopes()) {
+      const l = s.label.toLowerCase()
+      if (noneText.includes(l) || noneText.includes(l.replace(/s$/, ''))) {
+        noneBlock = { quantifier: 'none', entity: s.entity, codeCategory: s.codeCategory, types: [], conditions: [] }
+        break
+      }
+    }
+    if (!noneBlock) {
+      for (const e of segmentEntities()) {
+        for (const ty of entityTypes(e.name)) {
+          if (ty.labeled && noneText.includes(ty.label.toLowerCase())) {
+            noneBlock = { quantifier: 'none', entity: e.name, codeCategory: activeCodeMap.get(ty.code)?.category ?? null, types: [ty.code], conditions: [] }
+            break
+          }
+        }
+        if (noneBlock) break
+        const n = e.name.toLowerCase()
+        if (noneText.includes(n) || noneText.includes(n.replace(/s$/, ''))) {
+          noneBlock = { quantifier: 'none', entity: e.name, codeCategory: scopeCategoryFor(e.name), types: [], conditions: [] }
+          break
+        }
+      }
+    }
+    if (noneBlock) blocks.push(noneBlock)
+  }
+
+  return { blocks }
 }
 
 /* Performance metrics come only from observed delivery/engagement
@@ -592,10 +686,24 @@ export const roleField = (role) => {
 const roleRule = (role, conditions, quantifier = 'any') => {
   const rf = roleField(role)
   if (!rf) return null
-  return { quantifier, entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: conditions(rf) }
+  return { blocks: [{ quantifier, entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: conditions(rf) }] }
 }
 
 export const DEMO_RULE = roleRule('recurring_date', (rf) => [{ id: 1, field: rf.field, op: 'next_n', value: '', n: 3 }])
+
+/* The cross-sell pair, if this FI's data carries it: two categories on
+   the same entity → "has any X, has none Y". Data-driven, never
+   invented. */
+const crossSellBlocks = () => {
+  const scopes = segmentScopes()
+  const loan = scopes.find((s) => s.codeCategory === 'loan')
+  const card = scopes.find((s) => s.codeCategory === 'card' && s.entity === loan?.entity)
+  if (!loan || !card) return null
+  return [
+    { quantifier: 'any', entity: loan.entity, codeCategory: 'loan', types: [], conditions: [] },
+    { quantifier: 'none', entity: card.entity, codeCategory: 'card', types: [], conditions: [] },
+  ]
+}
 
 /* Every seeded audience is rule-backed and evaluates live against the
    ingested data. Rules that need meaning bind to semantic roles; the
@@ -606,12 +714,14 @@ export const seedAudiences = () => {
   const bal = roleField('balance')
   const firstEntity = segmentEntities()[0]?.name
   const cat = (e) => scopeCategoryFor(e)
+  const xsell = crossSellBlocks()
   return [
-    due && bal && { id: 'aud-sym-pastdue', name: `${due.entity} past due`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'past_n', value: '', n: 0 }, { id: 2, field: bal.field, op: 'gt', value: '0', n: 3 }] }, baseIds: [], usedIn: 0 },
-    due && { id: 'aud-sym-due30', name: `${due.label} — next 30 days`, kind: 'Rule', rule: { quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
-    { id: 'aud-sym-nomaturity', name: 'No Maturity Date on file', kind: 'Rule', rule: { quantifier: 'any', entity: 'Loans', codeCategory: cat('Loans'), types: [], conditions: [{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }] }, baseIds: [], usedIn: 0 },
-    firstEntity && { id: 'aud-sym-multi', name: `Members with 2+ ${firstEntity}`, kind: 'Rule', rule: { quantifier: 'two_plus', entity: firstEntity, codeCategory: cat(firstEntity), types: [], conditions: [] }, baseIds: [], usedIn: 0 },
-    DEMO_RULE && { id: 'aud-due-soon', name: `${due?.label ?? 'Anchor'} — next 3 days`, kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 0 },
+    due && bal && { id: 'aud-sym-pastdue', name: `${due.entity} past due`, kind: 'Rule', rule: { blocks: [{ quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'past_n', value: '', n: 0 }, { id: 2, field: bal.field, op: 'gt', value: '0', n: 3 }] }] }, usedIn: 0 },
+    due && { id: 'aud-sym-due30', name: `${due.label} — next 30 days`, kind: 'Rule', rule: { blocks: [{ quantifier: 'any', entity: due.entity, codeCategory: cat(due.entity), types: [], conditions: [{ id: 1, field: due.field, op: 'next_n', value: '', n: 30 }] }] }, usedIn: 0 },
+    { id: 'aud-sym-nomaturity', name: 'No Maturity Date on file', kind: 'Rule', rule: { blocks: [{ quantifier: 'any', entity: 'Loans', codeCategory: cat('Loans'), types: [], conditions: [{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }] }] }, usedIn: 0 },
+    firstEntity && { id: 'aud-sym-multi', name: `Members with 2+ ${firstEntity}`, kind: 'Rule', rule: { blocks: [{ quantifier: 'two_plus', entity: firstEntity, codeCategory: cat(firstEntity), types: [], conditions: [] }] }, usedIn: 0 },
+    xsell && { id: 'aud-sym-crosssell', name: 'Borrowers without a card', kind: 'Rule', rule: { blocks: xsell }, usedIn: 0 },
+    DEMO_RULE && { id: 'aud-due-soon', name: `${due?.label ?? 'Anchor'} — next 3 days`, kind: 'Rule', rule: structuredClone(DEMO_RULE), usedIn: 0 },
   ].filter(Boolean)
 }
 
@@ -627,7 +737,17 @@ export const audienceTemplates = () => {
       title: `${due.label} reminders`,
       blurb: `Every member with any ${due.entity} record whose ${due.label} is in the next 3 days — one reminder per qualifying record.`,
       kind: 'Rule',
-      rule: { ...DEMO_RULE },
+      rule: structuredClone(DEMO_RULE),
+    })
+  }
+  const xsell = crossSellBlocks()
+  if (xsell) {
+    out.push({
+      id: 'tpl-cross-sell-card',
+      title: 'Cross-sell: card to borrowers',
+      blurb: `Members holding any ${xsell[0].entity} record in Loans and none in Cards — each qualifying record enrolls; the card filter just gates who.`,
+      kind: 'Rule',
+      rule: { blocks: xsell },
     })
   }
   return out
@@ -766,7 +886,7 @@ export const dueDateGap = () => {
 export const gapAudienceRule = () => {
   const rf = roleField('recurring_date')
   if (!rf) return null
-  return { quantifier: 'any', entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: [{ id: 1, field: rf.field, op: 'not_set', value: '', n: 3 }] }
+  return { blocks: [{ quantifier: 'any', entity: rf.entity, codeCategory: scopeCategoryFor(rf.entity), types: [], conditions: [{ id: 1, field: rf.field, op: 'not_set', value: '', n: 3 }] }] }
 }
 
 /* Display identities for real matched members: deterministic synthetic
