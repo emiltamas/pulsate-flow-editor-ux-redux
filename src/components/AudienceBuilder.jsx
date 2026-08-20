@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, entityTypes, unlabeledRecordCount,
+  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, entityTypes, entityDef,
   operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
   tagColor, fmt, datasetMatchedMembers, SYMITAR_STATS,
   fieldsFor, rulePlural, codeLabel,
@@ -21,9 +21,15 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const isNew = !audience
   const [name, setName] = useState(audience?.name ?? '')
   const [baseIds, setBaseIds] = useState(audience?.baseIds ?? [])
-  const [rule, setRule] = useState(
-    audience?.rule ? { ...audience.rule } : initialRule ? { ...initialRule } : { ...EMPTY_RULE }
-  )
+  // never open in a dead state: default to the first entity, and coerce
+  // rules whose entity no longer exists (stale saves) back to it
+  const normalizeRule = (r) => {
+    const first = segmentEntities()[0]?.name ?? null
+    if (!r) return { ...EMPTY_RULE, entity: first }
+    if (!r.entity || !entityDef(r.entity)) return { ...EMPTY_RULE, quantifier: r.quantifier ?? 'any', entity: first }
+    return { ...r }
+  }
+  const [rule, setRule] = useState(() => normalizeRule(audience?.rule ?? initialRule))
   const [aiText, setAiText] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
 
@@ -41,10 +47,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     if (parsed) { setRule(parsed); setAiStatus('ok') } else setAiStatus('fail')
   }
 
-  const setEntity = (name) =>
-    setRule(name === rule.entity
-      ? { ...EMPTY_RULE, quantifier: rule.quantifier }
-      : { ...EMPTY_RULE, quantifier: rule.quantifier, entity: name })
+  const setEntity = (name) => {
+    if (name === rule.entity) return // no deselect back into a dead state
+    setRule({ ...EMPTY_RULE, quantifier: rule.quantifier, entity: name })
+  }
   const toggleType = (t) =>
     setRule({ ...rule, types: rule.types.includes(t) ? rule.types.filter((x) => x !== t) : [...rule.types, t] })
   const addCondition = () => {
