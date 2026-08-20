@@ -1,22 +1,15 @@
 import { useState } from 'react'
-import {
-  PRODUCT_CATEGORIES, fmt, sampleUsers,
-  datasetMatchedMembers, productFactline,
-} from '../data'
+import { fmt, SYMITAR_STATS, datasetMatchedMembers } from '../data'
 import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 
-/* Member preview for any audience: rule audiences show which product(s)
-   matched each member; plain audiences show a simple sample. */
+/* Member preview for any audience. Only rule audiences have members to
+   show — they are evaluated against the ingested extract. An audience
+   without a rule has no evaluated membership, and says so. */
 export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, onCta, onBack, backLabel = 'All audiences' }) {
   const [query, setQuery] = useState('')
 
   const shown = Math.min(8, count)
-  let users
-  if (rule) {
-    users = datasetMatchedMembers(rule, shown || 8)
-  } else {
-    users = shown ? sampleUsers(name, shown) : []
-  }
+  const users = rule ? datasetMatchedMembers(rule, shown || 8) : []
 
   const q = query.trim().toLowerCase()
   const filtered = q
@@ -26,10 +19,8 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
   const moreLabel = q
     ? filtered.length ? `${filtered.length} of ${users.length} shown members match` : 'No matching members in the loaded sample'
     : rule
-      ? 'Matched in the 081126 extract · synthetic display names'
-      : count > shown
-        ? `+ ${fmt(count - shown)} more members`
-        : count ? 'End of list' : 'No members yet'
+      ? `Matched in the ${SYMITAR_STATS.fileDate} extract · synthetic display names`
+      : 'No rule to evaluate — this audience has no computed membership yet'
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -101,7 +92,7 @@ function MatchedProducts({ rule, matches }) {
   if (rule.quantifier === 'none') {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
-        Holds no matching {rule.entity === 'offer' ? 'offer' : PRODUCT_CATEGORIES[rule.category].label.toLowerCase()}
+        Holds no matching {rule.entity} record
       </div>
     )
   }
@@ -111,12 +102,12 @@ function MatchedProducts({ rule, matches }) {
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#f4f7fb', border: '1px solid #e7edf5', borderRadius: 8, padding: '5px 9px' }}>
           <ProductIcon size={12} stroke="#5a7db0" />
           <span style={{ fontSize: 11.5, fontWeight: 800, color: '#1b3a63' }}>{p.label}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{p.fact ?? productFactline(p)}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{p.fact}</span>
         </div>
       ))}
       {matches.length >= 2 && (
         <div style={{ fontSize: 11, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 7, padding: '4px 9px', alignSelf: 'flex-start' }}>
-          Will be enrolled once per matching product · {matches.length} enrollments
+          Will be enrolled once per matching record · {matches.length} enrollments
         </div>
       )}
     </div>

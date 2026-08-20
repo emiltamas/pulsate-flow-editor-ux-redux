@@ -121,7 +121,37 @@ export async function bootstrapPayload() {
       .map((c) => ({ code: c.raw_code, rawCols: `Loan Type · ${loanFile.replace(/^\d+\./, '')}`, label: c.label, category: c.category, holders: typeCounts[c.raw_code] ?? 0 }))
       .sort((a, b) => (b.label ? 1 : 0) - (a.label ? 1 : 0) || b.holders - a.holders)
 
-    return { available: true, fileDate, stats, accounts: out, codes, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
+    /* The live registry + generic records, straight from the EAV tables.
+       The client UI is entity-agnostic: it renders whatever this says. */
+    const fieldRows = db.prepare('SELECT id, entity_def_id, name, user_label, type, semantic_role FROM field_def').all()
+    const fieldById = new Map(fieldRows.map((f) => [f.id, f]))
+    const registry = db.prepare('SELECT id, name, pulsate_category, purpose FROM entity_def ORDER BY id').all().map((e) => {
+      const fields = fieldRows.filter((f) => f.entity_def_id === e.id)
+        .map((f) => ({ name: f.name, label: f.user_label, type: f.type, role: f.semantic_role }))
+      const codeField = fields.find((f) => f.role === 'code')?.name ?? null
+      return { name: e.name, category: e.pulsate_category, purpose: e.purpose, fields, codeField }
+    })
+
+    const entityById = Object.fromEntries(db.prepare('SELECT id, name FROM entity_def').all().map((r) => [r.id, r.name]))
+    const memberRecords = new Map() // member code → { entityName: [records] }
+    for (const r of db.prepare('SELECT id, entity_def_id, external_key, status FROM record ORDER BY id').all()) {
+      const mid = primaryOf.get(r.id)
+      const m = mid != null ? byMemberId.get(mid) : null
+      if (!m) continue
+      const values = {}
+      for (const [fid, v] of byRecord.get(r.id) ?? []) {
+        const f = fieldById.get(fid)
+        if (f) values[f.name] = v
+      }
+      const ent = entityById[r.entity_def_id]
+      if (!memberRecords.has(m.code)) memberRecords.set(m.code, {})
+      const bucket = memberRecords.get(m.code)
+      ;(bucket[ent] = bucket[ent] ?? []).push({ key: r.external_key, status: r.status, holders: holderCount.get(r.id) ?? 1, values })
+    }
+    const members = [...memberRecords.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([id, records]) => ({ id, records }))
+
+    return { available: true, fileDate, stats, accounts: out, codes, registry, members, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
   } finally {
     db.close()
   }

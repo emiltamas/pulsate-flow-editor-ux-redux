@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ReactFlow, useReactFlow, Handle, Position } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { CHANNELS, PRODUCT_CATEGORIES, audienceReach, ruleSentence, mockPerformance, fmt, trigLabel, rulePlural } from '../data'
+import { CHANNELS, registryDateFields, audienceReach, ruleSentence, fmt, trigLabel, rulePlural } from '../data'
 import { PlayIcon, PencilIcon, UsersIcon, SendIcon, TypeIcon, DwellIcon, BranchIcon, ChartIcon } from '../icons'
 import { TRIGGER_META } from './EntryPanel'
 
@@ -65,7 +65,9 @@ export default function FlowCanvas({ entry, audience, audiences, message, showPe
   }
 
   const reach = audience ? audienceReach(audience, audiences) : { members: 0, products: null }
-  const perf = showPerf && !isEmpty ? mockPerformance(reach.members, (entry.exits?.goal ?? 'none') !== 'none') : null
+  // performance data comes only from observed sends; this flow has never
+  // been activated, so the bands state that instead of simulating numbers
+  const perf = showPerf && !isEmpty ? { empty: true } : null
 
   const nodes = layoutNodes({ isEmpty, entry, audience, reach, message, perf, addActive, addMenuOpen }).map((n) =>
     n.id === 'add' ? { ...n, data: { ...n.data, onPick: pickStep } } : n
@@ -151,7 +153,7 @@ function triggerDetail(trigger) {
   if (trigger.type === 'audience') return 'Always on — enters on joining the audience'
   if (trigger.type === 'schedule') return 'One-time send · not scheduled yet'
   if (trigger.type === 'date') {
-    const field = trigger.dateField === 'maturity' ? 'maturity date' : trigger.dateField === 'expires' ? 'offer expiration' : 'payment due date'
+    const field = (registryDateFields().find((f) => f.key === trigger.dateField)?.label ?? 'anchored date').toLowerCase()
     return `${trigger.dateDays} days before ${field} · recurring`
   }
   const geoSel = trigger.geoSel
@@ -223,9 +225,9 @@ function StartNodeCard({ entry, audience, reach, perf }) {
         />
       </div>
       {perf && (
-        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#1f6f4a', fontSize: 11.5, fontWeight: 800 }}>
+        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#5a6b85', fontSize: 11.5, fontWeight: 700 }}>
           <ChartIcon size={13} />
-          {fmt(perf.entered)} entered{perf.goalReached != null && ` · ${fmt(perf.goalExits)} goal exits`} · {fmt(perf.removed)} removed
+          No entries yet — counts appear once this flow is live
         </div>
       )}
     </div>
@@ -275,12 +277,9 @@ function MessageNode({ data }) {
         />
       </div>
       {data.perf && (
-        <div style={{ borderTop: '1px solid #dcefe3', background: '#eef9f1', padding: '8px 18px', color: '#1f6f4a', fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
-          <div style={{ fontWeight: 800 }}>{fmt(data.perf.delivered)} delivered · {fmt(data.perf.opened)} opened</div>
-          <div>
-            {fmt(data.perf.clicked)} clicked
-            {data.perf.goalReached != null && ` · ${fmt(data.perf.goalReached)} reached the goal`}
-          </div>
+        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', color: '#5a6b85', fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 800 }}>No sends yet</div>
+          <div>Delivery and engagement are observed events — they appear once messages go out.</div>
         </div>
       )}
       <Handle type="source" position={Position.Bottom} style={hiddenHandle} />

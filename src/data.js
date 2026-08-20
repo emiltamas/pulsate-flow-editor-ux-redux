@@ -1,53 +1,128 @@
 import { SYMITAR_STATS, SYMITAR_ACCOUNTS } from './symitarDataset.js'
 export { SYMITAR_STATS }
 
-/* When the SQLite-backed API is live (db/pulsate.db ingested), the app
-   replaces the bundled dataset in place with the one reconstructed from
-   ENTITY_DEF → RECORD → VALUE rows. Same shape, same evaluation code —
-   the caller re-renders after hydration. */
-export function hydrateDataset({ accounts, stats }) {
+/* ══ Entity-agnostic data core ═══════════════════════════════════════
+   The UI never assumes what an FI's data is. Everything the segment and
+   journey builders render comes from the LIVE registry — the ENTITY_DEF /
+   FIELD_DEF / CODE_MAP rows the ingestion created — and rules evaluate
+   against generic records (RECORD → VALUE), whatever the entities are.
+
+   REGISTRY:  [{ name, category, purpose, fields:[{name,label,type,role}], codeField }]
+   MEMBERS:   [{ id, records: { [entityName]: [{ key, status, holders, values }] } }]
+   Values are normalized on hydration: dates → day offsets from the file
+   date, numbers → Number, bools → boolean; a missing key means not set. */
+
+export let REGISTRY = []
+let MEMBERS = []
+
+const normalizeValues = (def, raw, fileDate) => {
+  const out = {}
+  for (const f of def.fields) {
+    const v = raw[f.name]
+    if (v === undefined || v === null) continue
+    if (f.type === 'date') {
+      const d = Math.round((new Date(v) - new Date(fileDate)) / 86400000)
+      if (Number.isFinite(d)) out[f.name] = d
+    } else if (f.type === 'currency' || f.type === 'number') {
+      const n = Number(v)
+      if (Number.isFinite(n)) out[f.name] = n
+    } else if (f.type === 'bool') {
+      out[f.name] = v === 'true' || v === true
+    } else {
+      out[f.name] = String(v)
+    }
+  }
+  return out
+}
+
+/* Fallback registry + records built from the bundled sanitized dataset,
+   used only when the SQLite API is not available (fresh clone). */
+const FALLBACK_REGISTRY = [
+  {
+    name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type',
+    fields: [
+      { name: 'Loan Type', label: 'Product code', type: 'string', role: 'code' },
+      { name: 'Loan Balance', label: 'Balance', type: 'currency', role: 'balance' },
+      { name: 'Payment', label: 'Payment amount', type: 'currency', role: null },
+      { name: 'Interest Rate', label: 'Interest rate', type: 'number', role: null },
+      { name: 'Due Date', label: 'Due Date', type: 'date', role: 'recurring_date' },
+      { name: 'Maturity Date', label: 'Maturity Date', type: 'date', role: null },
+    ],
+  },
+  {
+    name: 'Member Contact', category: 'member', purpose: 'campaign', codeField: null,
+    fields: [
+      { name: 'Has Email', label: 'Has email on file', type: 'bool', role: null },
+      { name: 'Has Mobile', label: 'Has mobile on file', type: 'bool', role: null },
+    ],
+  },
+]
+
+const buildFallback = () => {
+  REGISTRY = FALLBACK_REGISTRY
+  MEMBERS = SYMITAR_ACCOUNTS.map((a) => ({
+    id: a.id,
+    records: {
+      Loans: a.loans.map((l, i) => ({
+        key: `${a.id}:${i}`, status: 'open', holders: 1 + (a.joint ? 1 : 0),
+        values: {
+          ...(l.code != null ? { 'Loan Type': l.code } : {}),
+          ...(l.balance != null ? { 'Loan Balance': l.balance } : {}),
+          ...(l.payment != null ? { Payment: l.payment } : {}),
+          ...(l.rate != null ? { 'Interest Rate': l.rate } : {}),
+          ...(l.dueInDays != null ? { 'Due Date': l.dueInDays } : {}),
+          ...(l.maturityInDays != null ? { 'Maturity Date': l.maturityInDays } : {}),
+        },
+      })),
+      'Member Contact': [{ key: `${a.id}:contact`, status: 'open', holders: 1, values: { 'Has Email': a.hasEmail, 'Has Mobile': a.hasMobile } }],
+    },
+  }))
+}
+buildFallback()
+
+/* Hydrate everything from the SQLite bootstrap payload. */
+export function hydrateDataset({ accounts, stats, registry, members }) {
   SYMITAR_ACCOUNTS.length = 0
   SYMITAR_ACCOUNTS.push(...accounts)
   for (const k of Object.keys(SYMITAR_STATS)) delete SYMITAR_STATS[k]
   Object.assign(SYMITAR_STATS, stats)
+  if (registry?.length && members?.length) {
+    REGISTRY = registry
+    MEMBERS = members.map((m) => ({
+      id: m.id,
+      records: Object.fromEntries(
+        Object.entries(m.records).map(([ent, recs]) => {
+          const def = registry.find((e) => e.name === ent)
+          return [ent, recs.map((r) => ({ ...r, values: def ? normalizeValues(def, r.values, stats.fileDate) : r.values }))]
+        })
+      ),
+    }))
+  } else {
+    buildFallback()
+  }
 }
 
-export const SEGMENTS = [
-  { name: 'Active — last 30 days', group: 'Smart', users: 184230 },
-  { name: 'New signups this week', group: 'Smart', users: 6842 },
-  { name: 'Completed onboarding', group: 'Smart', users: 52107 },
-  { name: 'Premium subscribers', group: 'Smart', users: 14903 },
-  { name: 'Lapsed 60+ days', group: 'Smart', users: 31288 },
-  { name: 'Push opt-in', group: 'System', users: 98450 },
-  { name: 'Email subscribers', group: 'System', users: 203115 },
-  { name: 'iOS users', group: 'System', users: 76220 },
-  { name: 'Black Friday 2025 waitlist', group: 'Uploaded', users: 12004 },
-  { name: 'VIP customers — Q2', group: 'Uploaded', users: 842 },
-  { name: 'Winback CSV — March', group: 'Uploaded', users: 5310 },
-  { name: 'Beta testers', group: 'Manual', users: 126 },
-  { name: 'Likely to accept a loan offer', group: 'Predicted', users: 3120 },
-  { name: 'Churn risk — next 90 days', group: 'Predicted', users: 1480 },
-  { name: 'Card upgrade propensity', group: 'Predicted', users: 2210 },
-]
+export const totalMembers = () => MEMBERS.length
+export const entityDef = (name) => REGISTRY.find((e) => e.name === name) ?? null
 
-export const GEOFENCES = [
-  { name: 'Downtown Flagship Store', group: 'Branch' },
-  { name: 'Westfield Century City', group: 'Branch' },
-  { name: 'Manhattan Beach Store', group: 'Branch' },
-  { name: 'Bay Area Dealer Network', group: 'Dealer' },
-  { name: 'Texas Dealer Network', group: 'Dealer' },
-  { name: 'Southern California Region', group: 'Region' },
-  { name: 'Pacific Northwest Region', group: 'Region' },
-  { name: 'Summer Festival Pop-up', group: 'Custom' },
-  { name: 'Campus Push Zone', group: 'Push' },
-]
+/* Entities a marketer can build segment rules on: anything with instance
+   records and segment purpose. Nothing is hardcoded — a new ENTITY_DEF
+   (offers, eligibility, anything) appears here automatically. */
+export const segmentEntities = () =>
+  REGISTRY.filter((e) => e.purpose === 'segment' || e.purpose === 'both')
 
-export const SEG_GROUPS = ['Smart', 'Uploaded', 'Manual', 'System', 'Predicted']
-export const GEO_GROUPS = ['Custom', 'Push', 'Branch', 'Dealer', 'Region']
+/* Condition fields for an entity = its typed fields minus the code field
+   (the code is the scope chips, not a condition). */
+export const fieldsFor = (rule) => {
+  const def = rule?.entity ? entityDef(rule.entity) : null
+  return def ? def.fields.filter((f) => f.name !== def.codeField) : []
+}
 
-export const TOTAL_SEGMENTS = 478
-export const TOTAL_GEOFENCES = 79
-export const REACH_CEILING = 205004
+/* No synced-segment sources or geofences exist for this FI yet — these
+   stay empty until a real source feeds them. Surfaces that list them
+   render designed empty states, never invented rows. */
+export const SEGMENTS = []
+export const GEOFENCES = []
 
 const TAG_COLORS = {
   Smart: '#1f6f4a', Uploaded: '#7a4fc0', Manual: '#2f6fc4', System: '#8a6d2e', Predicted: '#c05a8a', Rule: '#1f4a86',
@@ -76,52 +151,6 @@ const hash = (s) => {
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0
   return h
 }
-
-/* ── multi-product model ─────────────────────────────────────────────
-   Members hold products. Marketers target on product facts through one
-   rule: quantifier + category scope (optionally narrowed to FI labels)
-   + conditions that must all match the SAME product instance. */
-
-export const TOTAL_MEMBERS = 18400
-
-export const PRODUCT_CATEGORIES = {
-  loan: {
-    label: 'Loan', plural: 'loans',
-    types: ['Auto Loan', 'Personal Loan', 'Home Equity', 'Student Loan'],
-    fields: [
-      { key: 'balance', label: 'Balance', type: 'currency' },
-      { key: 'payment', label: 'Monthly payment', type: 'currency' },
-      { key: 'dueDate', label: 'Payment due date', type: 'date' },
-      { key: 'maturity', label: 'Maturity date', type: 'date' },
-      { key: 'rate', label: 'Interest rate', type: 'number' },
-      { key: 'drift', label: 'Payment drift (days)', type: 'number' },
-    ],
-  },
-  deposit: {
-    label: 'Deposit', plural: 'deposits',
-    types: ['Share Savings', 'Holiday Club', 'Money Market'],
-    fields: [{ key: 'balance', label: 'Balance', type: 'currency' }],
-  },
-  certificate: {
-    label: 'Certificate', plural: 'certificates',
-    types: ['6-Month Certificate', '12-Month Certificate', '5-Year Jumbo'],
-    fields: [
-      { key: 'balance', label: 'Balance', type: 'currency' },
-      { key: 'maturity', label: 'Maturity date', type: 'date' },
-      { key: 'apy', label: 'APY', type: 'number' },
-    ],
-  },
-  card: {
-    label: 'Card', plural: 'cards',
-    types: ['Visa Platinum', 'Visa Rewards', 'Secured Card'],
-    fields: [
-      { key: 'balance', label: 'Balance', type: 'currency' },
-      { key: 'payment', label: 'Minimum payment', type: 'currency' },
-      { key: 'dueDate', label: 'Payment due date', type: 'date' },
-    ],
-  },
-}
-export const CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card']
 
 export const QUANTIFIERS = [
   { key: 'any', label: 'Has any' },
@@ -156,7 +185,17 @@ export const OPERATORS = {
     { key: 'not_set', label: 'is not set', noValue: true },
     { key: 'is_set', label: 'is set', noValue: true },
   ],
+  bool: [
+    { key: 'is_true', label: 'is yes', noValue: true },
+    { key: 'is_false', label: 'is no', noValue: true },
+    { key: 'not_set', label: 'is not set', noValue: true },
+  ],
+  string: [
+    { key: 'is_set', label: 'is set', noValue: true },
+    { key: 'not_set', label: 'is not set', noValue: true },
+  ],
 }
+export const operatorsFor = (type) => OPERATORS[type] ?? OPERATORS.number
 
 /* Days from today to a yyyy-mm-dd string; null when unparsable. */
 const daysUntil = (v) => {
@@ -172,78 +211,9 @@ const fmtDateValue = (v) => {
   return isNaN(d) ? '…' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export const EMPTY_PRODUCT_RULE = { quantifier: 'any', entity: 'product', category: null, types: [], conditions: [], recurring: false }
-
-/* ── Offers: the registry's second instance entity. One curated field
-   set; offer TYPES are the scope vocabulary, labeled per vendor code
-   through the catalog (same pattern as product codes). */
-export const OFFER_FIELDS = [
-  { key: 'amount', label: 'Approved amount', type: 'currency' },
-  { key: 'offerRate', label: 'Offer rate', type: 'number' },
-  { key: 'expires', label: 'Expiration date', type: 'date' },
-]
-
-export const seedOfferCodes = () => [
-  { code: 'CNX-AUTO', source: 'Prequal engine', label: 'Auto loan pre-approval', offers: 41 },
-  { code: 'CNX-PL', source: 'Prequal engine', label: 'Personal loan pre-approval', offers: 28 },
-  { code: 'CNX-HE', source: 'Prequal engine', label: 'HELOC pre-approval', offers: 19 },
-  { code: 'CNX-RV22', source: 'Prequal engine', label: '', offers: 8 },
-]
-
-let activeOfferMap = new Map()
-export const setActiveOfferMap = (codes) => {
-  activeOfferMap = new Map(codes.map((c) => [c.code, c]))
-}
-export const offerTypeLabels = () =>
-  [...activeOfferMap.values()].filter((c) => c.label.trim()).map((c) => c.label)
-
-/* Deterministic synthetic offers riding on the real member dataset
-   (~40% of members hold 1–2). Real extract carries no offer data. */
-const OFFER_CODE_KEYS = ['CNX-AUTO', 'CNX-PL', 'CNX-HE', 'CNX-AUTO', 'CNX-PL', 'CNX-RV22']
-export function memberOffers(accountId) {
-  const h = hash('offers·' + accountId)
-  if (h % 5 >= 2) return [] // ~40% of members hold offers
-  const count = 1 + (h % 2)
-  const out = []
-  for (let k = 0; k < count; k++) {
-    // Knuth multiplicative mix — consecutive k must diverge in high bits too
-    const hk = Math.imul(hash(accountId + '·' + k), 2654435761) >>> 0
-    out.push({
-      code: OFFER_CODE_KEYS[(hk >>> 2) % OFFER_CODE_KEYS.length],
-      amount: 2500 + ((hk >>> 4) % 24) * 2500,
-      offerRate: 5 + ((hk >>> 6) % 60) / 10,
-      // cluster: ~1/3 expiring within 14 days, some already expired
-      expiresInDays: (hk >>> 3) % 3 === 0 ? ((hk >>> 5) % 21) - 6 : 15 + ((hk >>> 5) % 76),
-    })
-  }
-  return out
-}
-
-const resolvedOffers = (accountId) =>
-  memberOffers(accountId).flatMap((o) => {
-    const m = activeOfferMap.get(o.code)
-    if (!m || !m.label.trim()) return []
-    return [{ ...o, label: m.label }]
-  })
-
-export const unmappedOfferCount = () =>
-  SYMITAR_ACCOUNTS.reduce((s, a) => s + memberOffers(a.id).filter((o) => {
-    const m = activeOfferMap.get(o.code)
-    return !(m && m.label.trim())
-  }).length, 0)
-
-export const expiringOffersCount = (days = 14) =>
-  SYMITAR_ACCOUNTS.reduce((s, a) => s + memberOffers(a.id).filter((o) => o.expiresInDays >= 0 && o.expiresInDays <= days).length, 0)
-
-export function offerFactline(o) {
-  const parts = [`up to $${fmt(o.amount)}`, `${o.offerRate.toFixed(1)}%`]
-  parts.push(
-    o.expiresInDays < 0 ? `expired ${-o.expiresInDays}d ago`
-      : o.expiresInDays === 0 ? 'expires today'
-      : `expires in ${o.expiresInDays} days`
-  )
-  return parts.join(' · ')
-}
+/* Rule: quantifier over one entity's records. types are RAW code values
+   of the entity's code field (labels can change; codes are stable). */
+export const EMPTY_RULE = { quantifier: 'any', entity: null, types: [], conditions: [], recurring: false }
 
 /* N-value with default, treating 0 as a real value ("more than 0 days
    ago" = any past date). */
@@ -253,23 +223,59 @@ const nOr = (v, d) => {
   return Number.isFinite(n) ? n : d
 }
 
-export const fieldByKey = (category, key) => PRODUCT_CATEGORIES[category].fields.find((f) => f.key === key)
-export const operatorsFor = (type) => OPERATORS[type] ?? OPERATORS.number
-export const ruleActive = (rule) => !!rule && (rule.entity === 'offer' || !!rule.category)
+export const ruleActive = (rule) => !!rule?.entity && !!entityDef(rule.entity)
 
-/* Field set for a rule, per entity class. */
-export const fieldsFor = (rule) =>
-  rule.entity === 'offer' ? OFFER_FIELDS : rule.category ? PRODUCT_CATEGORIES[rule.category].fields : []
+/* ── code labels: the FI's vocabulary, from the live catalog ───────── */
+let activeCodeMap = new Map()
+export const setActiveCodeMap = (codes) => {
+  activeCodeMap = new Map(codes.map((c) => [c.code, c]))
+}
+export const codeLabel = (code) => {
+  const m = activeCodeMap.get(code)
+  return m && m.label.trim() ? m.label : `Code ${code}`
+}
+export const codeIsLabeled = (code) => !!activeCodeMap.get(code)?.label.trim()
 
-export const rulePlural = (rule) =>
-  rule.entity === 'offer' ? 'offers' : PRODUCT_CATEGORIES[rule.category]?.plural ?? 'products'
+/* Scope chips for an entity: every raw code seen in its data, labeled
+   where the catalog labels it, shown raw where it doesn't. Unlabeled
+   codes stay targetable — the marketer sees exactly what the data says. */
+export const entityTypes = (entityName) => {
+  const def = entityDef(entityName)
+  if (!def?.codeField) return []
+  const counts = new Map()
+  for (const m of MEMBERS) {
+    for (const r of m.records[entityName] ?? []) {
+      const c = r.values[def.codeField]
+      if (c != null) counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([code, count]) => ({ code, label: codeLabel(code), labeled: codeIsLabeled(code), count }))
+}
 
+export const unlabeledRecordCount = (entityName) => {
+  const def = entityDef(entityName)
+  if (!def?.codeField) return 0
+  let n = 0
+  for (const m of MEMBERS) {
+    for (const r of m.records[entityName] ?? []) {
+      const c = r.values[def.codeField]
+      if (c != null && !codeIsLabeled(c)) n++
+    }
+  }
+  return n
+}
+
+/* ── rule text ─────────────────────────────────────────────────────── */
 export function conditionText(rule, c) {
-  const f = fieldsFor(rule).find((x) => x.key === c.field)
+  const f = fieldsFor(rule).find((x) => x.name === c.field)
   if (!f) return ''
   const name = f.label.toLowerCase()
   if (c.op === 'not_set') return `${name} is not set`
   if (c.op === 'is_set') return `${name} is set`
+  if (c.op === 'is_true') return `${name} is yes`
+  if (c.op === 'is_false') return `${name} is no`
   if (f.type === 'date') {
     if (c.op === 'tomorrow') return `${name} is tomorrow`
     if (c.op === 'next_n') return `${name} is in the next ${nOr(c.n, 3)} days`
@@ -282,317 +288,113 @@ export function conditionText(rule, c) {
   const op = operatorsFor(f.type).find((o) => o.key === c.op)
   const v = f.type === 'currency'
     ? `$${fmt(Number(c.value) || 0)}`
-    : `${Number(c.value) || 0}${f.key === 'apy' || f.key === 'rate' || f.key === 'offerRate' ? '%' : ''}`
-  return `${name} ${op.label} ${v}`
+    : `${Number(c.value) || 0}${/rate|apy/i.test(f.label) ? '%' : ''}`
+  return `${name} ${op?.label ?? c.op} ${v}`
 }
+
+export const rulePlural = (rule) => `${rule.entity ?? 'record'} records`
 
 export function ruleSentence(rule) {
   if (!ruleActive(rule)) return null
   const plural = rule.quantifier === 'two_plus'
-  const scope = rule.entity === 'offer'
-    ? (rule.types.length ? rule.types.join(' or ') + (plural ? 's' : '') : plural ? 'offers' : 'offer')
-    : (rule.types.length
-        ? rule.types.join(' or ') + (plural ? 's' : '')
-        : plural ? PRODUCT_CATEGORIES[rule.category].plural : PRODUCT_CATEGORIES[rule.category].label.toLowerCase())
   const lead = rule.quantifier === 'any' ? 'Any' : rule.quantifier === 'none' ? 'No' : '2 or more'
+  let scope = `${rule.entity} record${plural ? 's' : ''}`
+  if (rule.types.length) scope += ` of type ${rule.types.map((c) => codeLabel(c)).join(' or ')}`
   const conds = rule.conditions.length
     ? ` where ${rule.conditions.map((c) => conditionText(rule, c)).join(' and ')}`
     : ''
   return `${lead} ${scope}${conds}`
 }
 
-/* Mocked audience math — deterministic per rule so numbers feel stable. */
-export function productReach(rule, baseMembers) {
-  if (!ruleActive(rule)) return null
-  const h = hash(JSON.stringify([rule.quantifier, rule.category, [...rule.types].sort(), rule.conditions.map((c) => [c.field, c.op, c.value, c.value2, c.n])]))
-  const catShare = { loan: 0.34, deposit: 0.62, certificate: 0.18, card: 0.41 }[rule.category]
-  let f = catShare
-  if (rule.types.length) {
-    f *= Math.min(1, rule.types.length / PRODUCT_CATEGORIES[rule.category].types.length + 0.08)
-  }
-  rule.conditions.forEach((_, i) => { f *= 0.18 + ((h >>> (i * 4)) % 16) / 60 })
-  if (rule.quantifier === 'two_plus') f *= 0.22
-  if (rule.quantifier === 'none') f = 1 - f
-  const members = Math.max(24, Math.round(baseMembers * f))
-  if (rule.quantifier === 'none') return { members, products: null }
-  const perMember = rule.quantifier === 'two_plus' ? 2.05 + ((h >>> 8) % 8) / 40 : 1.18 + ((h >>> 6) % 12) / 44
-  return { members, products: Math.round(members * perMember) }
-}
-
-/* Deterministic product holdings per member: 1–5 products, ~3 on average.
-   Roughly one in nine members holds two near-due loans, so per-product
-   matching and double-enrollment are always demonstrable. */
-export function memberProducts(seed) {
-  const h = hash(seed)
-  const twinLoans = h % 9 === 2
-  const count = twinLoans ? 3 : [1, 2, 3, 3, 3, 4, 5][h % 7]
-  const out = []
-  for (let k = 0; k < count; k++) {
-    const category = twinLoans && k < 2 ? 'loan' : CATEGORY_ORDER[(h + k * 3) % 4]
-    const cat = PRODUCT_CATEGORIES[category]
-    out.push({
-      category,
-      label: cat.types[(h + k * 5) % cat.types.length],
-      balance: 400 + (((h >>> 1) * (k + 3)) % 240) * 100,
-      payment: 60 + (((h >>> 3) + k * 17) % 540),
-      rate: 3 + (((h >>> 5) + k) % 15),
-      apy: 1 + (((h >>> 7) + k) % 5),
-      // ~1 in 6 non-twin products has no due date on file — the blank-check
-      // gap needs real unset data to be demonstrable
-      dueInDays: twinLoans && k < 2
-        ? (k === 0 ? 1 : 3)
-        : ((((h >>> 6) + k * 7) % 6) === 0 ? null : ((((h >>> 2) + k * 5) % 27) - 6)),
-      maturityInDays: (((h >>> 4) + k * 11) % 180),
-    })
-  }
-  return out
-}
-
-/* Days-value for a date field on any instance (product or offer). */
-const dateValueOf = (inst, key) =>
-  key === 'maturity' ? inst.maturityInDays : key === 'expires' ? inst.expiresInDays : inst.dueInDays
-
-const conditionsMatch = (inst, rule) =>
+/* ── evaluation: generic over records ─────────────────────────────── */
+const conditionsMatch = (def, rec, rule) =>
   rule.conditions.every((c) => {
-    const f = fieldsFor(rule).find((x) => x.key === c.field)
+    const f = def.fields.find((x) => x.name === c.field)
     if (!f) return false
+    const v = rec.values[c.field]
+    if (c.op === 'not_set') return v === undefined
+    if (c.op === 'is_set') return v !== undefined
+    if (c.op === 'is_true') return v === true
+    if (c.op === 'is_false') return v === false
+    if (v === undefined) return false // unset never matches a value comparison
     if (f.type === 'date') {
-      const d = dateValueOf(inst, c.field)
-      if (c.op === 'not_set') return d == null
-      if (c.op === 'is_set') return d != null
-      if (d == null) return false // unset never matches a value comparison
-      if (c.op === 'tomorrow') return d === 1
-      if (c.op === 'next_n') return d >= 0 && d <= nOr(c.n, 3)
-      if (c.op === 'more_than_n_away') return d > nOr(c.n, 30)
-      if (c.op === 'before_date') { const t = daysUntil(c.value); return t != null && d <= t }
-      if (c.op === 'after_date') { const t = daysUntil(c.value); return t != null && d > t }
+      if (c.op === 'tomorrow') return v === 1
+      if (c.op === 'next_n') return v >= 0 && v <= nOr(c.n, 3)
+      if (c.op === 'more_than_n_away') return v > nOr(c.n, 30)
+      if (c.op === 'before_date') { const t = daysUntil(c.value); return t != null && v <= t }
+      if (c.op === 'after_date') { const t = daysUntil(c.value); return t != null && v > t }
       if (c.op === 'between_dates') {
         const t1 = daysUntil(c.value)
         const t2 = daysUntil(c.value2)
-        return t1 != null && t2 != null && d >= Math.min(t1, t2) && d <= Math.max(t1, t2)
+        return t1 != null && t2 != null && v >= Math.min(t1, t2) && v <= Math.max(t1, t2)
       }
-      return d < -nOr(c.n, 30)
+      return v < -nOr(c.n, 30)
     }
-    const pv = inst[c.field]
-    if (c.op === 'not_set') return pv == null
-    if (c.op === 'is_set') return pv != null
-    if (pv == null) return false
-    const v = Number(c.value) || 0
-    return c.op === 'gt' ? pv > v : pv < v
+    const cv = Number(c.value) || 0
+    return c.op === 'gt' ? v > cv : v < cv
   })
 
-export function productMatches(product, rule) {
-  if (product.category !== rule.category) return false
-  if (rule.types.length && !rule.types.includes(product.label)) return false
-  return conditionsMatch(product, rule)
+const recordMatches = (def, rec, rule) => {
+  if (rule.types.length) {
+    const code = def.codeField ? rec.values[def.codeField] : null
+    if (!rule.types.includes(code)) return false
+  }
+  return conditionsMatch(def, rec, rule)
 }
-
-export function offerMatches(offer, rule) {
-  if (rule.types.length && !rule.types.includes(offer.label)) return false
-  return conditionsMatch(offer, rule)
-}
-
-export const matchedProducts = (seed, rule) => memberProducts(seed).filter((p) => productMatches(p, rule))
 
 export const memberSatisfies = (matchCount, quantifier) =>
   quantifier === 'none' ? matchCount === 0 : quantifier === 'two_plus' ? matchCount >= 2 : matchCount >= 1
 
-/* Deterministic "AI" phrase parser — keyword matching, no model calls.
-   Returns a product rule or null when no product type is recognized. */
-export function parseAudiencePhrase(text) {
-  const t = (text || '').toLowerCase()
-  if (!t.trim()) return null
-
-  // offer-shaped phrases → the offers entity (checked before product
-  // categories so "pre-approved for $10,000" needs no product word)
-  if (/pre-?approved|pre-?qualif|qualifies for|eligible for/.test(t)) {
-    const conditions = []
-    let oid = 1
-    let om
-    if ((om = t.match(/(?:more than|over|above) \$?([\d,]+)/))) {
-      conditions.push({ id: oid++, field: 'amount', op: 'gt', value: om[1].replace(/,/g, ''), n: 3 })
-    }
-    if ((om = t.match(/expir\w* (?:in |within )?(?:the )?next (\d+) days?/))) {
-      conditions.push({ id: oid++, field: 'expires', op: 'next_n', value: '', n: Number(om[1]) })
-    }
-    const types = offerTypeLabels().filter((l) => t.includes(l.toLowerCase().replace(' pre-approval', '')))
-    const quantifier = /\btwo or more|2 or more|\b2\+|multiple\b/.test(t) ? 'two_plus' : 'any'
-    return { quantifier, entity: 'offer', category: null, types, conditions, recurring: false }
-  }
-
-  let category = null
-  const types = []
-  for (const key of CATEGORY_ORDER) {
-    for (const label of PRODUCT_CATEGORIES[key].types) {
-      if (t.includes(label.toLowerCase())) {
-        category = key
-        if (!types.includes(label)) types.push(label)
-      }
-    }
-  }
-  if (!category) {
-    if (/\bloans?\b|\bmortgage\b/.test(t)) category = 'loan'
-    else if (/\bcards?\b|\bvisa\b/.test(t)) category = 'card'
-    else if (/\bcertificates?\b|\bcds?\b/.test(t)) category = 'certificate'
-    else if (/\bdeposits?\b|\bsavings\b|\bchecking\b/.test(t)) category = 'deposit'
-  }
-  if (!category) return null
-
-  // pull out "no/missing due date" clauses BEFORE quantifier detection, so
-  // "loans with no due date on file" doesn't read as "has no loan"
-  const blankDue = /(?:with |having )?(?:no|missing|without an?) due date(?: on file| set)?/.test(t)
-  const tq = t.replace(/(?:with |having )?(?:no|missing|without an?) due date(?: on file| set)?/g, '')
-
-  let quantifier = 'any'
-  if (/\bno\b|\bwithout\b|doesn'?t have|\bnone\b/.test(tq)) quantifier = 'none'
-  else if (/two or more|2 or more|\b2\+|more than one|\bmultiple\b/.test(tq)) quantifier = 'two_plus'
-
-  const conditions = []
-  let id = 1
-  const fields = PRODUCT_CATEGORIES[category].fields
-  const hasField = (k) => fields.some((f) => f.key === k)
-  let m
-
-  if (hasField('dueDate')) {
-    if (blankDue) {
-      conditions.push({ id: id++, field: 'dueDate', op: 'not_set', value: '', n: 3 })
-    } else if ((m = t.match(/due (?:in |within )?(?:the )?next (\d+) days?/))) {
-      conditions.push({ id: id++, field: 'dueDate', op: 'next_n', value: '', n: Number(m[1]) })
-    } else if ((m = t.match(/due (?:in )?more than (\d+) days?(?: away| from now)?/))) {
-      conditions.push({ id: id++, field: 'dueDate', op: 'more_than_n_away', value: '', n: Number(m[1]) })
-    } else if (/due tomorrow/.test(t)) {
-      conditions.push({ id: id++, field: 'dueDate', op: 'tomorrow', value: '', n: 3 })
-    } else if ((m = t.match(/overdue (?:by )?(?:more than )?(\d+) days?/))) {
-      conditions.push({ id: id++, field: 'dueDate', op: 'past_n', value: '', n: Number(m[1]) })
-    }
-  }
-  if (hasField('maturity') && (m = t.match(/matur\w* (?:in |within )?(?:the )?next (\d+) days?/))) {
-    conditions.push({ id: id++, field: 'maturity', op: 'next_n', value: '', n: Number(m[1]) })
-  }
-  if ((m = t.match(/balance (?:of )?(?:over|above|more than|greater than) \$?([\d,]+)/))) {
-    conditions.push({ id: id++, field: 'balance', op: 'gt', value: m[1].replace(/,/g, ''), n: 3 })
-  } else if ((m = t.match(/balance (?:of )?(?:under|below|less than) \$?([\d,]+)/))) {
-    conditions.push({ id: id++, field: 'balance', op: 'lt', value: m[1].replace(/,/g, ''), n: 3 })
-  }
-
-  return { quantifier, category, types, conditions, recurring: false }
+const ruleInstances = (member, rule) => {
+  const def = entityDef(rule.entity)
+  if (!def) return []
+  return (member.records[rule.entity] ?? []).filter((r) => recordMatches(def, r, rule))
 }
-
-/* Mocked closed-loop numbers, derived from the audience size so the
-   performance view always agrees with the reach shown. */
-/* Only metrics Pulsate actually observes: delivery + engagement events,
-   plus goal counts when (and only when) a goal is defined. No payment or
-   revenue claims — Pulsate never sees payments. */
-export function mockPerformance(members, goalDefined = false) {
-  const delivered = Math.round(members * 0.96)
-  const opened = Math.round(delivered * 0.64)
-  const clicked = Math.round(opened * 0.47)
-  const exited = Math.round(members * 0.18)
-  const goalExits = goalDefined ? Math.round(exited * 0.72) : 0
-  return {
-    entered: members,
-    delivered,
-    opened,
-    clicked,
-    goalReached: goalDefined ? Math.round(clicked * 0.62) : null,
-    goalExits,
-    removed: exited - goalExits,
-  }
-}
-
-export const fmtMoney = (n) =>
-  n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${fmt(n)}`
-
-/* ── audiences as first-class objects ────────────────────────────── */
-
-export const DEMO_RULE = {
-  quantifier: 'any', category: 'loan', types: [],
-  conditions: [{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 3 }],
-}
-
-const symRule = (conditions, quantifier = 'any') => ({ quantifier, category: 'loan', types: [], conditions })
-
-/* The first four audiences evaluate live against the 081126 extract. */
-export const seedAudiences = () => [
-  { id: 'aud-sym-pastdue', name: 'Loans past due', kind: 'Rule', rule: symRule([{ id: 1, field: 'dueDate', op: 'past_n', value: '', n: 0 }, { id: 2, field: 'balance', op: 'gt', value: '0', n: 3 }]), baseIds: [], usedIn: 1 },
-  { id: 'aud-sym-due30', name: 'Payment due — next 30 days', kind: 'Rule', rule: symRule([{ id: 1, field: 'dueDate', op: 'next_n', value: '', n: 30 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-nomaturity', name: 'No maturity date on file', kind: 'Rule', rule: symRule([{ id: 1, field: 'maturity', op: 'not_set', value: '', n: 3 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-multiloan', name: 'Members with 2+ loans', kind: 'Rule', rule: symRule([], 'two_plus'), baseIds: [], usedIn: 0 },
-  { id: 'aud-off-auto', name: 'Pre-approved — auto loan', kind: 'Rule', rule: { quantifier: 'any', entity: 'offer', category: null, types: ['Auto loan pre-approval'], conditions: [] }, baseIds: [], usedIn: 0 },
-  { id: 'aud-off-expiring', name: 'Offers expiring — next 30 days', kind: 'Rule', rule: { quantifier: 'any', entity: 'offer', category: null, types: [], conditions: [{ id: 1, field: 'expires', op: 'next_n', value: '', n: 30 }] }, baseIds: [], usedIn: 0 },
-  { id: 'aud-sym-drift', name: 'Loans drifting 10+ days', kind: 'Rule', rule: symRule([{ id: 1, field: 'drift', op: 'gt', value: '10', n: 3 }]), baseIds: [], usedIn: 0 },
-  { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 2 },
-  ...SEGMENTS.map((s, i) => ({ id: `aud-seg-${i}`, name: s.name, kind: s.group, users: s.users, rule: null, baseIds: [], usedIn: (i * 7) % 4 })),
-]
-
-/* ── Symitar real-data evaluation ──────────────────────────────────
-   Rule audiences evaluate against the derived extract dataset — exact
-   counts, not mocked math. Category/label resolution flows through the
-   ACTIVE product-code map, so mapping a code in the catalog visibly
-   changes audience reach. */
-
-let activeCodeMap = new Map()
-export const setActiveCodeMap = (codes) => {
-  activeCodeMap = new Map(codes.map((c) => [c.code, c]))
-}
-
-const accountProducts = (a) =>
-  a.loans.map((l, i) => {
-    const m = activeCodeMap.get(l.code)
-    const mapped = m && m.label.trim() && m.category
-    // synthetic per-loan payment-drift signal (vendor-computed in reality):
-    // ~40% of loans drift 3–21 days, deterministic per loan
-    const dh = hash('drift·' + a.id + '·' + i)
-    return {
-      category: mapped ? m.category : null,
-      label: mapped ? m.label : `Type ${l.code}`,
-      code: l.code,
-      balance: l.balance ?? 0,
-      payment: l.payment ?? 0,
-      rate: l.rate ?? 0,
-      apy: 0,
-      dueInDays: l.dueInDays,
-      maturityInDays: l.maturityInDays,
-      drift: dh % 5 < 2 ? 3 + (dh >>> 3) % 19 : 0,
-    }
-  })
-
-/* FI-label scope chips come from the live catalog mapping, not the
-   static registry defaults — the builder shows the CU's own products. */
-export const categoryTypes = (category) => {
-  const labels = [...activeCodeMap.values()]
-    .filter((c) => c.category === category && c.label.trim())
-    .sort((a, b) => (b.holders ?? 0) - (a.holders ?? 0))
-    .map((c) => c.label)
-  return labels.length ? labels : PRODUCT_CATEGORIES[category].types
-}
-
-export const unmappedLoanCount = () =>
-  SYMITAR_ACCOUNTS.reduce((s, a) => s + a.loans.filter((l) => {
-    const m = activeCodeMap.get(l.code)
-    return !(m && m.label.trim() && m.category)
-  }).length, 0)
-
-const ruleInstances = (a, rule) =>
-  rule.entity === 'offer'
-    ? resolvedOffers(a.id).filter((o) => offerMatches(o, rule))
-    : accountProducts(a).filter((p) => p.category && productMatches(p, rule))
 
 export function realReach(rule) {
   if (!ruleActive(rule)) return null
   let members = 0
-  let products = 0
-  for (const a of SYMITAR_ACCOUNTS) {
-    const matches = ruleInstances(a, rule)
+  let records = 0
+  for (const m of MEMBERS) {
+    const matches = ruleInstances(m, rule)
     if (memberSatisfies(matches.length, rule.quantifier)) members++
-    products += matches.length
+    records += matches.length
   }
   return {
     members,
-    products: rule.quantifier === 'none' ? null : products,
-    source: rule.entity === 'offer' ? 'insights' : 'extract',
-    unmappable: rule.entity === 'offer' ? unmappedOfferCount() : unmappedLoanCount(),
+    products: rule.quantifier === 'none' ? null : records,
+    source: 'extract',
+    unlabeled: unlabeledRecordCount(rule.entity),
   }
+}
+
+/* Human factline for any record: its type label plus the most salient
+   currency and date facts, using the entity's own field labels. */
+export function recordFactline(entityName, rec) {
+  const def = entityDef(entityName)
+  if (!def) return ''
+  const parts = []
+  const cur = def.fields.find((f) => f.role === 'balance') ?? def.fields.find((f) => f.type === 'currency')
+  if (cur && rec.values[cur.name] != null) parts.push(`$${fmt(rec.values[cur.name])}`)
+  const dt = def.fields.find((f) => f.role === 'recurring_date') ?? def.fields.find((f) => f.type === 'date')
+  if (dt) {
+    const v = rec.values[dt.name]
+    const label = dt.label
+    parts.push(
+      v === undefined ? `no ${label.toLowerCase()} on file`
+        : v < 0 ? `${label} ${-v}d ago`
+        : v === 0 ? `${label} today`
+        : v === 1 ? `${label} tomorrow`
+        : `${label} in ${v} days`
+    )
+  }
+  return parts.join(' · ')
+}
+
+export const recordTypeLabel = (entityName, rec) => {
+  const def = entityDef(entityName)
+  const code = def?.codeField ? rec.values[def.codeField] : null
+  return code != null ? codeLabel(code) : entityName
 }
 
 /* Real matched members for drill-ins: sequential extract IDs with
@@ -600,20 +402,21 @@ export function realReach(rule) {
    source files). Multi-match members sort first. */
 export function datasetMatchedMembers(rule, limit = 8) {
   const out = []
-  for (const a of SYMITAR_ACCOUNTS) {
-    const matches = ruleInstances(a, rule).map((m) =>
-      rule.entity === 'offer' ? { ...m, fact: offerFactline(m) } : m
-    )
+  for (const m of MEMBERS) {
+    const matches = ruleInstances(m, rule).map((r) => ({
+      label: recordTypeLabel(rule.entity, r),
+      fact: recordFactline(rule.entity, r),
+    }))
     if (!memberSatisfies(matches.length, rule.quantifier)) continue
-    const h = hash(a.id)
+    const h = hash(m.id)
     const f = FIRST[h % FIRST.length]
     const l = LAST[(h >>> 3) % LAST.length]
     const [avFg, avBg] = AVATAR_PALETTE[hash(f + l) % AVATAR_PALETTE.length]
     out.push({
       name: `${f} ${l}`,
-      email: `member-${a.id.toLowerCase()}@example.com`,
+      email: `member-${m.id.toLowerCase()}@example.com`,
       initials: f[0] + l[0],
-      id: '#' + a.id,
+      id: '#' + m.id,
       avFg,
       avBg,
       matches,
@@ -622,67 +425,175 @@ export function datasetMatchedMembers(rule, limit = 8) {
   return out.sort((x, y) => y.matches.length - x.matches.length).slice(0, limit)
 }
 
-/* Reach for an audience object. Rule audiences → exact extract counts;
-   synced audiences keep their reported size. (Start-from narrowing is
-   not applied to extract evaluation.) */
-export function audienceReach(a, all = []) {
+/* Reach for an audience object — always the live evaluation. */
+export function audienceReach(a) {
   if (a.rule) return realReach(a.rule)
-  const base = a.baseIds?.length
-    ? Math.min(TOTAL_MEMBERS, a.baseIds.reduce((s, id) => s + (all.find((x) => x.id === id)?.users || 0), 0))
-    : TOTAL_MEMBERS
-  return { members: a.users ?? base, products: null }
+  return { members: a.users ?? 0, products: null }
 }
 
-/* Ready-to-launch audiences: outcome-named playbooks a marketer can
-   activate in one click. Rule-backed ones stay transparent — the rule
-   is visible and editable, not a black box. */
+/* Deterministic "AI" phrase parser — keyword matching, no model calls.
+   Entity detection runs against the LIVE registry names and the FI's
+   live code labels; nothing is hardcoded. */
+export function parseAudiencePhrase(text) {
+  const t = (text || '').toLowerCase()
+  if (!t.trim()) return null
+
+  let entity = null
+  const types = []
+  for (const def of segmentEntities()) {
+    // match the FI's own labels first (they imply the entity)
+    for (const ty of entityTypes(def.name)) {
+      if (ty.labeled && t.includes(ty.label.toLowerCase())) {
+        entity = def.name
+        if (!types.includes(ty.code)) types.push(ty.code)
+      }
+    }
+    // then the entity's own name, singular or plural
+    const n = def.name.toLowerCase()
+    if (!entity && (t.includes(n) || t.includes(n.replace(/s$/, '')))) entity = def.name
+  }
+  if (!entity) return null
+  const def = entityDef(entity)
+
+  const blankRe = /(?:with |having )?(?:no|missing|without an?) ([a-z ]+?) (?:date )?(?:on file|set)\b/
+  const tq = t.replace(blankRe, '')
+
+  let quantifier = 'any'
+  if (/\bno\b|\bwithout\b|doesn'?t have|\bnone\b/.test(tq)) quantifier = 'none'
+  else if (/two or more|2 or more|\b2\+|more than one|\bmultiple\b/.test(tq)) quantifier = 'two_plus'
+
+  const conditions = []
+  let id = 1
+  let m
+  const dateField = (kw) => def.fields.find((f) => f.type === 'date' && f.label.toLowerCase().includes(kw))
+  const currencyField = () => def.fields.find((f) => f.role === 'balance') ?? def.fields.find((f) => f.type === 'currency')
+
+  if ((m = t.match(blankRe))) {
+    const f = def.fields.find((x) => x.label.toLowerCase().includes(m[1].trim())) ?? dateField(m[1].trim())
+    if (f) conditions.push({ id: id++, field: f.name, op: 'not_set', value: '', n: 3 })
+  }
+  const due = dateField('due')
+  if (due) {
+    if ((m = t.match(/due (?:in |within )?(?:the )?next (\d+) days?/))) {
+      conditions.push({ id: id++, field: due.name, op: 'next_n', value: '', n: Number(m[1]) })
+    } else if (/due tomorrow/.test(t)) {
+      conditions.push({ id: id++, field: due.name, op: 'tomorrow', value: '', n: 3 })
+    } else if ((m = t.match(/overdue (?:by )?(?:more than )?(\d+) days?/))) {
+      conditions.push({ id: id++, field: due.name, op: 'past_n', value: '', n: Number(m[1]) })
+    } else if (/past due|overdue/.test(t)) {
+      conditions.push({ id: id++, field: due.name, op: 'past_n', value: '', n: 0 })
+    }
+  }
+  const mat = dateField('matur')
+  if (mat && (m = t.match(/matur\w* (?:in |within )?(?:the )?next (\d+) days?/))) {
+    conditions.push({ id: id++, field: mat.name, op: 'next_n', value: '', n: Number(m[1]) })
+  }
+  const bal = currencyField()
+  if (bal) {
+    if ((m = t.match(/balance (?:of )?(?:over|above|more than|greater than) \$?([\d,]+)/))) {
+      conditions.push({ id: id++, field: bal.name, op: 'gt', value: m[1].replace(/,/g, ''), n: 3 })
+    } else if ((m = t.match(/balance (?:of )?(?:under|below|less than) \$?([\d,]+)/))) {
+      conditions.push({ id: id++, field: bal.name, op: 'lt', value: m[1].replace(/,/g, ''), n: 3 })
+    }
+  }
+
+  return { quantifier, entity, types, conditions, recurring: false }
+}
+
+/* Performance metrics come only from observed delivery/engagement
+   events. No messages have been sent from this prototype, so there is
+   no performance data — the view says so instead of simulating it. */
+
+/* ── audiences as first-class objects ────────────────────────────── */
+
+export const DEMO_RULE = {
+  quantifier: 'any', entity: 'Loans', types: [],
+  conditions: [{ id: 1, field: 'Due Date', op: 'next_n', value: '', n: 3 }],
+}
+
+const loansRule = (conditions, quantifier = 'any') => ({ quantifier, entity: 'Loans', types: [], conditions })
+
+/* Every seeded audience is rule-backed and evaluates live against the
+   ingested data — no invented audiences with invented sizes. */
+export const seedAudiences = () => [
+  { id: 'aud-sym-pastdue', name: 'Loans past due', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Due Date', op: 'past_n', value: '', n: 0 }, { id: 2, field: 'Loan Balance', op: 'gt', value: '0', n: 3 }]), baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-due30', name: 'Payment due — next 30 days', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Due Date', op: 'next_n', value: '', n: 30 }]), baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-nomaturity', name: 'No maturity date on file', kind: 'Rule', rule: loansRule([{ id: 1, field: 'Maturity Date', op: 'not_set', value: '', n: 3 }]), baseIds: [], usedIn: 0 },
+  { id: 'aud-sym-multiloan', name: 'Members with 2+ loans', kind: 'Rule', rule: loansRule([], 'two_plus'), baseIds: [], usedIn: 0 },
+  { id: 'aud-loans-due-soon', name: 'Loans due soon', kind: 'Rule', rule: { ...DEMO_RULE }, baseIds: [], usedIn: 0 },
+]
+
+/* Ready-to-launch audiences: only playbooks whose rule can actually
+   evaluate against ingested data. More appear as more entities arrive —
+   the library says so instead of listing predictive placeholders. */
 export const AUDIENCE_TEMPLATES = [
   {
     id: 'tpl-loan-reminder',
     title: 'Loan payment reminders',
-    blurb: 'Every member with any loan payment due in the next 3 days — one reminder per qualifying loan.',
+    blurb: 'Every member with any Loans record due in the next 3 days — one reminder per qualifying record.',
     kind: 'Rule',
     rule: { ...DEMO_RULE },
   },
-  {
-    id: 'tpl-cert-renewal',
-    title: 'Certificate renewal window',
-    blurb: 'Certificates maturing in the next 30 days — reach members before the money walks.',
-    kind: 'Rule',
-    rule: { quantifier: 'any', category: 'certificate', types: [], conditions: [{ id: 1, field: 'maturity', op: 'next_n', value: '', n: 30 }] },
-  },
-  {
-    id: 'tpl-winback-auto',
-    title: 'Win back auto loans',
-    blurb: 'Members likely paying a competing lender, scored daily from transaction signals.',
-    kind: 'Predicted',
-    users: 1860,
-  },
-  {
-    id: 'tpl-high-savers',
-    title: 'Deposit growth — high savers',
-    blurb: 'High-balance members with room to grow deposits, refreshed daily.',
-    kind: 'Predicted',
-    users: 2540,
-  },
-  {
-    id: 'tpl-churn-save',
-    title: 'Churn risk save',
-    blurb: 'Members showing early attrition signals in the next 90 days.',
-    kind: 'Predicted',
-    users: 1480,
-  },
 ]
 
-/* ── sources: the ingestion layer. Pulsate is not a data lake — every
-      source maps into the curated registry; store only what activates. */
-export const seedSources = () => [
-  { id: 'src-symitar', name: 'Symitar core feed', type: 'core', cadence: 'SFTP · nightly 04:12', records: '18,400 members', identity: 'Member number', fields: 26, status: 'healthy', feeds: 'Products · Member attributes', note: '2 new product codes in last night’s file' },
-  { id: 'src-insights', name: 'Prequalification insights', type: 'insights', cadence: 'API · daily', records: '96 offers', identity: 'Member number', fields: 4, status: 'healthy', feeds: 'Offers', note: 'Provenance: credit prescreen — FCRA firm-offer rules apply' },
-  { id: 'src-hubspot', name: 'HubSpot', type: 'crm', cadence: 'API · hourly', records: '13,620 contacts', identity: 'Email → member # · 74% match', fields: 12, status: 'healthy', feeds: 'Member attributes', note: null },
-  { id: 'src-sdk', name: 'Mobile SDK', type: 'sdk', cadence: 'Real-time events', records: '9,850 devices linked', identity: 'Device → member link', fields: 8, status: 'healthy', feeds: 'Events', note: null },
-  { id: 'src-csv', name: 'Winback list — March', type: 'file', cadence: 'One-off upload', records: '5,310 rows', identity: 'Member number', fields: 4, status: 'healthy', feeds: 'Member attributes', note: null },
-]
+/* Anchor-able date fields for the journey's date trigger: every date
+   field of every segmentable entity, addressed as entity·field. */
+export const registryDateFields = () =>
+  segmentEntities().flatMap((e) =>
+    e.fields.filter((f) => f.type === 'date').map((f) => ({
+      key: `${e.name}·${f.name}`,
+      label: `${f.label} (${e.name})`,
+    }))
+  )
+
+/* Personalization tokens: one per campaign-usable entity field, plus the
+   member's name. Sample values come from a REAL record (the showcase
+   member) so the preview shows what the data actually contains. */
+const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+export const messageTokens = () => {
+  const out = [{ token: '{{first_name}}', sample: 'Amara' }]
+  const sm = showcaseMember()
+  for (const def of REGISTRY) {
+    if (def.purpose === 'segment') continue // campaign or both only
+    const rec = MEMBERS.flatMap((m) => m.records[def.name] ?? [])[0]
+    for (const f of def.fields) {
+      if (f.role === 'code') {
+        out.push({ token: `{{${slug(def.name)}.type}}`, sample: rec ? recordTypeLabel(def.name, rec) : '—' })
+        continue
+      }
+      const v = rec?.values[f.name]
+      const sample = v === undefined ? '—'
+        : f.type === 'currency' ? `$${fmt(v)}`
+        : f.type === 'date' ? (v < 0 ? `${-v}d ago` : `in ${v} days`)
+        : String(v)
+      out.push({ token: `{{${slug(def.name)}.${slug(f.label)}}}`, sample })
+    }
+  }
+  return sm ? out : out.slice(0, 1)
+}
+
+/* ── sources: the ingestion layer. One real source — the ingested VIP
+   extract. Its card is built from actual ingest facts; connecting more
+   sources is the empty state, not fake rows. */
+export const seedSources = () => [symitarSource()]
+
+export function symitarSource(meta = null) {
+  const s = SYMITAR_STATS
+  return {
+    id: 'src-symitar',
+    name: 'Symitar core extract',
+    type: 'core',
+    cadence: meta?.lastIngestedAt
+      ? `File drop · ingested ${new Date(meta.lastIngestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : `File drop · ${s.fileDate}`,
+    records: `${fmt(s.accounts)} members · ${fmt(s.loans)} loans`,
+    identity: 'Account number — stored as a salted hash',
+    fields: 9,
+    status: 'healthy',
+    feeds: REGISTRY.map((e) => e.name).join(' · ') || 'Pending first ingest',
+    note: `${Math.round((100 * s.duePast) / s.loans)}% of due dates are in the past — the extract may be stale`,
+  }
+}
 
 export const SOURCE_TYPE_META = {
   core: { label: 'Core banking', fg: '#1f4a86', bg: '#e6effb' },
@@ -694,70 +605,18 @@ export const SOURCE_TYPE_META = {
 
 export const SOURCE_GALLERY = ['Fiserv DNA', 'Corelation KeyStone', 'Banno', 'Q2', 'Salesforce', 'Snowflake']
 
+/* One source connected → identity resolution has nothing to join yet.
+   The identity card renders this as an explicit state, not fake rates. */
 export const IDENTITY_SUMMARY = {
-  canonical: 'Member number — assigned by the core',
-  joins: [
-    { source: 'HubSpot', method: 'email match', rate: 74 },
-    { source: 'Mobile SDK', method: 'device link', rate: 92 },
-  ],
-  unresolved: 312,
+  canonical: 'Account number — from the core extract, stored as a salted hash',
+  joins: [],
+  unresolved: 0,
 }
 
-export const HUBSPOT_FIELD_MAP = [
-  ['lifecyclestage', 'Member attribute · Lifecycle stage'],
-  ['last_meeting_date', 'Member attribute · Last branch visit'],
-  ['hubspot_owner', 'Member attribute · Relationship manager'],
-]
-
-/* Mock upload for the self-serve import wizard. */
-export const WIZARD_FILE = {
-  name: 'aacu_member_products_2026_07.csv',
-  size: '2.4 MB',
-  rows: 18400,
-  columns: [
-    { col: 'MBR_NUM', sample: '100482', target: 'Identity · Member number', confidence: 'auto' },
-    { col: 'SHR_SAV_BAL', sample: '4,210', target: 'Deposit · Balance', confidence: 'auto' },
-    { col: 'AUTO_LN1_BAL', sample: '12,400', target: 'Loan · Balance', confidence: 'auto' },
-    { col: 'AUTO_LN1_DUE_DT', sample: '08/01', target: 'Loan · Payment due date', confidence: 'auto' },
-    { col: 'AUTO_LN1_RATE', sample: '6.1', target: 'Loan · Interest rate', confidence: 'suggested' },
-    { col: 'CERT6_MAT_DT', sample: '01/12', target: 'Certificate · Maturity date', confidence: 'auto' },
-    { col: 'VISA_PLT_MIN_PMT', sample: '35', target: 'Card · Minimum payment', confidence: 'suggested' },
-    { col: 'SSN', sample: '•••-••-1234', target: null, confidence: 'pii' },
-    { col: 'RV_LN_BAL', sample: '18,220', target: null, confidence: 'unmapped' },
-  ],
-  preview: { matched: 18388, unmatched: 12, newCodes: ['HSA01', 'RV22'] },
-}
-
-export const wizardTargetOptions = () => [
-  ...CATEGORY_ORDER.flatMap((k) =>
-    PRODUCT_CATEGORIES[k].fields.map((f) => `${PRODUCT_CATEGORIES[k].label} · ${f.label}`)
-  ),
-  'Member attribute · Custom',
-]
-
-/* ── product catalog: FI codes → labels + categories ──────────────
-   The marketer-facing face of the data model. Codes arrive from the
-   FI's feed; mapping them is the only "modeling" a customer ever does.
-   The registry (categories + fields) is Pulsate-managed. */
-export const seedProductCodes = () => [
-  { code: 'SH01', rawCols: 'SHR_SAV_BAL', label: 'Share Savings', category: 'deposit', holders: 11200 },
-  { code: 'CLUB2', rawCols: 'HOL_CLB_BAL', label: 'Holiday Club', category: 'deposit', holders: 1840 },
-  { code: 'MM01', rawCols: 'MMKT_BAL', label: 'Money Market', category: 'deposit', holders: 2630 },
-  { code: 'LN03', rawCols: 'AUTO_LN*_BAL · DUE_DT · RATE', label: 'Auto Loan', category: 'loan', holders: 4310 },
-  { code: 'LN07', rawCols: 'PERS_LN_BAL · PERS_LN_DUE', label: 'Personal Loan', category: 'loan', holders: 2110 },
-  { code: 'LN12', rawCols: 'HM_EQ_BAL · HM_EQ_DUE_DT', label: 'Home Equity', category: 'loan', holders: 980 },
-  { code: 'LN19', rawCols: 'STU_LN_BAL · STU_LN_DUE', label: 'Student Loan', category: 'loan', holders: 640 },
-  { code: 'CD06', rawCols: 'CERT6_BAL · CERT6_MAT_DT', label: '6-Month Certificate', category: 'certificate', holders: 1490 },
-  { code: 'CD12', rawCols: 'CERT12_BAL · CERT12_MAT_DT', label: '12-Month Certificate', category: 'certificate', holders: 1120 },
-  { code: 'CC02', rawCols: 'VISA_PLT_BAL · MIN_PMT', label: 'Visa Platinum', category: 'card', holders: 5230 },
-  { code: 'CC05', rawCols: 'VISA_RW_BAL · MIN_PMT', label: 'Visa Rewards', category: 'card', holders: 3470 },
-  { code: 'HSA01', rawCols: 'HSA_BAL', label: '', category: null, holders: 312 },
-  { code: 'RV22', rawCols: 'RV_LN_BAL · RV_LN_DUE_DT', label: '', category: null, holders: 87 },
-]
-
-/* Real Loan Type codes from the 081126 VIP extract, with real record
-   counts. Labels are invented placeholders (each CU defines its own
-   code meanings) — the five rare codes ship unmapped as the demo task. */
+/* Real Loan Type codes from the ingested extract, with real record
+   counts. Labels are placeholders a CU would set (each defines its own
+   code meanings) — the five rare codes ship unlabeled as the demo task.
+   Category is optional semantic metadata; it gates nothing in the UI. */
 const TC = SYMITAR_STATS.typeCounts
 export const seedSymitarCodes = () => [
   { code: '0010', rawCols: 'Loan Type · VIP.LOAN', label: 'Auto Loan', category: 'loan', holders: TC['0010'] ?? 0 },
@@ -781,72 +640,62 @@ export const seedSymitarCodes = () => [
   { code: '0420', rawCols: 'Loan Type · VIP.LOAN', label: '', category: null, holders: TC['0420'] ?? 0 },
 ]
 
-export const codeMapped = (c) => !!(c.label.trim() && c.category)
+/* A code is mapped when it has a label — that's the whole job. Category
+   is optional semantic metadata. */
+export const codeMapped = (c) => !!c.label.trim()
 
-export const FEED_FILES = [
-  { file: 'member_export_2026_07_29.csv', when: 'Today · 04:12', rows: 18400, status: 'ok', note: '2 new product codes discovered — HSA01, RV22' },
-  { file: 'member_export_2026_07_28.csv', when: 'Yesterday · 04:09', rows: 18391, status: 'ok', note: null },
-  { file: 'cert_maturities_2026_07_27.csv', when: 'Jul 27 · 04:15', rows: 2610, status: 'ok', note: null },
-  { file: 'member_export_2026_07_26.csv', when: 'Jul 26 · 04:11', rows: 9182, status: 'partial', note: 'Stopped at row 9,182 — malformed date in AUTO_LN2_DUE_DT ("13/45/26")' },
-]
+/* Real ingest history: exactly one file drop has happened. Hydrated
+   with ingest metadata when the SQLite API is live. */
+export let INGEST_META = null
+export const setIngestMeta = (m) => { INGEST_META = m }
+export const feedFiles = () => {
+  const s = SYMITAR_STATS
+  return [
+    { file: INGEST_META?.loanFile ?? `${s.fileDate.slice(5).replace('-', '')}${s.fileDate.slice(2, 4)}.VIP.LOAN`, when: `File date ${s.fileDate}`, rows: s.loans, status: 'ok', note: `${Object.keys(s.typeCounts).length} loan type codes discovered` },
+    { file: INGEST_META?.nameFile ?? `${s.fileDate.slice(5).replace('-', '')}${s.fileDate.slice(2, 4)}.VIP.NAME`, when: `File date ${s.fileDate}`, rows: s.accounts, status: 'ok', note: null },
+  ]
+}
 
-/* Matches the mock generator: ~1 in 6 loans/cards has no due date. */
-export const DUE_DATE_GAP = { field: 'Payment due date', missingPct: 17, count: 1230 }
+/* Real blank-date gap, computed from the extract — never an estimate. */
+export const dueDateGap = () => {
+  const s = SYMITAR_STATS
+  return { field: 'Due Date', missingPct: Math.round((100 * s.dueUnset) / s.loans), count: s.dueUnset }
+}
 
 export const GAP_AUDIENCE_RULE = {
-  quantifier: 'any', category: 'loan', types: [],
-  conditions: [{ id: 1, field: 'dueDate', op: 'not_set', value: '', n: 3 }],
+  quantifier: 'any', entity: 'Loans', types: [],
+  conditions: [{ id: 1, field: 'Due Date', op: 'not_set', value: '', n: 3 }],
 }
 
-/* ── flat-file mock for the data-model story (invented, core-export
-      flavored; no real FI data) ─────────────────────────────────── */
-
-export const FLAT_FILE_SAMPLE = {
-  columns: ['MBR_NUM', 'FNAME', 'LNAME', 'SHR_SAV_BAL', 'AUTO_LN1_BAL', 'AUTO_LN1_DUE_DT', 'AUTO_LN1_RATE', 'AUTO_LN2_BAL', 'AUTO_LN2_DUE_DT', 'AUTO_LN2_RATE', 'PERS_LN_BAL', 'PERS_LN_DUE', 'CERT6_BAL', 'CERT6_MAT_DT', 'VISA_PLT_BAL', 'VISA_PLT_MIN_PMT', 'HM_EQ_BAL', 'HM_EQ_DUE_DT'],
-  rows: [
-    ['100482', 'Amara', 'Okafor', '4,210', '12,400', '08/01', '6.1', '8,950', '08/03', '5.4', '', '', '', '', '2,100', '35', '', ''],
-    ['100517', 'Diego', 'Reyes', '812', '', '', '', '', '', '', '6,000', '08/03', '10,000', '01/12', '', '', '', ''],
-    ['100533', 'Priya', 'Sharma', '15,640', '9,300', '08/12', '5.9', '', '', '', '', '', '', '', '450', '25', '44,700', '08/28'],
-    ['100561', 'Liam', 'Walsh', '230', '', '', '', '', '', '', '', '', '5,000', '09/30', '', '', '', ''],
-  ],
-}
-
-export function productFactline(p) {
-  const parts = [`$${fmt(p.balance)}`]
-  if (p.category === 'loan' || p.category === 'card') {
-    parts.push(
-      p.dueInDays == null ? 'no due date on file'
-        : p.dueInDays < 0 ? `${-p.dueInDays}d overdue`
-        : p.dueInDays === 0 ? 'due today'
-        : p.dueInDays === 1 ? 'due tomorrow'
-        : `due in ${p.dueInDays} days`
-    )
-  }
-  if (p.category === 'certificate') parts.push(`matures in ${p.maturityInDays} days`)
-  if (p.drift > 0) parts.push(`drifting +${p.drift}d`)
-  return parts.join(' · ')
-}
-
+/* Display identities for real matched members: deterministic synthetic
+   names keyed on the stable extract id (real names never leave the
+   source files). Used ONLY for members that actually exist in the data. */
 const FIRST = ['Amara', 'Diego', 'Priya', 'Liam', 'Noor', 'Kenji', 'Sofia', 'Marcus', 'Yuki', 'Elena', 'Omar', 'Grace', 'Tomas', 'Aisha', 'Ravi', 'Chloe']
 const LAST = ['Okafor', 'Reyes', 'Sharma', 'Walsh', 'Haddad', 'Tanaka', 'Rossi', 'Bennett', 'Ito', 'Novak', 'Farah', 'Kim', 'Silva', 'Ali', 'Patel', 'Dubois']
 
-export function sampleUsers(segmentName, n) {
-  const h = hash(segmentName)
-  const out = []
-  for (let k = 0; k < n; k++) {
-    // the extra wrap offset keeps names unique past 16 samples
-    const wrap = Math.floor(k / 16)
-    const f = FIRST[(h + k * 7 + wrap * 5) % FIRST.length]
-    const l = LAST[(h + k * 13 + wrap * 3) % LAST.length]
-    const [avFg, avBg] = AVATAR_PALETTE[hash(f + l) % AVATAR_PALETTE.length]
-    out.push({
-      name: `${f} ${l}`,
-      email: `${f}.${l}`.toLowerCase() + '@example.com',
-      initials: f[0] + l[0],
-      id: '#' + String(100000 + ((h + k * 911) % 899999)),
-      avFg,
-      avBg,
-    })
+/* The real member with the most instance records — used by the "how it
+   works" explainer so even the illustration is actual extract data. */
+export const showcaseMember = () => {
+  const instanceEntities = segmentEntities().map((e) => e.name)
+  const withCount = MEMBERS.map((m) => ({
+    m,
+    n: instanceEntities.reduce((s, e) => s + (m.records[e]?.length ?? 0), 0),
+  })).sort((a, b) => b.n - a.n)[0]
+  if (!withCount || !withCount.n) return null
+  const m = withCount.m
+  const h = hash(m.id)
+  const f = FIRST[h % FIRST.length]
+  const l = LAST[(h >>> 3) % LAST.length]
+  return {
+    id: m.id,
+    name: `${f} ${l}`,
+    initials: f[0] + l[0],
+    products: instanceEntities.flatMap((e) =>
+      (m.records[e] ?? []).map((r) => ({
+        code: entityDef(e)?.codeField ? r.values[entityDef(e).codeField] : e,
+        label: recordTypeLabel(e, r),
+        facts: recordFactline(e, r),
+      }))
+    ),
   }
-  return out
 }

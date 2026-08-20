@@ -1,4 +1,4 @@
-import { GEOFENCES, PRODUCT_CATEGORIES, OFFER_FIELDS, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
+import { GEOFENCES, registryDateFields, tagColor, fmt, trigLabel, ruleSentence, audienceReach, rulePlural } from '../data'
 import {
   CloseIcon, CheckIcon, UsersIcon, PinIcon, DwellIcon, RepeatIcon,
   EnterIcon, ExitIcon, ProductIcon, PencilIcon,
@@ -15,12 +15,9 @@ export const TRIGGER_META = {
 }
 export const TRIGGER_ORDER = ['audience', 'date', 'location', 'schedule']
 
-/* Anchor-able date fields come from the registry — every label here is
-   a mapped field name, not product vocabulary we invented. */
-const DATE_FIELDS = [
-  ...PRODUCT_CATEGORIES.loan.fields.filter((f) => f.type === 'date').map((f) => ({ key: f.key, label: f.label })),
-  ...OFFER_FIELDS.filter((f) => f.type === 'date').map((f) => ({ key: f.key, label: `Offer ${f.label.toLowerCase()}` })),
-]
+/* Anchor-able date fields come from the LIVE registry — every date field
+   of every ingested entity, in the FI's own words. New entities add
+   their date fields here automatically. */
 
 export default function EntryPanel({
   entry, setEntry, audience, audiences,
@@ -111,7 +108,7 @@ export default function EntryPanel({
                           onChange={(e) => setTrigger({ dateField: e.target.value })}
                           style={{ border: '1px solid #d8e0ea', borderRadius: 9, padding: '7px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
                         >
-                          {DATE_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()}</option>)}
+                          {registryDateFields().map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()}</option>)}
                         </select>
                         <span style={{ width: '100%', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
                           Recurring — members re-enter each time this date field rolls forward in your synced data.
@@ -119,18 +116,27 @@ export default function EntryPanel({
                       </div>
                     )}
                     {on && key === 'location' && (
-                      <div style={{ margin: '8px 0 2px', border: '1px solid #e2e8f1', borderRadius: 11, maxHeight: 250, overflowY: 'auto' }}>
-                        {GEOFENCES.map((g, i) => (
-                          <GeofenceRow
-                            key={i}
-                            geofence={g}
-                            config={trigger.geoSel[i]}
-                            onToggle={() => toggleGeo(i)}
-                            onSetTrigger={(t) => setGeoTrigger(i, t)}
-                            onBumpDwell={(d) => bumpGeoDwell(i, d)}
-                          />
-                        ))}
-                      </div>
+                      GEOFENCES.length === 0 ? (
+                        <div style={{ margin: '8px 0 2px', border: '1px dashed #d8e0ea', borderRadius: 11, padding: '16px 14px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1b3a63' }}>No geofences defined yet</div>
+                          <div style={{ marginTop: 3, fontSize: 11.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5 }}>
+                            Draw branch, dealer or event zones in Geofences and they become entry triggers here.
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ margin: '8px 0 2px', border: '1px solid #e2e8f1', borderRadius: 11, maxHeight: 250, overflowY: 'auto' }}>
+                          {GEOFENCES.map((g, i) => (
+                            <GeofenceRow
+                              key={i}
+                              geofence={g}
+                              config={trigger.geoSel[i]}
+                              onToggle={() => toggleGeo(i)}
+                              onSetTrigger={(t) => setGeoTrigger(i, t)}
+                              onBumpDwell={(d) => bumpGeoDwell(i, d)}
+                            />
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
                 )
@@ -207,8 +213,7 @@ export default function EntryPanel({
                 >
                   <option value="none">No goal — run to the end</option>
                   <option value="engaged">Clicked any message in this flow</option>
-                  <option value="field_change">Payment due date advanced on the enrolling record</option>
-                  <option value="offer_accepted">Offer status becomes accepted (from insights feed)</option>
+                  <option value="field_change">An anchored date field advanced on the enrolling record</option>
                 </select>
                 {entry.exits.goal !== 'none' && (
                   <p style={helperText}>
@@ -221,8 +226,8 @@ export default function EntryPanel({
               <ExitToggle
                 armed={entry.exits.instanceExit}
                 onToggle={() => setEntry((s) => ({ ...s, exits: { ...s.exits, instanceExit: !s.exits.instanceExit } }))}
-                title="Enrolling product or offer no longer qualifies"
-                desc="Instance-scoped — a member with two enrollments exits only the one whose record stopped matching the rule (balance reached zero, offer expired)."
+                title="Enrolling product no longer qualifies"
+                desc="Instance-scoped — a member with two enrollments exits only the one whose record stopped matching the rule (balance reached zero)."
               />
               <ExitToggle
                 armed={entry.exits.audienceExit}
@@ -254,7 +259,7 @@ export default function EntryPanel({
               </div>
               <p style={helperText}>
                 {entry.reenroll === 'per_event'
-                  ? 'Right for recurring date anchors — each new due date or offer enrolls again.'
+                  ? 'Right for recurring date anchors — each new due date enrolls again.'
                   : entry.reenroll === 'once'
                     ? 'Members can enter this flow only once, ever.'
                     : 'Members who exit cannot re-enter this flow.'}

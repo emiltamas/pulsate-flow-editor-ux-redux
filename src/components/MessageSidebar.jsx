@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CHANNELS, CHANNEL_ORDER } from '../data'
+import { CHANNELS, CHANNEL_ORDER, messageTokens } from '../data'
 import {
   CloseIcon, CheckIcon, ChevronUpIcon, ChevronDownIcon,
   BellIcon, SmartphoneIcon, FeedIcon, ImageIcon,
@@ -163,7 +163,7 @@ export default function MessageSidebar({ message, onClose, onSave }) {
             <Field label="Text" value={draft.body} onChange={(v) => patch({ body: v })} max={140} placeholder="Add 1–2 lines that make this worth a tap." textarea />
             <div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {Object.keys(TOKEN_SAMPLES).map((tok) => (
+                {messageTokens().map(({ token: tok }) => (
                   <button
                     key={tok}
                     onClick={() => patch({ body: (draft.body + ' ' + tok).trimStart() })}
@@ -320,14 +320,10 @@ function RowButton({ disabled, onClick, children }) {
   )
 }
 
-const TOKEN_SAMPLES = {
-  '{{first_name}}': 'Amara',
-  '{{product.label}}': 'Auto Loan',
-  '{{product.due_date}}': 'Aug 14',
-  '{{offer.amount}}': '$25,000',
-  '{{offer.expires}}': 'in 12 days',
-}
-const fillTokens = (s) => Object.entries(TOKEN_SAMPLES).reduce((x, [k, v]) => x.split(k).join(v), s)
+/* Tokens resolve from the enrolling record at send time. The list is
+   generated from the LIVE registry — one token per campaign-usable
+   entity field — and preview samples come from a real record. */
+const fillTokens = (s) => messageTokens().reduce((x, { token, sample }) => x.split(token).join(sample), s)
 
 function Preview({ channel, draft }) {
   const title = fillTokens(draft.title || 'Grab your users’ attention')

@@ -5,8 +5,7 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import SourceWizard from './components/SourceWizard'
-import { seedAudiences, seedSymitarCodes, seedSources, seedOfferCodes, codeMapped, setActiveCodeMap, setActiveOfferMap, hydrateDataset, GAP_AUDIENCE_RULE } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, GAP_AUDIENCE_RULE } from './data'
 import { loadFromDb, persistCodeMapping } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
@@ -14,7 +13,7 @@ export default function App() {
   const [view, setView] = useState('canvas') // 'canvas' | 'library' | 'data'
   const [editor, setEditor] = useState('entry') // canvas drawer: 'entry' | 'message' | null
   const [entry, setEntry] = useState({
-    trigger: { type: 'audience', geoSel: {}, dateDays: 3, dateField: 'dueDate' },
+    trigger: { type: 'audience', geoSel: {}, dateDays: 3, dateField: registryDateFields()[0]?.key ?? null },
     audienceId: null,
     exits: { goal: 'none', instanceExit: false, audienceExit: false },
     reenroll: 'off',
@@ -23,9 +22,7 @@ export default function App() {
   const [audiences, setAudiences] = useState(seedAudiences)
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
   const [productCodes, setProductCodes] = useState(seedSymitarCodes)
-  const [offerCodes, setOfferCodes] = useState(seedOfferCodes)
   const [sources, setSources] = useState(seedSources)
-  const [wizardOpen, setWizardOpen] = useState(false)
   const [dataSource, setDataSource] = useState(null) // { kind: 'sqlite', fileDate } once hydrated
 
   // boot from the ingested SQLite kernel when available; the bundled
@@ -34,15 +31,16 @@ export default function App() {
     loadFromDb().then((p) => {
       if (!p) return
       hydrateDataset(p)
+      setIngestMeta(p.meta ?? null)
       setProductCodes(p.codes)
+      setSources([symitarSource(p.meta)])
       setDataSource({ kind: 'sqlite', fileDate: p.fileDate })
     })
   }, [])
 
-  // keep the module-level maps in sync so rule evaluation (reach,
+  // keep the module-level map in sync so rule evaluation (reach,
   // drill-ins) resolves labels through the live catalog mappings
   setActiveCodeMap(productCodes)
-  setActiveOfferMap(offerCodes)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)
@@ -144,18 +142,6 @@ export default function App() {
               setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: { ...GAP_AUDIENCE_RULE } })
             }
             sources={sources}
-            onOpenWizard={() => setWizardOpen(true)}
-            offerCodes={offerCodes}
-            onMapOfferCode={(code, patch) =>
-              setOfferCodes((prev) => prev.map((c) => (c.code === code ? { ...c, ...patch } : c)))
-            }
-            onCreateExpiringAudience={() =>
-              setBuilderCtx({
-                audienceId: null,
-                returnTo: 'library',
-                initialRule: { quantifier: 'any', entity: 'offer', category: null, types: [], conditions: [{ id: 1, field: 'expires', op: 'next_n', value: '', n: 14 }] },
-              })
-            }
           />
         )}
       </div>
@@ -188,16 +174,6 @@ export default function App() {
           onSave={(m) => {
             setMessage(m)
             setEditor(null)
-          }}
-        />
-      )}
-
-      {wizardOpen && (
-        <SourceWizard
-          onCancel={() => setWizardOpen(false)}
-          onFinish={(src) => {
-            setSources((prev) => [...prev, src])
-            setWizardOpen(false)
           }}
         />
       )}

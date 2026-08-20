@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PRODUCT_CATEGORIES, AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
+import { AUDIENCE_TEMPLATES, tagColor, fmt, ruleSentence, audienceReach, rulePlural } from '../data'
 import { SearchIcon, EyeIcon, PencilIcon, SparkleIcon } from '../icons'
 import UserDrillIn from './UserDrillIn'
 
@@ -38,7 +38,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
         {/* ready-to-launch playbooks */}
         <div style={{ margin: '22px 0 6px', display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Ready to launch</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>Outcome playbooks, updated daily — activate in one click, then open and edit the rule behind it.</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>Outcome playbooks — activate in one click, then open and edit the rule behind it. Only playbooks your ingested data can evaluate are shown.</span>
         </div>
         <div style={{ margin: '10px 0 6px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           {AUDIENCE_TEMPLATES.map((tpl) => {
@@ -49,7 +49,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
                   <span style={{ fontSize: 10, fontWeight: 800, color: tpl.kind === 'Rule' ? '#1f4a86' : '#c05a8a', background: tpl.kind === 'Rule' ? '#e6effb' : '#fbe8f1', padding: '2px 7px', borderRadius: 20 }}>
                     {tpl.kind === 'Rule' ? 'Transparent rule' : 'Predictive'}
                   </span>
-                  <span style={{ fontSize: 9.5, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap' }}>Updated daily</span>
+                  <span style={{ fontSize: 9.5, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap' }}>Re-evaluates on sync</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f', lineHeight: 1.3 }}>{tpl.title}</div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45, flex: 1 }}>{tpl.blurb}</div>
@@ -65,6 +65,12 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
               </div>
             )
           })}
+          <div style={{ border: '1px dashed #d8e0ea', borderRadius: 12, padding: '12px 13px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: '#5a6b85', lineHeight: 1.35 }}>More playbooks unlock with more data</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }}>
+              Certificate renewals, offer expirations and churn saves appear here once deposit, offer or scoring feeds are connected.
+            </div>
+          </div>
         </div>
 
         <div style={{ margin: '22px 0 0', fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Your audiences</div>

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import {
-  PRODUCT_CATEGORIES, CATEGORY_ORDER, QUANTIFIERS, EMPTY_PRODUCT_RULE, TOTAL_MEMBERS,
-  fieldByKey, operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
-  tagColor, fmt, productFactline, datasetMatchedMembers, SYMITAR_STATS, categoryTypes,
-  fieldsFor, offerTypeLabels, rulePlural,
+  QUANTIFIERS, EMPTY_RULE, totalMembers, segmentEntities, entityTypes, unlabeledRecordCount,
+  operatorsFor, ruleActive, ruleSentence, parseAudiencePhrase, audienceReach,
+  tagColor, fmt, datasetMatchedMembers, SYMITAR_STATS,
+  fieldsFor, rulePlural, codeLabel,
 } from '../data'
 import { CloseIcon, SparkleIcon, UsersIcon, ProductIcon } from '../icons'
 
@@ -22,13 +22,15 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const [name, setName] = useState(audience?.name ?? '')
   const [baseIds, setBaseIds] = useState(audience?.baseIds ?? [])
   const [rule, setRule] = useState(
-    audience?.rule ? { ...audience.rule } : initialRule ? { ...initialRule } : { ...EMPTY_PRODUCT_RULE }
+    audience?.rule ? { ...audience.rule } : initialRule ? { ...initialRule } : { ...EMPTY_RULE }
   )
   const [aiText, setAiText] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
 
+  // everything below renders from the LIVE registry — whatever entities
+  // the FI's data declares, in the FI's own words
+  const entities = segmentEntities()
   const active = ruleActive(rule)
-  const cat = active && rule.category ? PRODUCT_CATEGORIES[rule.category] : null
   const preview = { rule: active ? rule : null, baseIds, users: null }
   const reach = audienceReach(preview, audiences)
   const canSave = active || baseIds.length > 0
@@ -39,18 +41,17 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     if (parsed) { setRule(parsed); setAiStatus('ok') } else setAiStatus('fail')
   }
 
-  const setCategory = (key) =>
-    setRule(key === rule.category
-      ? { ...EMPTY_PRODUCT_RULE, quantifier: rule.quantifier }
-      : { ...EMPTY_PRODUCT_RULE, quantifier: rule.quantifier, category: key })
+  const setEntity = (name) =>
+    setRule(name === rule.entity
+      ? { ...EMPTY_RULE, quantifier: rule.quantifier }
+      : { ...EMPTY_RULE, quantifier: rule.quantifier, entity: name })
   const toggleType = (t) =>
     setRule({ ...rule, types: rule.types.includes(t) ? rule.types.filter((x) => x !== t) : [...rule.types, t] })
-  const setEntity = (entity) =>
-    entity !== (rule.entity ?? 'product') && setRule({ ...EMPTY_PRODUCT_RULE, entity, quantifier: rule.quantifier })
   const addCondition = () => {
     const f = fieldsFor(rule)[0]
+    if (!f) return
     const id = (rule.conditions[rule.conditions.length - 1]?.id ?? 0) + 1
-    setRule({ ...rule, conditions: [...rule.conditions, { id, field: f.key, op: operatorsFor(f.type)[0].key, value: '', n: 3 }] })
+    setRule({ ...rule, conditions: [...rule.conditions, { id, field: f.name, op: operatorsFor(f.type)[0].key, value: '', n: 3 }] })
   }
   const patchCondition = (id, patch) =>
     setRule({ ...rule, conditions: rule.conditions.map((c) => (c.id === id ? { ...c, ...patch } : c)) })
@@ -139,7 +140,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               <span style={sectionLabel}>Start from</span>
               <p style={helperText}>Narrow an existing audience, or start from all members. Combined with the product conditions below (AND).</p>
               <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                <BaseChip label={`All members · ${fmt(TOTAL_MEMBERS)}`} on={baseIds.length === 0} onClick={() => setBaseIds([])} />
+                <BaseChip label={`All members · ${fmt(totalMembers())}`} on={baseIds.length === 0} onClick={() => setBaseIds([])} />
                 {audiences.filter((a) => a.kind !== 'Rule').map((a) => (
                   <BaseChip
                     key={a.id}
@@ -152,96 +153,94 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               </div>
             </div>
 
-            {/* entity conditions */}
+            {/* entity conditions — driven entirely by the live registry */}
             <div style={{ marginBottom: 18 }}>
               <span style={sectionLabel}>Conditions</span>
               <p style={helperText}>
-                {rule.entity === 'offer'
-                  ? 'Match on offers the member qualifies for — amounts, rates, expirations from your insights feed.'
-                  : 'Members are matched on your own product labels — grouped so “any loan” works in one click.'}
+                Pick one of your data entities, then mix and match its types and fields. The names come from your own
+                data — nothing here is built in.
               </p>
 
-              {/* entity: what kind of thing are we matching? */}
-              <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 440 }}>
-                {[{ k: 'product', label: 'Member holds — products' }, { k: 'offer', label: 'Member qualifies — offers' }].map(({ k, label }) => {
-                  const on = (rule.entity ?? 'product') === k
-                  return (
-                    <button
-                      key={k}
-                      onClick={() => setEntity(k)}
-                      style={{
-                        flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit',
-                        fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
-                        ...(on
-                          ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
-                          : { background: 'transparent', color: '#5a6b85' }),
-                      }}
-                    >
-                      {label}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>
-                {QUANTIFIERS.map((qd) => {
-                  const on = rule.quantifier === qd.key
-                  return (
-                    <button
-                      key={qd.key}
-                      onClick={() => setRule({ ...rule, quantifier: qd.key })}
-                      style={{
-                        flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit',
-                        fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                        ...(on
-                          ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
-                          : { background: 'transparent', color: '#5a6b85' }),
-                      }}
-                    >
-                      {qd.label}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {rule.entity !== 'offer' && (
-                <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                  {CATEGORY_ORDER.map((key) => {
-                    const on = rule.category === key
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setCategory(key)}
-                        style={{
-                          padding: '10px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                          border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
-                          background: on ? '#eef5fc' : '#fff',
-                          color: on ? '#1f4a86' : '#17335f',
-                        }}
-                      >
-                        Any {PRODUCT_CATEGORIES[key].label.toLowerCase()}
-                      </button>
-                    )
-                  })}
+              {entities.length === 0 ? (
+                <div style={{ marginTop: 10, border: '1px dashed #d8e0ea', borderRadius: 11, padding: '18px 16px', maxWidth: 520, textAlign: 'center', background: '#fafbfd' }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63' }}>No data entities yet</div>
+                  <div style={{ margin: '5px auto 0', fontSize: 12, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5, maxWidth: 420 }}>
+                    Connect a source in Data → Sources. Whatever it sends — products, offers, eligibility,
+                    anything relational — appears here as a targetable entity.
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* which entity are we matching records of? */}
+                  <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: `repeat(${Math.min(4, entities.length)}, minmax(120px, 1fr))`, gap: 8, maxWidth: 640 }}>
+                    {entities.map((e) => {
+                      const on = rule.entity === e.name
+                      return (
+                        <button
+                          key={e.name}
+                          onClick={() => setEntity(e.name)}
+                          style={{
+                            padding: '10px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                            border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
+                            background: on ? '#eef5fc' : '#fff',
+                            color: on ? '#1f4a86' : '#17335f',
+                          }}
+                        >
+                          {e.name}
+                          <div style={{ marginTop: 2, fontSize: 10, fontWeight: 700, color: on ? '#5a7db0' : '#8a95a6' }}>
+                            {e.fields.length} fields
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>
+                    {QUANTIFIERS.map((qd) => {
+                      const on = rule.quantifier === qd.key
+                      return (
+                        <button
+                          key={qd.key}
+                          onClick={() => setRule({ ...rule, quantifier: qd.key })}
+                          style={{
+                            flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit',
+                            fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                            ...(on
+                              ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                              : { background: 'transparent', color: '#5a6b85' }),
+                          }}
+                        >
+                          {qd.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
               )}
 
               {active && (
                 <>
-                  <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <TypeChip
-                      label={rule.entity === 'offer' ? 'All offer types' : `All ${cat.label.toLowerCase()} types`}
-                      on={rule.types.length === 0}
-                      onClick={() => setRule({ ...rule, types: [] })}
-                    />
-                    {(rule.entity === 'offer' ? offerTypeLabels() : categoryTypes(rule.category)).map((t) => (
-                      <TypeChip key={t} label={t} on={rule.types.includes(t)} onClick={() => toggleType(t)} />
-                    ))}
-                  </div>
+                  {entityTypes(rule.entity).length > 0 && (
+                    <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <TypeChip
+                        label={`All ${rule.entity} types`}
+                        on={rule.types.length === 0}
+                        onClick={() => setRule({ ...rule, types: [] })}
+                      />
+                      {entityTypes(rule.entity).map((t) => (
+                        <TypeChip
+                          key={t.code}
+                          label={t.labeled ? t.label : `${t.code} — unlabeled`}
+                          on={rule.types.includes(t.code)}
+                          onClick={() => toggleType(t.code)}
+                        />
+                      ))}
+                    </div>
+                  )}
 
                   <div style={{ marginTop: 16 }}>
                     <span style={sectionLabel}>Conditions</span>
-                    <p style={helperText}>All conditions must match the same product.</p>
+                    <p style={helperText}>All conditions must match the same {rule.entity} record.</p>
                     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 520 }}>
                       {rule.conditions.map((c) => (
                         <ConditionRow
@@ -272,9 +271,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                   </div>
 
                   <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 11, padding: '10px 14px', fontSize: 12.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
-                    {rule.entity === 'offer'
-                      ? 'Each qualifying offer enrolls separately — “expires Friday” always means that offer.'
-                      : 'Each matching product enrolls separately — a member with two qualifying loans gets each reminder.'}
+                    Each matching record enrolls separately — a member with two qualifying {rule.entity} records gets each message.
                   </div>
                 </>
               )}
@@ -284,43 +281,41 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
         {/* right — live preview */}
         <div style={{ width: 420, flex: 'none', borderLeft: '1px solid #edf1f6', background: '#f7f9fc', overflowY: 'auto', padding: '22px 24px 40px' }}>
-          <div style={{ borderRadius: 13, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '16px 18px', color: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>
-                {reach.source === 'extract' ? 'Exact reach' : 'Estimated reach'}
-              </span>
-              {reach.source === 'extract' && (
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 20 }}>
-                  081126 extract · {fmt(SYMITAR_STATS.accounts)} members
-                </span>
+          <>
+              <div style={{ borderRadius: 13, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '16px 18px', color: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>Exact reach</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 20 }}>
+                    {SYMITAR_STATS.fileDate} extract · {fmt(SYMITAR_STATS.accounts)} members
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
+                  <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{fmt(reach.members)}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
+                    members{reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(rule)}`}
+                  </span>
+                </div>
+                <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, Math.round((reach.members / Math.max(1, totalMembers())) * 100))}%`, height: '100%', background: '#fff', transition: 'width .2s' }} />
+                </div>
+              </div>
+
+              {active && reach.unlabeled > 0 && (
+                <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
+                  {reach.unlabeled} {rule.entity} record{reach.unlabeled === 1 ? ' carries' : 's carry'} unlabeled codes — still
+                  targetable by raw code, readable once labeled in Data → Catalog.
+                </div>
               )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
-              <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{reach.source === 'extract' ? '' : '~'}{fmt(reach.members)}</span>
-              <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
-                members{reach.products !== null && ` · ${fmt(reach.products)} matching ${rulePlural(rule)}`}
-              </span>
-            </div>
-            <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, Math.round((reach.members / (reach.source === 'extract' ? SYMITAR_STATS.accounts : TOTAL_MEMBERS)) * 100))}%`, height: '100%', background: '#fff', transition: 'width .2s' }} />
-            </div>
-          </div>
 
-          {reach.source === 'extract' && reach.unmappable > 0 && (
-            <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
-              {reach.unmappable} loan{reach.unmappable === 1 ? ' has an' : 's have'} unmapped product codes and can’t be targeted —
-              map them in Data → Product catalog.
-            </div>
-          )}
-
-          <div style={{ marginTop: 20 }}>
-            <span style={sectionLabel}>Sample matching members</span>
-            {active ? (
-              <SampleMembers rule={rule} />
-            ) : (
-              <p style={helperText}>Add product conditions to preview exactly who matches — and which of their products qualified.</p>
-            )}
-          </div>
+              <div style={{ marginTop: 20 }}>
+                <span style={sectionLabel}>Sample matching members</span>
+                {active ? (
+                  <SampleMembers rule={rule} />
+                ) : (
+                  <p style={helperText}>Pick an entity and add conditions to preview exactly who matches — and which of their records qualified.</p>
+                )}
+              </div>
+          </>
         </div>
       </div>
     </div>
@@ -352,7 +347,7 @@ function SampleMembers({ rule }) {
             <div key={i} style={{ margin: '5px 0 0 40px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#5a6b85' }}>
               <ProductIcon size={11} stroke="#5a7db0" />
               <span style={{ color: '#1b3a63', fontWeight: 800 }}>{p.label}</span>
-              {p.fact ?? productFactline(p)}
+              {p.fact}
             </div>
           ))}
         </div>
@@ -397,13 +392,13 @@ function TypeChip({ label, on, onClick }) {
 
 function ConditionRow({ rule, condition, onPatch, onRemove }) {
   const fields = fieldsFor(rule)
-  const field = fields.find((f) => f.key === condition.field) ?? fields[0]
+  const field = fields.find((f) => f.name === condition.field) ?? fields[0]
   const ops = operatorsFor(field.type)
   const op = ops.find((o) => o.key === condition.op) ?? ops[0]
 
-  const changeField = (key) => {
-    const f = fields.find((x) => x.key === key)
-    onPatch({ field: key, op: operatorsFor(f.type)[0].key, value: '', n: 3 })
+  const changeField = (name) => {
+    const f = fields.find((x) => x.name === name)
+    onPatch({ field: name, op: operatorsFor(f.type)[0].key, value: '', n: 3 })
   }
 
   return (
@@ -411,7 +406,7 @@ function ConditionRow({ rule, condition, onPatch, onRemove }) {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={condition.field} onChange={(e) => changeField(e.target.value)} style={{ ...selectStyle, width: 180 }}>
           {fields.map((f) => (
-            <option key={f.key} value={f.key}>{f.label}</option>
+            <option key={f.name} value={f.name}>{f.label}</option>
           ))}
         </select>
         <select value={condition.op} onChange={(e) => onPatch({ op: e.target.value })} style={{ ...selectStyle, width: 'auto', flex: 1, minWidth: 150 }}>
