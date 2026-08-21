@@ -94,14 +94,14 @@ function MatchedProducts({ rule, matches }) {
   if (!primaryBlock(rule)) {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 12.5, fontWeight: 500, color: '#8a95a6' }}>
-        Matches every filter in this audience
+        Matches all blocks
       </div>
     )
   }
   if (matches.length === 0) {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 12.5, fontWeight: 500, color: '#8a95a6' }}>
-        Qualified without a matching record in the primary block — enrolls once, member-level
+        Qualifies via an OR path — gets one message
       </div>
     )
   }

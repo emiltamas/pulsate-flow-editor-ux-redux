@@ -236,8 +236,6 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                       )}
                       <BlockCard
                         block={block}
-                        isPrimary={block === primary}
-                        inOrGroup={groupSize[groupIdx[i]] > 1}
                         showRemove={i > 0}
                         onScope={(e, c) => setScope(i, e, c)}
                         onQuantifier={(q) => setQuantifier(i, q)}
@@ -272,10 +270,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
                       <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 4, padding: '10px 14px', fontSize: 13.5, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
                         {primary && hasOr
-                          ? `Each matching ${primary.entity} record in the primary block enrolls separately. Members who qualify through an OR alternative without a matching ${primary.entity} record enroll once, member-level.`
+                          ? `One message per matching ${primary.entity} record; members qualifying only via an OR path get one.`
                           : primary
-                            ? `Each matching ${primary.entity} record in the primary block enrolls separately — the other blocks only decide who is eligible.`
-                            : 'Every block is a filter — members matching all of them enroll once, with no per-record enrollment.'}
+                            ? `One message per matching ${primary.entity} record.`
+                            : 'Members matching all blocks get one message.'}
                       </div>
                     </>
                   )}
@@ -298,7 +296,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               <span style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, letterSpacing: '-.5px' }}>{fmt(reach.members)}</span>
               <span style={{ fontSize: 13.5, fontWeight: 500, opacity: 0.85 }}>
                 members{reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(segment)}`}
-                {(reach.memberLevel ?? 0) > 0 && ` · ${fmt(reach.memberLevel)} via OR alternative`}
+                {(reach.memberLevel ?? 0) > 0 && ` · ${fmt(reach.memberLevel)} via OR path`}
               </span>
             </div>
             <div style={{ marginTop: 12, height: 6, borderRadius: 4, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
@@ -334,34 +332,25 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   )
 }
 
-/* One block, read as a sentence: "Has [any ▾] · scope" — the way
-   marketers' tools phrase quantifiers (has done at least once / never),
-   not a mode-switch tab row. */
-function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
+/* One block, continuing the "Members who…" header as a sentence:
+   "have [any ▾] · scope" — the way marketers' tools phrase quantifiers
+   (has done at least once / never), not a mode-switch tab row. */
+function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
   const blockActive = ruleActive(block)
   const types = blockActive ? entityTypes(block.entity, block.codeCategory ?? null) : []
   const zeroData = blockActive && entityRecordCount(block.entity) === 0
   return (
-    <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 15px', background: '#fff' }}>
-      {(isPrimary || showRemove) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-          {isPrimary && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 4 }}>
-              Primary — drives enrollment & personalization
-            </span>
-          )}
-          {showRemove && (
-            <button onClick={onRemove} style={{ marginLeft: 'auto', width: 22, height: 22, border: 'none', borderRadius: 4, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <CloseIcon size={12} />
-            </button>
-          )}
-        </div>
+    <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 15px', background: '#fff', position: 'relative' }}>
+      {showRemove && (
+        <button onClick={onRemove} style={{ position: 'absolute', top: 10, right: 10, width: 22, height: 22, border: 'none', borderRadius: 4, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+          <CloseIcon size={12} />
+        </button>
       )}
 
       {/* sentence spine: quantifier as a verb, scope as the object —
           the scope is a searchable grouped picker, Klaviyo-style */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Has</span>
+        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Have</span>
         <select
           value={block.quantifier}
           onChange={(e) => onQuantifier(e.target.value)}
@@ -377,7 +366,7 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
       {/* honest zero-data state — generic, driven by the data itself */}
       {zeroData && (
         <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 4, padding: '9px 12px', fontSize: 12.5, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.5, maxWidth: 520 }}>
-          No {block.entity} records in this dataset yet — “Has any” matches no one; “Has no” matches all {fmt(totalMembers())} members.
+          No {block.entity} records in this dataset yet — “have any” matches no one; “have no” matches all {fmt(totalMembers())} members.
           {entityDef(block.entity)?.note && (
             <div style={{ marginTop: 3, fontWeight: 600 }}>{entityDef(block.entity).note}</div>
           )}
@@ -466,7 +455,7 @@ function SampleMembers({ segment }) {
           ))}
           {primary && u.matches.length === 0 && (
             <div style={{ margin: '5px 0 0 40px', fontSize: 12, fontWeight: 500, color: '#8a95a6' }}>
-              Qualifies via an OR alternative — enrolls once
+              Qualifies via an OR path — gets one message
             </div>
           )}
         </div>
