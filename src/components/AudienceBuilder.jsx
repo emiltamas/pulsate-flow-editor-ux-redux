@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, scopePickerItems, PULSATE_CATEGORY_ORDER, entityTypes, entityDef,
+  distinctValues, referencableSegments, segmentById,
   operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
   conditionIncomplete, segmentIncompleteCount,
   parseAudiencePhrase, audienceReach,
@@ -33,6 +34,9 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     return { ...newBlock(), entity: first?.entity ?? null, codeCategory: first?.codeCategory ?? null }
   }
   const normalizeBlock = (b) => {
+    if (b?.segmentRef) {
+      return { ...newBlock(), entity: null, segmentRef: b.segmentRef, quantifier: b.quantifier === 'none' ? 'none' : 'any' }
+    }
     if (!b?.entity || !entityDef(b.entity)) return { ...defaultBlock(), quantifier: b?.quantifier ?? 'any' }
     return {
       quantifier: b.quantifier ?? 'any',
@@ -40,6 +44,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
       codeCategory: b.codeCategory ?? null,
       types: [...(b.types ?? [])],
       conditions: (b.conditions ?? []).map((c) => ({ ...c })),
+      aggregates: (b.aggregates ?? []).map((a) => ({ ...a })),
     }
   }
   const normalizeSegment = (x) => {
@@ -81,10 +86,22 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
   const setScope = (i, entity, codeCategory) =>
     patchBlock(i, (b) =>
-      b.entity === entity && (b.codeCategory ?? null) === codeCategory
+      !b.segmentRef && b.entity === entity && (b.codeCategory ?? null) === codeCategory
         ? b
         : { ...newBlock(), quantifier: b.quantifier, entity, codeCategory }
     )
+  const setScopeRef = (i, id) =>
+    patchBlock(i, (b) => ({ ...newBlock(), entity: null, segmentRef: id, quantifier: b.quantifier === 'none' ? 'none' : 'any' }))
+  const addAggregate = (i) =>
+    patchBlock(i, (b) => {
+      const f = fieldsFor(b).find((x) => x.type === 'currency' || x.type === 'number')
+      const id = ((b.aggregates ?? [])[b.aggregates?.length - 1]?.id ?? 0) + 1
+      return { ...b, aggregates: [...(b.aggregates ?? []), { id, fn: f ? 'sum' : 'count', field: f?.name ?? null, op: 'gt', value: '' }] }
+    })
+  const patchAggregate = (i, id, patch) =>
+    patchBlock(i, (b) => ({ ...b, aggregates: (b.aggregates ?? []).map((a) => (a.id === id ? { ...a, ...patch } : a)) }))
+  const removeAggregate = (i, id) =>
+    patchBlock(i, (b) => ({ ...b, aggregates: (b.aggregates ?? []).filter((a) => a.id !== id) }))
   const setQuantifier = (i, q) => patchBlock(i, (b) => ({ ...b, quantifier: q }))
   const toggleType = (i, code) =>
     patchBlock(i, (b) => ({ ...b, types: b.types.includes(code) ? b.types.filter((x) => x !== code) : [...b.types, code] }))
@@ -233,13 +250,18 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                       <BlockCard
                         block={block}
                         showRemove={i > 0}
+                        excludeSegmentId={audience?.id}
                         onScope={(e, c) => setScope(i, e, c)}
+                        onScopeRef={(id) => setScopeRef(i, id)}
                         onQuantifier={(q) => setQuantifier(i, q)}
                         onToggleType={(code) => toggleType(i, code)}
                         onClearTypes={() => clearTypes(i)}
                         onAddCondition={() => addCondition(i)}
                         onPatchCondition={(id, p) => patchCondition(i, id, p)}
                         onRemoveCondition={(id) => removeCondition(i, id)}
+                        onAddAggregate={() => addAggregate(i)}
+                        onPatchAggregate={(id, p) => patchAggregate(i, id, p)}
+                        onRemoveAggregate={(id) => removeAggregate(i, id)}
                         onRemove={() => removeBlock(i)}
                       />
                     </div>
@@ -324,10 +346,12 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 /* One block, continuing the "Members who…" header as a sentence:
    "have [any ▾] · scope" — the way marketers' tools phrase quantifiers
    (has done at least once / never), not a mode-switch tab row. */
-function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
+function BlockCard({ block, showRemove, excludeSegmentId, onScope, onScopeRef, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onAddAggregate, onPatchAggregate, onRemoveAggregate, onRemove }) {
+  const isRef = !!block.segmentRef
   const blockActive = ruleActive(block)
-  const types = blockActive ? entityTypes(block.entity, block.codeCategory ?? null) : []
-  const zeroData = blockActive && entityRecordCount(block.entity) === 0
+  const types = blockActive && !isRef ? entityTypes(block.entity, block.codeCategory ?? null) : []
+  const zeroData = blockActive && !isRef && entityRecordCount(block.entity) === 0
+  const numericFields = isRef ? [] : fieldsFor(block).filter((f) => f.type === 'currency' || f.type === 'number')
   return (
     <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 15px', background: '#fff', position: 'relative' }}>
       {showRemove && (
@@ -337,19 +361,31 @@ function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onC
       )}
 
       {/* sentence spine: quantifier as a verb, scope as the object —
-          the scope is a searchable grouped picker, Klaviyo-style */}
+          the scope is a searchable grouped picker, Klaviyo-style.
+          Segment-reference blocks read "Are in / not in <segment>". */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Have</span>
-        <select
-          value={block.quantifier}
-          onChange={(e) => onQuantifier(e.target.value)}
-          style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 14 }}
-        >
-          <option value="any">any</option>
-          <option value="none">no</option>
-          <option value="two_plus">2 or more</option>
-        </select>
-        <ScopePicker block={block} onScope={onScope} />
+        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{isRef ? 'Are' : 'Have'}</span>
+        {isRef ? (
+          <select
+            value={block.quantifier === 'none' ? 'none' : 'any'}
+            onChange={(e) => onQuantifier(e.target.value)}
+            style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 14 }}
+          >
+            <option value="any">in</option>
+            <option value="none">not in</option>
+          </select>
+        ) : (
+          <select
+            value={block.quantifier}
+            onChange={(e) => onQuantifier(e.target.value)}
+            style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 14 }}
+          >
+            <option value="any">any</option>
+            <option value="none">no</option>
+            <option value="two_plus">2 or more</option>
+          </select>
+        )}
+        <ScopePicker block={block} onScope={onScope} onScopeRef={onScopeRef} excludeSegmentId={excludeSegmentId} />
       </div>
 
       {/* honest zero-data state — generic, driven by the data itself */}
@@ -362,7 +398,7 @@ function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onC
         </div>
       )}
 
-      {blockActive && (
+      {blockActive && !isRef && (
         <>
           {types.length > 0 && (
             <div style={{ marginTop: 9, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -389,15 +425,38 @@ function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onC
                   onRemove={() => onRemoveCondition(c.id)}
                 />
               ))}
-              <button
-                onClick={onAddCondition}
-                style={{
-                  alignSelf: 'flex-start', padding: '7px 12px', border: '1.5px dashed #c3ccd9', borderRadius: 4,
-                  background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                + Add condition
-              </button>
+              {(block.aggregates ?? []).map((a) => (
+                <AggregateRow
+                  key={`agg-${a.id}`}
+                  block={block}
+                  agg={a}
+                  numericFields={numericFields}
+                  onPatch={(p) => onPatchAggregate(a.id, p)}
+                  onRemove={() => onRemoveAggregate(a.id)}
+                />
+              ))}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={onAddCondition}
+                  style={{
+                    padding: '7px 12px', border: '1.5px dashed #c3ccd9', borderRadius: 4,
+                    background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  + Add condition
+                </button>
+                {block.quantifier !== 'none' && (
+                  <button
+                    onClick={onAddAggregate}
+                    style={{
+                      padding: '7px 12px', border: '1.5px dashed #c3ccd9', borderRadius: 4,
+                      background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    + Add total
+                  </button>
+                )}
+              </div>
             </div>
             {block.conditions.length > 0 && (
               <p style={{ ...helperText, marginTop: 7 }}>
@@ -406,9 +465,51 @@ function BlockCard({ block, showRemove, onScope, onQuantifier, onToggleType, onC
                   : `All conditions must match the same ${block.entity} record.`}
               </p>
             )}
+            {(block.aggregates ?? []).length > 0 && block.quantifier !== 'none' && (
+              <p style={{ ...helperText, marginTop: 7 }}>
+                Totals add up across a member’s matching records.
+              </p>
+            )}
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/* Per-member aggregate: total of a numeric field, or a record count,
+   across the block's matching records. */
+function AggregateRow({ block, agg, numericFields, onPatch, onRemove }) {
+  return (
+    <div style={{ border: '1px solid #e2e8f1', borderRadius: 4, padding: 10, display: 'flex', gap: 8, background: '#fafbfd' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={agg.fn}
+          onChange={(e) => onPatch({ fn: e.target.value, field: e.target.value === 'count' ? null : (agg.field ?? numericFields[0]?.name ?? null) })}
+          style={{ ...selectStyle, width: 'auto' }}
+        >
+          <option value="sum">Total of</option>
+          <option value="count">Count of records</option>
+        </select>
+        {agg.fn === 'sum' && (
+          <select value={agg.field ?? ''} onChange={(e) => onPatch({ field: e.target.value })} style={{ ...selectStyle, width: 170 }}>
+            {numericFields.map((f) => (
+              <option key={f.name} value={f.name}>{f.label}</option>
+            ))}
+          </select>
+        )}
+        <select value={agg.op} onChange={(e) => onPatch({ op: e.target.value })} style={{ ...selectStyle, width: 'auto' }}>
+          <option value="gt">is more than</option>
+          <option value="lt">is less than</option>
+        </select>
+        <input type="number" value={agg.value} placeholder="0" onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 100, textAlign: 'center' }} />
+      </div>
+      <button
+        onClick={onRemove}
+        style={{ width: 24, height: 24, flex: 'none', border: 'none', borderRadius: 4, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, alignSelf: 'center' }}
+      >
+        <CloseIcon size={12} />
+      </button>
     </div>
   )
 }
@@ -457,11 +558,21 @@ function SampleMembers({ segment }) {
    category layer; search matches entity names, code labels, raw codes
    and field labels — typing "visa" lands on Cards, "maturity" on Loans.
    Click to open (no hover cascades), Enter picks the first match. */
-function ScopePicker({ block, onScope }) {
+function ScopePicker({ block, onScope, onScopeRef, excludeSegmentId }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
-  const items = scopePickerItems()
-  const current = items.find((s) => s.entity === block.entity && (block.codeCategory ?? null) === s.codeCategory)
+  const items = [
+    ...scopePickerItems(),
+    // saved segments are composable scopes — this is also how
+    // (A AND B) OR (C AND D) shapes get built
+    ...referencableSegments(excludeSegmentId).map((a) => ({
+      segmentRef: a.id, label: a.name, catKey: '__segments', group: 'Saved segments',
+      noData: false, terms: [{ text: a.name, kind: 'scope' }],
+    })),
+  ]
+  const current = block.segmentRef
+    ? { label: segmentById(block.segmentRef)?.name ?? 'deleted segment' }
+    : items.find((s) => !s.segmentRef && s.entity === block.entity && (block.codeCategory ?? null) === s.codeCategory)
   const query = q.trim().toLowerCase()
 
   const visible = items
@@ -477,9 +588,15 @@ function ScopePicker({ block, onScope }) {
     if (!g) { g = { key: v.it.catKey, label: v.it.group, rows: [] }; groups.push(g) }
     g.rows.push(v)
   }
-  groups.sort((a, b) => PULSATE_CATEGORY_ORDER.indexOf(a.key) - PULSATE_CATEGORY_ORDER.indexOf(b.key))
+  const order = (k) => { const i = PULSATE_CATEGORY_ORDER.indexOf(k); return i === -1 ? 999 : i }
+  groups.sort((a, b) => order(a.key) - order(b.key))
 
-  const pick = (it) => { onScope(it.entity, it.codeCategory); setOpen(false); setQ('') }
+  const pick = (it) => {
+    if (it.segmentRef) onScopeRef(it.segmentRef)
+    else onScope(it.entity, it.codeCategory)
+    setOpen(false)
+    setQ('')
+  }
   const close = () => { setOpen(false); setQ('') }
 
   return (
@@ -523,10 +640,12 @@ function ScopePicker({ block, onScope }) {
                 <div key={g.key}>
                   <div style={{ ...sectionLabel, padding: '7px 14px 3px' }}>{g.label}</div>
                   {g.rows.map(({ it, via }) => {
-                    const on = current && it.entity === current.entity && it.codeCategory === current.codeCategory
+                    const on = it.segmentRef
+                      ? block.segmentRef === it.segmentRef
+                      : !block.segmentRef && it.entity === block.entity && it.codeCategory === (block.codeCategory ?? null)
                     return (
                       <button
-                        key={it.entity + '·' + it.codeCategory}
+                        key={it.segmentRef ?? it.entity + '·' + it.codeCategory}
                         onClick={() => pick(it)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
@@ -537,7 +656,7 @@ function ScopePicker({ block, onScope }) {
                         onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent' }}
                       >
                         <span style={{ fontSize: 14, fontWeight: 600, color: on ? '#1f4a86' : '#2e3d66' }}>{it.label}</span>
-                        {it.label !== it.entity && (
+                        {!it.segmentRef && it.label !== it.entity && (
                           <span style={{ fontSize: 11.5, fontWeight: 500, color: '#8a95a6' }}>on {it.entity}</span>
                         )}
                         {it.noData && (
@@ -600,7 +719,15 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
             <option key={o.key} value={o.key}>{o.hasN ? o.label.replace('N days', '… days') : o.label}</option>
           ))}
         </select>
-        {field.type !== 'date' && !op.noValue && (
+        {op.hasValueSelect && (
+          <select value={condition.value} onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 130 }}>
+            <option value="">choose…</option>
+            {distinctValues(block.entity, field.name).map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        )}
+        {field.type !== 'date' && !op.noValue && !op.hasValueSelect && (
           <input type="number" value={condition.value} placeholder="0" onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 84, textAlign: 'center' }} />
         )}
         {field.type === 'date' && op.hasN && (

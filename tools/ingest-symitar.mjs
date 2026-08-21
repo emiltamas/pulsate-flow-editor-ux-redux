@@ -92,10 +92,16 @@ const F = {
   maturity: upsertField(loansEntity, 'Maturity Date', 'Maturity Date', 'date', null),
   open: upsertField(loansEntity, 'Open Date', 'Open Date', 'date', null),
 }
-const contactEntity = upsertEntity('Member Contact', 'member', 'campaign')
+/* Member Profile: demographics + contactability, one record per member.
+   PII discipline: Age is DERIVED at ingest (integer years at file date)
+   — the birth date itself is never stored; State is coarse geo; street,
+   city, zip, phones, SSN never leave the source files. */
+const profileEntity = upsertEntity('Member Profile', 'member', 'both')
 const FC = {
-  email: upsertField(contactEntity, 'Has Email', 'Has Email', 'bool', null),
-  mobile: upsertField(contactEntity, 'Has Mobile', 'Has Mobile', 'bool', null),
+  age: upsertField(profileEntity, 'Age', 'Age', 'number', null),
+  state: upsertField(profileEntity, 'State', 'State', 'string', null),
+  email: upsertField(profileEntity, 'Has Email', 'Has Email', 'bool', null),
+  mobile: upsertField(profileEntity, 'Has Mobile', 'Has Mobile', 'bool', null),
 }
 
 /* ---- members from NAME: every person is a member row; the primary (Name
@@ -105,6 +111,7 @@ const N = {
   acct: col(name, 'Account Number'), loc: col(name, 'Name Location'),
   type: col(name, 'Name Type'),
   email: col(name, 'E-Mail Address'), mobile: col(name, 'Mobile Phone'),
+  birth: col(name, 'Birth Date'), state: col(name, 'State'),
 }
 const loan = parse(loanPath)
 const L = {
@@ -125,12 +132,17 @@ for (const r of name.rows) {
   if (!accounts.has(key)) accounts.set(key, { persons: [] })
   const persons = accounts.get(key).persons
   const loc = (r[N.loc] ?? '').trim() || 'Account'
+  // Age derived here and only the integer kept — DOB is dropped
+  const dob = isoDate(r[N.birth])
+  const age = dob ? Math.floor((new Date(fileDate) - new Date(dob)) / (365.25 * 86400000)) : null
   persons.push({
     loc,
     type: (r[N.type] ?? '').trim(),
     seq: persons.filter((p) => p.loc === loc).length, // ordinal within location
     email: !!(r[N.email] ?? '').trim(),
     mobile: !!(r[N.mobile] ?? '').trim(),
+    age: age != null && age > 0 && age < 120 ? age : null,
+    state: (r[N.state] ?? '').trim() || null,
   })
 }
 for (const r of loan.rows) {
@@ -220,12 +232,17 @@ for (const r of loan.rows) {
   loanCount++
 }
 
-/* ---- contact flags: one record per account, all persons attached ---- */
+/* ---- Member Profile: one record per account, all persons attached.
+   Demographics come from the PRIMARY person's NAME row; contact flags
+   aggregate across the household. ---- */
 for (const key of sortedAccts) {
   const a = accounts.get(key)
-  const rid = upsertRecord(contactEntity, h(key) + ':contact', 'open')
+  const primary = a.persons.find((p) => p.type === '00') ?? a.persons[0] ?? null
+  const rid = upsertRecord(profileEntity, h(key) + ':profile', 'open')
   insHolder.run(rid, acctPrimary.get(key), 'primary')
   for (const p of acctPersons.get(key) ?? []) insHolder.run(rid, p.id, 'joint')
+  setValue(rid, FC.age, primary?.age ?? null)
+  setValue(rid, FC.state, primary?.state ?? null)
   setValue(rid, FC.email, a.persons.some((p) => p.email))
   setValue(rid, FC.mobile, a.persons.some((p) => p.mobile))
 }

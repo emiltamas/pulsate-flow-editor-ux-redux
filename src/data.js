@@ -50,7 +50,9 @@ const FALLBACK_REGISTRY = [
     ],
   },
   {
-    name: 'Member Contact', category: 'member', purpose: 'campaign', codeField: null,
+    // the bundled dataset carries contact flags only; the live ingest
+    // adds Age (derived) and State
+    name: 'Member Profile', category: 'member', purpose: 'both', codeField: null,
     fields: [
       { name: 'Has Email', label: 'Has Email', type: 'bool', role: null },
       { name: 'Has Mobile', label: 'Has Mobile', type: 'bool', role: null },
@@ -95,7 +97,7 @@ const buildFallback = () => {
           ...(l.maturityInDays != null ? { 'Maturity Date': l.maturityInDays } : {}),
         },
       })),
-      'Member Contact': [{ key: `${a.id}:contact`, status: 'open', holders: 1, values: { 'Has Email': a.hasEmail, 'Has Mobile': a.hasMobile } }],
+      'Member Profile': [{ key: `${a.id}:profile`, status: 'open', holders: 1, values: { 'Has Email': a.hasEmail, 'Has Mobile': a.hasMobile } }],
     },
   }))
 }
@@ -276,6 +278,7 @@ export const OPERATORS = {
     { key: 'not_set', label: 'is not set', noValue: true },
   ],
   string: [
+    { key: 'is', label: 'is', hasValueSelect: true },
     { key: 'is_set', label: 'is set', noValue: true },
     { key: 'not_set', label: 'is not set', noValue: true },
   ],
@@ -373,7 +376,20 @@ const nOr = (v, d) => {
   return Number.isFinite(n) ? n : d
 }
 
-export const ruleActive = (rule) => !!rule?.entity && !!entityDef(rule.entity)
+/* Saved segments are composable: blocks can reference another segment
+   ("in / not in"). The App keeps this index in sync each render, the
+   same pattern as the code map. Composition is also how (A AND B) OR
+   (C AND D) shapes are built — save each half, OR the references. */
+let ACTIVE_SEGMENTS = new Map()
+export const setActiveSegments = (audiences) => {
+  ACTIVE_SEGMENTS = new Map((audiences ?? []).filter((a) => a.rule).map((a) => [a.id, a]))
+}
+export const segmentById = (id) => ACTIVE_SEGMENTS.get(id) ?? null
+export const referencableSegments = (excludeId) =>
+  [...ACTIVE_SEGMENTS.values()].filter((a) => a.id !== excludeId)
+
+export const ruleActive = (rule) =>
+  rule?.segmentRef ? !!segmentById(rule.segmentRef) : !!rule?.entity && !!entityDef(rule.entity)
 
 /* ── code labels: the FI's vocabulary, from the live catalog ───────── */
 let activeCodeMap = new Map()
@@ -449,9 +465,25 @@ export function conditionText(rule, c) {
   return `${name} ${op?.label ?? c.op} ${v}`
 }
 
+/* Aggregate sentence fragment: "with total Loan Balance more than $X",
+   "with at least N matching records". */
+const aggText = (block, a) => {
+  if (a.fn === 'count') {
+    const n = Number(a.value) || 0
+    return a.op === 'lt' ? `with fewer than ${n} matching records` : `with more than ${n} matching records`
+  }
+  const f = fieldsFor(block).find((x) => x.name === a.field)
+  const label = f?.label.toLowerCase() ?? a.field
+  return `with total ${label} ${a.op === 'lt' ? 'less than' : 'more than'} ${f?.type === 'currency' ? '$' : ''}${fmt(Number(a.value) || 0)}`
+}
+
 /* Block-level sentence — segments join these with AND. */
 export function ruleSentence(rule) {
   if (!ruleActive(rule)) return null
+  if (rule.segmentRef) {
+    const ref = segmentById(rule.segmentRef)
+    return `${rule.quantifier === 'none' ? 'Not in' : 'In'} “${ref?.name ?? 'deleted segment'}”`
+  }
   const plural = rule.quantifier === 'two_plus'
   const lead = rule.quantifier === 'any' ? 'Any' : rule.quantifier === 'none' ? 'No' : '2 or more'
   let scope = `${rule.entity} record${plural ? 's' : ''}`
@@ -463,7 +495,10 @@ export function ruleSentence(rule) {
   const conds = rule.conditions.length
     ? ` where ${rule.conditions.map((c) => conditionText(rule, c)).join(' and ')}`
     : ''
-  return `${lead} ${scope}${conds}`
+  const aggs = (rule.aggregates ?? []).length
+    ? ` ${rule.aggregates.map((a) => aggText(rule, a)).join(' and ')}`
+    : ''
+  return `${lead} ${scope}${conds}${aggs}`
 }
 
 /* ── evaluation: generic over records ─────────────────────────────── */
@@ -490,8 +525,34 @@ const conditionsMatch = (def, rec, rule) =>
       }
       return v < -nOr(c.n, 30)
     }
+    if (c.op === 'is') return String(v) === String(c.value)
     const cv = Number(c.value) || 0
     return c.op === 'gt' ? v > cv : v < cv
+  })
+
+/* Distinct observed values for a string field — feeds the value select
+   for "is" conditions (State, statuses…). Data-driven, capped. */
+export const distinctValues = (entityName, fieldName) => {
+  const seen = new Set()
+  for (const m of MEMBERS) {
+    for (const r of m.records[entityName] ?? []) {
+      const v = r.values[fieldName]
+      if (v !== undefined) seen.add(String(v))
+      if (seen.size > 50) return [...seen].sort()
+    }
+  }
+  return [...seen].sort()
+}
+
+/* Per-member aggregate checks over a block's MATCHING records:
+   count of matches, or sum of a numeric field across them. */
+const aggsPass = (block, matches) =>
+  (block.aggregates ?? []).every((a) => {
+    const cv = Number(a.value) || 0
+    const actual = a.fn === 'count'
+      ? matches.length
+      : matches.reduce((s, r) => s + (Number(r.values[a.field]) || 0), 0)
+    return a.op === 'lt' ? actual < cv : actual > cv
   })
 
 const recordMatches = (def, rec, rule) => {
@@ -539,19 +600,42 @@ export const segmentActive = (seg) => activeBlocks(seg).length > 0
 /* The block whose matching records enroll and personalize: the first
    active block that asks for presence. All-'none' segments have no
    primary — they are pure person-level filters. */
-export const primaryBlock = (seg) => activeBlocks(seg).find((b) => b.quantifier !== 'none') ?? null
+/* Segment-reference blocks never drive enrollment — the primary is the
+   first presence-asking block over real records. */
+export const primaryBlock = (seg) => activeBlocks(seg).find((b) => !b.segmentRef && b.quantifier !== 'none') ?? null
+
+/* Does one block pass for this member? Handles the three block shapes:
+   segment references (in / not in, evaluated recursively with a cycle
+   guard), and record blocks with quantifier + per-member aggregates. */
+const blockPasses = (m, b, seen) => {
+  if (b.segmentRef) {
+    const inRef = memberInSegmentId(m, b.segmentRef, seen)
+    return { matches: [], ok: b.quantifier === 'none' ? !inRef : inRef }
+  }
+  const matches = blockInstances(m, b)
+  const ok = memberSatisfies(matches.length, b.quantifier) && (b.quantifier === 'none' || aggsPass(b, matches))
+  return { matches, ok }
+}
+
+const memberInSegmentId = (m, id, seen) => {
+  if (seen.has(id)) return false // cycle guard: a loop can never satisfy
+  const ref = segmentById(id)
+  if (!ref?.rule) return false
+  const next = new Set(seen)
+  next.add(id)
+  return memberInGroups(m, segmentGroups(ref.rule), null, next) !== null
+}
 
 /* Per-member evaluation over OR-groups: the member is in the segment iff
    EVERY group has at least one satisfied block. Returns null when the
    member is out; else { primaryMatches, satisfiedPrimary }. */
-const memberInGroups = (m, groups, primary) => {
+const memberInGroups = (m, groups, primary, seen = new Set()) => {
   let primaryMatches = []
   let satisfiedPrimary = false
   for (const group of groups) {
     let groupOk = false
     for (const b of group) {
-      const matches = blockInstances(m, b)
-      const ok = memberSatisfies(matches.length, b.quantifier)
+      const { matches, ok } = blockPasses(m, b, seen)
       if (b === primary && ok) { primaryMatches = matches; satisfiedPrimary = true }
       if (ok) groupOk = true
     }

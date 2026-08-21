@@ -5,7 +5,7 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, gapAudienceRule } from './data'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, setActiveSegments, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, gapAudienceRule } from './data'
 import { loadFromDb, persistCodeMapping } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
@@ -47,6 +47,8 @@ export default function App() {
   // keep the module-level map in sync so rule evaluation (reach,
   // drill-ins) resolves labels through the live catalog mappings
   setActiveCodeMap(productCodes)
+  // saved segments are referencable from other segments' blocks
+  setActiveSegments(audiences)
   const [freqCap, setFreqCap] = useState({ n: 1, per: 'day' })
   const [message, setMessage] = useState(null)
   const [showPerf, setShowPerf] = useState(false)

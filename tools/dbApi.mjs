@@ -62,7 +62,7 @@ export async function bootstrapPayload() {
       return accounts.get(mid)
     }
 
-    const contacts = db.prepare('SELECT id FROM record WHERE entity_def_id = ? ORDER BY id').all(entity['Member Contact'])
+    const contacts = db.prepare('SELECT id FROM record WHERE entity_def_id = ? ORDER BY id').all(entity['Member Profile'])
     for (const r of contacts) {
       const mid = primaryOf.get(r.id)
       if (mid == null) continue
