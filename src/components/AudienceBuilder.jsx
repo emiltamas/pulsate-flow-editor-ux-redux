@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  QUANTIFIERS, newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
+  newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
   operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
   parseAudiencePhrase, audienceReach,
   fmt, datasetMatchedMembers, SYMITAR_STATS,
@@ -208,22 +208,29 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                     >
                       {i > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
-                          <button
-                            onClick={() => toggleJoin(i)}
-                            title={joins[i - 1] === 'OR' ? 'Switch to AND' : 'Switch to OR'}
-                            style={{
-                              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                              fontSize: 11, fontWeight: 800, padding: '3px 12px', borderRadius: 20, letterSpacing: '.5px',
-                              ...(joins[i - 1] === 'OR'
-                                ? { color: '#7a4fc0', background: '#efe8fb' }
-                                : { color: '#5a7db0', background: '#e6effb' }),
-                            }}
-                          >
-                            {joins[i - 1]}
-                          </button>
-                          {joins[i - 1] === 'OR'
-                            ? <span style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6' }}>either block qualifies</span>
-                            : <div style={{ flex: 1, height: 1, background: '#e2e8f1' }} />}
+                          {/* one control, both options visible — the segmented
+                              shape is what makes it read as clickable */}
+                          <div style={{ display: 'flex', background: '#eef1f6', borderRadius: 8, padding: 2, gap: 2, flex: 'none' }}>
+                            {['AND', 'OR'].map((j) => {
+                              const on = joins[i - 1] === j
+                              return (
+                                <button
+                                  key={j}
+                                  onClick={() => { if (!on) toggleJoin(i) }}
+                                  style={{
+                                    border: 'none', borderRadius: 6, padding: '4px 12px', fontFamily: 'inherit',
+                                    fontSize: 11, fontWeight: 800, letterSpacing: '.5px', cursor: 'pointer',
+                                    ...(on
+                                      ? { background: '#fff', color: j === 'OR' ? '#7a4fc0' : '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                                      : { background: 'transparent', color: '#8a95a6' }),
+                                  }}
+                                >
+                                  {j}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div style={{ flex: 1, height: 1, background: joins[i - 1] === 'OR' ? '#e4d7f5' : '#e2e8f1' }} />
                         </div>
                       )}
                       <BlockCard
@@ -319,34 +326,42 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   )
 }
 
-/* One block: scope + quantifier + type chips + same-record conditions. */
+/* One block, read as a sentence: "Has [any ▾] · scope" — the way
+   marketers' tools phrase quantifiers (has done at least once / never),
+   not a mode-switch tab row. */
 function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
   const blockActive = ruleActive(block)
   const types = blockActive ? entityTypes(block.entity, block.codeCategory ?? null) : []
   const zeroData = blockActive && entityRecordCount(block.entity) === 0
   return (
     <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 13, padding: '13px 15px', background: '#fff' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
-        {isPrimary && (
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 20 }}>
-            Primary — drives enrollment & personalization
-          </span>
-        )}
-        {/* inside an OR group a 'none' block is an alternative, not an exclusion */}
-        {!isPrimary && block.quantifier === 'none' && !inOrGroup && (
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 9px', borderRadius: 20 }}>
-            Filter — excludes members
-          </span>
-        )}
-        {showRemove && (
-          <button onClick={onRemove} style={{ marginLeft: 'auto', width: 22, height: 22, border: 'none', borderRadius: 6, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-            <CloseIcon size={12} />
-          </button>
-        )}
-      </div>
+      {(isPrimary || showRemove) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+          {isPrimary && (
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 20 }}>
+              Primary — drives enrollment & personalization
+            </span>
+          )}
+          {showRemove && (
+            <button onClick={onRemove} style={{ marginLeft: 'auto', width: 22, height: 22, border: 'none', borderRadius: 6, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <CloseIcon size={12} />
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* scope */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      {/* sentence spine: quantifier as a verb, scope as the object */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>Has</span>
+        <select
+          value={block.quantifier}
+          onChange={(e) => onQuantifier(e.target.value)}
+          style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 13 }}
+        >
+          <option value="any">any</option>
+          <option value="none">no</option>
+          <option value="two_plus">2 or more</option>
+        </select>
         {segmentScopes().map((s) => {
           const on = block.entity === s.entity && (block.codeCategory ?? null) === s.codeCategory
           return (
@@ -354,7 +369,7 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
               key={s.entity + '·' + s.codeCategory}
               onClick={() => onScope(s.entity, s.codeCategory)}
               style={{
-                padding: '9px 16px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                padding: '8px 15px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
                 border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
                 background: on ? '#eef5fc' : '#fff',
                 color: on ? '#1f4a86' : '#17335f',
@@ -369,34 +384,12 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
       {/* honest zero-data state — generic, driven by the data itself */}
       {zeroData && (
         <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 10, padding: '9px 12px', fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.5, maxWidth: 520 }}>
-          No {block.entity} records in this dataset yet — “Has any” matches no one; “Has none” matches all {fmt(totalMembers())} members.
+          No {block.entity} records in this dataset yet — “Has any” matches no one; “Has no” matches all {fmt(totalMembers())} members.
           {entityDef(block.entity)?.note && (
             <div style={{ marginTop: 3, fontWeight: 600 }}>{entityDef(block.entity).note}</div>
           )}
         </div>
       )}
-
-      {/* quantifier */}
-      <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>
-        {QUANTIFIERS.map((qd) => {
-          const on = block.quantifier === qd.key
-          return (
-            <button
-              key={qd.key}
-              onClick={() => onQuantifier(qd.key)}
-              style={{
-                flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 800, cursor: 'pointer',
-                ...(on
-                  ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
-                  : { background: 'transparent', color: '#5a6b85' }),
-              }}
-            >
-              {qd.label}
-            </button>
-          )
-        })}
-      </div>
 
       {blockActive && (
         <>
