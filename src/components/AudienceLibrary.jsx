@@ -17,9 +17,9 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 32px 48px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>Audiences</h1>
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>Segments</h1>
             <p style={{ margin: '5px 0 0', fontSize: 14.5, color: '#8a95a6', fontWeight: 500 }}>
-              Build once, reuse in any automation. Rule audiences stay in sync as member data changes.
+              Build once, reuse in any automation. Segments stay in sync as member data changes.
             </p>
           </div>
           <button
@@ -31,7 +31,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
             }}
           >
             <SparkleIcon size={15} />
-            New audience
+            New segment
           </button>
         </div>
 
@@ -73,13 +73,13 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
           </div>
         </div>
 
-        <div style={{ margin: '22px 0 0', fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Your audiences</div>
+        <div style={{ margin: '22px 0 0', fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Your segments</div>
         <div style={{ margin: '10px 0 18px', display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #d8e0ea', borderRadius: 4, padding: '0 12px', height: 40, maxWidth: 420 }}>
           <SearchIcon size={16} stroke="#8a95a6" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${audiences.length} audiences`}
+            placeholder={`Search ${audiences.length} segments`}
             style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 15, color: '#2e3d66', fontWeight: 600 }}
           />
         </div>
@@ -105,7 +105,7 @@ export default function AudienceLibrary({ audiences, selectedId, onUse, onNew, o
           <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 440, background: '#fff', boxShadow: '-6px 0 28px rgba(20,34,60,.16)', zIndex: 30 }}>
             <UserDrillIn
               name={viewing.name}
-              kindLabel={`${viewing.kind} audience`}
+              kindLabel={`${viewing.kind} segment`}
               count={audienceReach(viewing).members}
               rule={viewing.rule}
               ctaLabel="Use in this flow"
@@ -133,7 +133,7 @@ function AudienceCard({ audience, audiences, selected, onUse, onView, onEdit }) 
           </span>
         </div>
         <div style={{ marginTop: 5, fontSize: 13, fontWeight: 600, color: audience.rule ? '#1f4a86' : '#8a95a6', lineHeight: 1.45, minHeight: 34 }}>
-          {audience.rule ? segmentSentence(audience.rule) : `${audience.kind} audience synced from your data.`}
+          {audience.rule ? segmentSentence(audience.rule) : `${audience.kind} segment synced from your data.`}
         </div>
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ fontSize: 21, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.4px' }}>~{fmt(reach.members)}</span>

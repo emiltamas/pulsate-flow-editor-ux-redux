@@ -120,7 +120,7 @@ export default function SymitarConnect({ onClose, onGoCatalog }) {
               </div>
               <p style={{ margin: '12px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5 }}>
                 Join integrity: every loan account matched a member record. Contactability: e-mail {s.emailPct}% · mobile {s.mobilePct}% —
-                worth a data-quality audience of its own.
+                worth a data-quality segment of its own.
               </p>
             </>
           )}
@@ -144,7 +144,7 @@ export default function SymitarConnect({ onClose, onGoCatalog }) {
                 ))}
               </div>
               <p style={{ margin: '12px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6' }}>
-                Map the codes and every audience, playbook and message can target them — usually a ten-minute task.
+                Map the codes and every segment, playbook and message can target them — usually a ten-minute task.
               </p>
             </>
           )}

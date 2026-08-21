@@ -8,7 +8,7 @@ const sectionLabel = { fontSize: 12, fontWeight: 600, color: '#8a95a6', textTran
 const helperText = { margin: '4px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
 
 export const TRIGGER_META = {
-  audience: { label: 'Audience joined', desc: 'Always on — members enter as soon as they match the audience.', Icon: UsersIcon },
+  audience: { label: 'Segment joined', desc: 'Always on — members enter as soon as they match the segment.', Icon: UsersIcon },
   date: { label: 'Date anchor', desc: 'A set number of days before a date on a member’s product.', Icon: RepeatIcon },
   location: { label: 'Location event', desc: 'When a member enters, exits or dwells in a geofence.', Icon: PinIcon },
   schedule: { label: 'On a schedule', desc: 'Send once, or on a recurring schedule.', Icon: DwellIcon },
@@ -146,7 +146,7 @@ export default function EntryPanel({
 
           {/* WHO */}
           <div style={{ padding: '0 24px 20px' }}>
-            <span style={sectionLabel}>Who — audience</span>
+            <span style={sectionLabel}>Who — segment</span>
             {audience ? (
               <div style={{ marginTop: 8, border: '1px solid #e2e8f1', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{ padding: '12px 14px' }}>
@@ -196,11 +196,11 @@ export default function EntryPanel({
                 }}
               >
                 <ProductIcon size={15} />
-                Choose an audience
+                Choose a segment
               </button>
             )}
             {trigger.type === 'location' && !audience && (
-              <p style={helperText}>No audience selected — every member who triggers the location event enters.</p>
+              <p style={helperText}>No segment selected — every member who triggers the location event enters.</p>
             )}
           </div>
 
@@ -208,7 +208,7 @@ export default function EntryPanel({
           <div style={{ padding: '0 24px 20px' }}>
             <span style={sectionLabel}>Exit — leaving the flow</span>
             <p style={helperText}>
-              Members finish the flow once they enter — falling out of the entry audience never ejects them. Exits are armed explicitly.
+              Members finish the flow once they enter — falling out of the entry segment never ejects them. Exits are armed explicitly.
             </p>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ border: '1px solid #e2e8f1', borderRadius: 4, padding: '11px 13px' }}>
@@ -239,7 +239,7 @@ export default function EntryPanel({
               <ExitToggle
                 armed={entry.exits.audienceExit}
                 onToggle={() => setEntry((s) => ({ ...s, exits: { ...s.exits, audienceExit: !s.exits.audienceExit } }))}
-                title="No longer matches the entry audience"
+                title="No longer matches the entry segment"
                 desc="Re-checked continuously, including during waits."
                 warning={entry.exits.audienceExit ? 'Rolling windows eject mid-flow: with “account created 0–7 days”, members leave on day 8 even between steps.' : null}
               />
@@ -301,7 +301,7 @@ export default function EntryPanel({
               ? `${TRIGGER_META[trigger.type].label} · ${audience.name}`
               : trigger.type === 'location' && geoCount
                 ? `${geoCount} geofence${geoCount === 1 ? '' : 's'} · all members`
-                : 'Choose an audience to continue'}
+                : 'Choose a segment to continue'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 500, color: '#5a6b85', cursor: 'pointer' }}>

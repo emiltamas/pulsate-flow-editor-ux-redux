@@ -5,7 +5,7 @@ import { ChevronLeftIcon, SearchIcon, ProductIcon } from '../icons'
 /* Member preview for any audience. Only rule audiences have members to
    show — they are evaluated against the ingested extract. An audience
    without a rule has no evaluated membership, and says so. */
-export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, onCta, onBack, backLabel = 'All audiences' }) {
+export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, onCta, onBack, backLabel = 'All segments' }) {
   const [query, setQuery] = useState('')
 
   const shown = Math.min(8, count)
@@ -20,7 +20,7 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
     ? filtered.length ? `${filtered.length} of ${users.length} shown members match` : 'No matching members in the loaded sample'
     : rule
       ? `Matched in the ${SYMITAR_STATS.fileDate} extract · synthetic display names`
-      : 'No rule to evaluate — this audience has no computed membership yet'
+      : 'No rule to evaluate — this segment has no computed membership yet'
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -46,7 +46,7 @@ export default function UserDrillIn({ name, kindLabel, count, rule, ctaLabel, on
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search members in this audience"
+            placeholder="Search members in this segment"
             style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 15, color: '#2e3d66', fontWeight: 600 }}
           />
         </div>

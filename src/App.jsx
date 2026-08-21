@@ -200,7 +200,7 @@ export default function App() {
 function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge, dataSource }) {
   const NAV = [
     { key: 'canvas', label: 'Flow' },
-    { key: 'library', label: 'Audiences' },
+    { key: 'library', label: 'Segments' },
     { key: 'data', label: 'Data', badge: dataBadge },
   ]
   return (

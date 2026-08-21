@@ -68,7 +68,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const groupSize = groupIdx.reduce((m, g) => ((m[g] = (m[g] ?? 0) + 1), m), {})
   const reach = audienceReach({ rule: active ? segment : null, users: null })
   const canSave = active
-  const suggestedName = active ? (segmentSentence(segment) || '').slice(0, 34) : 'My audience'
+  const suggestedName = active ? (segmentSentence(segment) || '').slice(0, 34) : 'My segment'
 
   const buildFromPhrase = () => {
     const parsed = parseAudiencePhrase(aiText)
@@ -127,7 +127,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
           <CloseIcon size={20} />
         </button>
         <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>
-          {isNew ? 'New audience' : 'Edit audience'}
+          {isNew ? 'New segment' : 'Edit segment'}
         </h1>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 15, fontWeight: 500, color: '#5a6b85', cursor: 'pointer' }}>
@@ -141,7 +141,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               boxShadow: '0 2px 8px rgba(47,90,160,.3)', opacity: canSave ? 1 : 0.45, whiteSpace: 'nowrap',
             }}
           >
-            Save audience
+            Save segment
           </button>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
           <div style={{ maxWidth: 640 }}>
             {/* name */}
             <div style={{ marginBottom: 18 }}>
-              <span style={sectionLabel}>Audience name</span>
+              <span style={sectionLabel}>Segment name</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -169,7 +169,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                   value={aiText}
                   onChange={(e) => { setAiText(e.target.value); setAiStatus('idle') }}
                   onKeyDown={(e) => { if (e.key === 'Enter') buildFromPhrase() }}
-                  placeholder="Describe the audience — e.g. anyone with a loan due in the next 3 days and no card"
+                  placeholder="Describe the segment — e.g. anyone with a loan due in the next 3 days and no card"
                   style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}
                 />
                 <button

@@ -150,7 +150,7 @@ function StartNode({ data }) {
 }
 
 function triggerDetail(trigger) {
-  if (trigger.type === 'audience') return 'Always on — enters on joining the audience'
+  if (trigger.type === 'audience') return 'Always on — enters on joining the segment'
   if (trigger.type === 'schedule') return 'One-time send · not scheduled yet'
   if (trigger.type === 'date') {
     const field = (registryDateFields().find((f) => f.key === trigger.dateField)?.label ?? 'anchored date').toLowerCase()
@@ -220,7 +220,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
           iconFg="#2f6fc4"
           label={audience ? audience.name : 'No audience'}
           detail={audience
-            ? audience.rule ? segmentSentence(audience.rule) : `${audience.kind} audience`
+            ? audience.rule ? segmentSentence(audience.rule) : `${audience.kind} segment`
             : 'Everyone matching the trigger'}
         />
       </div>
@@ -380,7 +380,7 @@ function EmptyStartNode() {
       </div>
       <div>
         <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>Set up the entry step</div>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No trigger or audience yet</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No trigger or segment yet</div>
       </div>
       <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '7px 16px', borderRadius: 4 }}>+ Choose entry</div>
     </div>

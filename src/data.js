@@ -1055,7 +1055,7 @@ export const showcaseMember = () => {
    data has a proper home), or platform machinery. */
 export const LEGACY_MIGRATION = [
   { legacyName: 'All Users', cleanName: 'Everyone', category: 'member', disposition: 'platform',
-    note: 'The baseline audience, not an entity.', exampleFields: [] },
+    note: 'The baseline segment, not an entity.', exampleFields: [] },
   { legacyName: 'Personal', cleanName: 'Member Profile', category: 'member', purpose: 'both', disposition: 'migrate',
     exampleFields: [
       { raw: 'Alias', label: 'Alias', type: 'string' },

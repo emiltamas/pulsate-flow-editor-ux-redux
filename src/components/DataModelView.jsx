@@ -35,7 +35,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>Member data</h1>
             <p style={{ margin: '5px 0 0', fontSize: 14.5, color: '#8a95a6', fontWeight: 500, maxWidth: 640 }}>
-              Every audience, playbook and message reads from here. All counts come from the ingested extract — nothing is simulated.
+              Every segment, playbook and message reads from here. All counts come from the ingested extract — nothing is simulated.
             </p>
           </div>
           <button
@@ -118,7 +118,7 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
     },
     gap.count > 0 && {
       text: `${gap.field} is blank on ${gap.missingPct}% of loans (${fmt(gap.count)} ${gap.count === 1 ? 'record' : 'records'})`,
-      action: 'Create audience', onClick: onCreateGapAudience,
+      action: 'Create segment', onClick: onCreateGapAudience,
     },
   ].filter(Boolean)
 
@@ -291,7 +291,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
       {unmapped > 0 && (
         <div style={{ marginBottom: 14, background: '#fbf1dc', borderRadius: 4, padding: '12px 16px', fontSize: 14, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.5 }}>
           {unmapped} {unmapped === 1 ? 'code' : 'codes'} from the extract {unmapped === 1 ? 'has' : 'have'} no label yet. Unlabeled codes are still targetable
-          by raw value — a label just makes {unmapped === 1 ? 'it' : 'them'} readable everywhere: audiences, playbooks, messages.
+          by raw value — a label just makes {unmapped === 1 ? 'it' : 'them'} readable everywhere: segments, playbooks, messages.
         </div>
       )}
 
@@ -355,7 +355,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         <div style={{ margin: '5px auto 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', maxWidth: 560, lineHeight: 1.5 }}>
           Event Name (App Events) is declared by the platform but has no codes yet. Every new entity a source sends
           (offers, eligibility, anything relational) brings its own codes here for labeling — and becomes targetable
-          in audiences and usable in personalization the moment it lands.
+          in segments and usable in personalization the moment it lands.
         </div>
       </div>
 
@@ -364,7 +364,7 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         <span style={sectionLabel}>Your entity registry — from the ingested data</span>
         <p style={{ margin: '5px 0 12px', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5, maxWidth: 720 }}>
           These are the entities your sources actually declared — names, fields and types come from ingestion, not from a
-          built-in list. Audiences, date anchors and personalization tokens bind to exactly what you see here.
+          built-in list. Segments, date anchors and personalization tokens bind to exactly what you see here.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {REGISTRY.map((e) => (
@@ -479,7 +479,7 @@ const PIPELINE = [
   { icon: RepeatIcon, title: 'Sources', caption: 'Files, cores, CRMs, SDK' },
   { icon: UsersIcon, title: 'Identity', caption: 'One member across systems' },
   { icon: ProductIcon, title: 'Registry', caption: 'Entities, fields, labeled codes' },
-  { icon: SendIcon, title: 'Activation', caption: 'Audiences, triggers, messages' },
+  { icon: SendIcon, title: 'Activation', caption: 'Segments, triggers, messages' },
 ]
 
 function ModelTab() {

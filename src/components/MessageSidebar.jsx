@@ -205,7 +205,7 @@ export default function MessageSidebar({ message, onClose, onSave }) {
                 {draft.recheck && <CheckIcon size={10} stroke="#fff" />}
               </span>
               <div>
-                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Re-check audience before each send</div>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Re-check segment before each send</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>
                   Members who no longer match are skipped for this send — they stay in the flow. Gates the message, not the membership.
                 </div>
