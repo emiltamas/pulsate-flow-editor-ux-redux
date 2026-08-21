@@ -183,13 +183,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               {aiStatus === 'fail' && <p style={helperText}>Couldn’t parse that — try mentioning one of your entities or labels, e.g. “anyone with a loan due in the next 3 days”.</p>}
             </div>
 
-            {/* the block stack */}
+            {/* the block stack — the sentence-shaped blocks and the
+                AND/OR toggles explain themselves; no tutorial paragraph */}
             <div style={{ marginBottom: 18 }}>
               <span style={sectionLabel}>Members who…</span>
-              <p style={helperText}>
-                Stack conditions with AND — a member belongs only when every block matches. Scopes, types and
-                fields come from your own data; nothing here is built in.
-              </p>
 
               {entities.length === 0 ? (
                 <div style={{ marginTop: 10, border: '1px dashed #d8e0ea', borderRadius: 4, padding: '18px 16px', maxWidth: 520, textAlign: 'center', background: '#fafbfd' }}>
