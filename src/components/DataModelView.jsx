@@ -430,7 +430,18 @@ function EntityCard({ entity: e, codes, onMapCode, onEditField, onEditEntityCate
             ))}
           </select>
         )}
-        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }}>{e.purpose}</span>
+        {/* only restrictions get a chip — usable-everywhere is the
+            default and says nothing worth reading */}
+        {e.purpose === 'segment' && (
+          <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }} title="Targetable in segments, but not available as personalization tokens in messages">
+            segments only
+          </span>
+        )}
+        {e.purpose === 'campaign' && (
+          <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }} title="Available as personalization tokens in messages, but not targetable in segments">
+            messages only
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: recs ? '#4a6088' : '#8a95a6' }}>
           {recs ? `${fmt(recs)} records` : 'no records yet'}
           {hiddenCount > 0 && <span style={{ color: '#8a95a6' }}> · {hiddenCount} hidden</span>}
@@ -683,8 +694,11 @@ function MigrationTab() {
                   <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }}>
                     {categoryLabel(row.category)}
                   </span>
-                  {row.purpose && (
-                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#8a95a6', background: '#e9ecf7', padding: '2px 7px', borderRadius: 4 }}>{row.purpose}</span>
+                  {row.purpose === 'segment' && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#8a95a6', background: '#e9ecf7', padding: '2px 7px', borderRadius: 4 }}>segments only</span>
+                  )}
+                  {row.purpose === 'campaign' && (
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#8a95a6', background: '#e9ecf7', padding: '2px 7px', borderRadius: 4 }}>messages only</span>
                   )}
                 </div>
                 {row.exampleFields.length > 0 && (
