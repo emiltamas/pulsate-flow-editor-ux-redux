@@ -163,6 +163,30 @@ export const segmentScopes = () => {
   return out
 }
 
+/* Scope-picker items: everything the searchable picker can match — the
+   scope's own label, its entity name, and the vocabulary inside it
+   (code labels, raw codes, field labels). Typing "visa" lands on Cards;
+   "maturity" surfaces Loans. Grouped by the curated category layer. */
+export const scopePickerItems = () =>
+  segmentScopes().map((s) => {
+    const def = entityDef(s.entity)
+    const catKey = s.codeCategory === 'UNKNOWN' ? 'UNKNOWN' : s.codeCategory ?? def?.category ?? 'UNKNOWN'
+    const codes = entityTypes(s.entity, s.codeCategory ?? null)
+    const fields = (def?.fields ?? []).filter((f) => f.name !== def?.codeField)
+    return {
+      ...s,
+      catKey,
+      group: categoryLabel(catKey),
+      noData: entityRecordCount(s.entity) === 0,
+      terms: [
+        { text: s.label, kind: 'scope' },
+        { text: s.entity, kind: 'entity' },
+        ...codes.flatMap((c) => [{ text: c.label, kind: 'type' }, { text: c.code, kind: 'type' }]),
+        ...fields.map((f) => ({ text: f.label, kind: 'field' })),
+      ],
+    }
+  })
+
 /* The category scope a rule over this entity should default to: the
    entity's own category when its codes actually carry it, else none. */
 export const scopeCategoryFor = (entityName) => {

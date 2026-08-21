@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
+  newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, scopePickerItems, PULSATE_CATEGORY_ORDER, entityTypes, entityDef,
   operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
   conditionIncomplete, segmentIncompleteCount,
   parseAudiencePhrase, audienceReach,
@@ -358,7 +358,8 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
         </div>
       )}
 
-      {/* sentence spine: quantifier as a verb, scope as the object */}
+      {/* sentence spine: quantifier as a verb, scope as the object —
+          the scope is a searchable grouped picker, Klaviyo-style */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Has</span>
         <select
@@ -370,23 +371,7 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
           <option value="none">no</option>
           <option value="two_plus">2 or more</option>
         </select>
-        {segmentScopes().map((s) => {
-          const on = block.entity === s.entity && (block.codeCategory ?? null) === s.codeCategory
-          return (
-            <button
-              key={s.entity + '·' + s.codeCategory}
-              onClick={() => onScope(s.entity, s.codeCategory)}
-              style={{
-                padding: '8px 15px', borderRadius: 4, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
-                background: on ? '#eef5fc' : '#fff',
-                color: on ? '#1f4a86' : '#2e3d66',
-              }}
-            >
-              {s.label}
-            </button>
-          )
-        })}
+        <ScopePicker block={block} onScope={onScope} />
       </div>
 
       {/* honest zero-data state — generic, driven by the data itself */}
@@ -487,6 +472,112 @@ function SampleMembers({ segment }) {
         </div>
       ))}
     </div>
+  )
+}
+
+/* Searchable grouped scope picker. Groups come from the curated
+   category layer; search matches entity names, code labels, raw codes
+   and field labels — typing "visa" lands on Cards, "maturity" on Loans.
+   Click to open (no hover cascades), Enter picks the first match. */
+function ScopePicker({ block, onScope }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const items = scopePickerItems()
+  const current = items.find((s) => s.entity === block.entity && (block.codeCategory ?? null) === s.codeCategory)
+  const query = q.trim().toLowerCase()
+
+  const visible = items
+    .map((it) => {
+      if (!query) return { it, via: null, hit: true }
+      const m = it.terms.find((t) => t.text.toLowerCase().includes(query))
+      return { it, hit: !!m, via: m && m.kind !== 'scope' && m.kind !== 'entity' ? m.text : null }
+    })
+    .filter((x) => x.hit)
+  const groups = []
+  for (const v of visible) {
+    let g = groups.find((x) => x.key === v.it.catKey)
+    if (!g) { g = { key: v.it.catKey, label: v.it.group, rows: [] }; groups.push(g) }
+    g.rows.push(v)
+  }
+  groups.sort((a, b) => PULSATE_CATEGORY_ORDER.indexOf(a.key) - PULSATE_CATEGORY_ORDER.indexOf(b.key))
+
+  const pick = (it) => { onScope(it.entity, it.codeCategory); setOpen(false); setQ('') }
+  const close = () => { setOpen(false); setQ('') }
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        onClick={() => (open ? close() : setOpen(true))}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 4,
+          fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+          border: '1px solid #d8e0ea', background: '#fff', color: current ? '#1f4a86' : '#8a95a6',
+        }}
+      >
+        {current?.label ?? 'choose data…'}
+        <span style={{ fontSize: 10, color: '#8a95a6' }}>▾</span>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 4 }} />
+          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 340, background: '#fff', border: '1px solid #d8e0ea', borderRadius: 4, boxShadow: '0 12px 32px rgba(20,34,60,.18)', zIndex: 5, overflow: 'hidden' }}>
+            <div style={{ padding: 10, borderBottom: '1px solid #edf1f6' }}>
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && visible.length) pick(visible[0].it)
+                  if (e.key === 'Escape') close()
+                }}
+                placeholder="Search data, types, fields…"
+                style={{ ...selectStyle, padding: '8px 10px', fontSize: 14 }}
+              />
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto', padding: '6px 0' }}>
+              {groups.length === 0 && (
+                <div style={{ padding: '14px 14px', fontSize: 13.5, fontWeight: 500, color: '#8a95a6' }}>
+                  Nothing matches “{q}” — search covers your entities, type labels and field names.
+                </div>
+              )}
+              {groups.map((g) => (
+                <div key={g.key}>
+                  <div style={{ ...sectionLabel, padding: '7px 14px 3px' }}>{g.label}</div>
+                  {g.rows.map(({ it, via }) => {
+                    const on = current && it.entity === current.entity && it.codeCategory === current.codeCategory
+                    return (
+                      <button
+                        key={it.entity + '·' + it.codeCategory}
+                        onClick={() => pick(it)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                          padding: '8px 14px', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                          background: on ? '#eef5fc' : 'transparent',
+                        }}
+                        onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = '#f4f7fb' }}
+                        onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <span style={{ fontSize: 14, fontWeight: 600, color: on ? '#1f4a86' : '#2e3d66' }}>{it.label}</span>
+                        {it.label !== it.entity && (
+                          <span style={{ fontSize: 11.5, fontWeight: 500, color: '#8a95a6' }}>on {it.entity}</span>
+                        )}
+                        {it.noData && (
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '1px 7px', borderRadius: 4, flex: 'none' }}>no data yet</span>
+                        )}
+                        {via && (
+                          <span style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 500, color: '#8a95a6', flex: 'none' }}>matches “{via}”</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </span>
   )
 }
 
