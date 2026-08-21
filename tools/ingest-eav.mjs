@@ -115,9 +115,14 @@ const mapType = (f) =>
     : 'string'
 
 /* ---- entities + fields ---- */
+/* Register the source under its stable key; --source only supplies the
+   DEFAULT display name — a rename in the UI survives re-ingest. */
+db.prepare('INSERT INTO source_def (fi_id, key, name, type) VALUES (?, ?, ?, ?) ON CONFLICT(fi_id, key) DO NOTHING')
+  .run(FI_ID, sourceId, sourceName, 'file')
+const sourceDefId = db.prepare('SELECT id FROM source_def WHERE fi_id = ? AND key = ?').get(FI_ID, sourceId).id
 const upsertEntity = (name) => {
-  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING')
-    .run(FI_ID, name, 'UNKNOWN', 'both', sourceName)
+  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose, source_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING')
+    .run(FI_ID, name, 'UNKNOWN', 'both', sourceDefId)
   return db.prepare('SELECT id FROM entity_def WHERE fi_id = ? AND name = ?').get(FI_ID, name).id
 }
 const upsertField = (entityId, name, type) => {

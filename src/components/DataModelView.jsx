@@ -5,7 +5,7 @@ import {
   showcaseMember,
   codeMapped, fmt,
   entityRecordCount, fieldValueCount, humanizeFieldName, distinctValues,
-  identitySummaryFrom, sourceMetaByName, fieldUsage,
+  identitySummaryFrom, sourceMetaByKey, fieldUsage,
 } from '../data'
 import { ProductIcon, UsersIcon, SendIcon, RepeatIcon, CloseIcon, ChevronDownIcon } from '../icons'
 import SymitarConnect from './SymitarConnect'
@@ -22,7 +22,7 @@ const selectStyle = {
 /* Data is a workspace, prioritized by the marketer's jobs: fix what needs
    fixing (attention queue), check health (KPIs + source list), add
    sources (header CTA), learn how it works (last tab, once). */
-export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, metaSources, onEditField, onEditEntityCategory }) {
+export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, metaSources, onEditField, onEditEntityCategory, onRenameSource }) {
   const [tab, setTab] = useState('sources')
   const [expanded, setExpanded] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -59,6 +59,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
           <SourcesTab
             sources={sources}
             metaSources={metaSources}
+            onRenameSource={onRenameSource}
             unmapped={unmapped}
             expanded={expanded}
             onToggleExpand={(id) => setExpanded(expanded === id ? null : id)}
@@ -117,7 +118,7 @@ function ModeTab({ on, onClick, label, badge }) {
 
 /* ── Sources (workspace) ─────────────────────────────────────────── */
 
-function SourcesTab({ sources, metaSources, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience }) {
+function SourcesTab({ sources, metaSources, onRenameSource, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience }) {
   const gap = dueDateGap()
   const identity = identitySummaryFrom(metaSources)
   const attention = [
@@ -143,7 +144,7 @@ function SourcesTab({ sources, metaSources, unmapped, expanded, onToggleExpand, 
     <>
       {/* KPI strip — every number comes from the ingested extract */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 14 }}>
-        <Kpi big={String(sources.length)} label="source connected" />
+        <Kpi big={String(sources.length)} label={sources.length === 1 ? 'source connected' : 'sources connected'} />
         <Kpi big={fmt(SYMITAR_STATS.accounts)} label="members in the extract" />
         <Kpi big={fmt(SYMITAR_STATS.loans)} label="loan records" />
         <Kpi big={SYMITAR_STATS.fileDate} label={INGEST_META?.lastIngestedAt ? `file date · ingested ${new Date(INGEST_META.lastIngestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'extract file date'} />
@@ -184,7 +185,17 @@ function SourcesTab({ sources, metaSources, unmapped, expanded, onToggleExpand, 
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', cursor: 'pointer' }}
               >
                 <span style={{ width: 230, flex: 'none', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+                  {/* the name is a label the user owns; the stable id
+                      underneath it never changes */}
+                  <input
+                    value={s.name}
+                    onClick={(ev) => ev.stopPropagation()}
+                    onChange={(ev) => onRenameSource?.(s.id, ev.target.value)}
+                    title={`Display name — rename freely. Stable id: ${s.id}`}
+                    style={{ width: 148, minWidth: 0, border: '1px solid transparent', borderRadius: 4, padding: '4px 6px', margin: '-4px 0 -4px -6px', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, color: '#2e3d66', outline: 'none', background: 'transparent' }}
+                    onFocus={(ev) => { ev.target.style.border = '1px solid #d8e0ea'; ev.target.style.background = '#fff' }}
+                    onBlur={(ev) => { ev.target.style.border = '1px solid transparent'; ev.target.style.background = 'transparent' }}
+                  />
                   <span style={{ fontSize: 10.5, fontWeight: 600, color: meta.fg, background: meta.bg, padding: '2px 7px', borderRadius: 4, flex: 'none' }}>{meta.label}</span>
                 </span>
                 <span style={{ width: 140, flex: 'none', fontSize: 13, fontWeight: 600, color: '#5a6b85' }}>{s.cadence}</span>
@@ -249,6 +260,13 @@ function Kpi({ big, label, warn }) {
 function SourceDetail({ source }) {
   return (
     <div style={{ padding: '4px 16px 14px 16px', background: '#fafbfd' }}>
+      {/* provenance line: the stable id and what this source declared —
+          the answer to "where did this entity come from?" */}
+      <div style={{ padding: '4px 2px 10px', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
+        <span style={{ fontFamily: mono, color: '#5a6b85' }}>{source.id}</span>
+        {' · registered at connection — every entity it declares carries this id'}
+        {source.feeds ? `: ${source.feeds}` : ''}
+      </div>
       {source.id === 'src-symitar' && (
         <div style={{ border: '1px solid #edf1f6', borderRadius: 4, overflow: 'hidden', background: '#fff' }}>
           {feedFiles().map((f, i) => (
@@ -324,8 +342,10 @@ const ROLE_OPTIONS = ['balance', 'recurring_date', 'rate']
 const rawLooking = (name) => /[_-]/.test(name) || /^[A-Z0-9_]+$/.test(name)
 
 function DictionaryTab({ codes, onMapCode, unmapped, metaSources, onEditField, onEditEntityCategory }) {
-  const sourceNames = [...new Set(REGISTRY.map((e) => e.source || 'Unknown source'))]
-  const multi = sourceNames.length > 1
+  // group by the STABLE source key; the display name comes along on the
+  // entities, so a rename regroups nothing
+  const sourceKeys = [...new Set(REGISTRY.map((e) => e.sourceKey || 'unknown'))]
+  const multi = sourceKeys.length > 1
   return (
     <>
       {unmapped > 0 && (
@@ -335,18 +355,20 @@ function DictionaryTab({ codes, onMapCode, unmapped, metaSources, onEditField, o
         </div>
       )}
 
-      {sourceNames.map((src) => {
-        const meta = sourceMetaByName(metaSources, src)
-        const ents = REGISTRY.filter((e) => (e.source || 'Unknown source') === src)
+      {sourceKeys.map((key) => {
+        const meta = sourceMetaByKey(metaSources, key)
+        const ents = REGISTRY.filter((e) => (e.sourceKey || 'unknown') === key)
+        const displayName = ents[0]?.source || 'Unknown source'
         return (
-          <div key={src} style={{ marginBottom: 18 }}>
+          <div key={key} style={{ marginBottom: 18 }}>
             {multi && (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '4px 0 8px' }}>
-                <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{src}</span>
+                <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{displayName}</span>
+                <span style={{ fontFamily: mono, fontSize: 10.5, fontWeight: 500, color: '#b1bccb' }} title="Stable source id — set at connection, never changes">{key}</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
                   {meta
                     ? `as of ${meta.fileDate}${meta.ingestedAt ? ` · ingested ${new Date(meta.ingestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`
-                    : src === 'Pulsate SDK' ? 'declared by the platform' : ''}
+                    : key === 'src-pulsate-sdk' ? 'declared by the platform' : ''}
                 </span>
               </div>
             )}

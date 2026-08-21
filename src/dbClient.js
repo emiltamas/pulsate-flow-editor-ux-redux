@@ -32,6 +32,14 @@ export function persistFieldMeta({ entity, field, label, role, hidden }) {
   }).catch(() => {})
 }
 
+export function persistSourceName({ key, name }) {
+  fetch('/api/source-name', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, name }),
+  }).catch(() => {})
+}
+
 export function persistEntityCategory({ entity, category }) {
   fetch('/api/entity-category', {
     method: 'POST',

@@ -39,7 +39,7 @@ const normalizeValues = (def, raw, fileDate) => {
    used only when the SQLite API is not available (fresh clone). */
 const FALLBACK_REGISTRY = [
   {
-    name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type', source: 'Symitar core extract',
+    name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type', source: 'Symitar core extract', sourceKey: 'src-symitar',
     fields: [
       { name: 'Loan Type', label: 'Loan Type', type: 'string', role: 'code' },
       { name: 'Loan Balance', label: 'Loan Balance', type: 'currency', role: 'balance' },
@@ -52,7 +52,7 @@ const FALLBACK_REGISTRY = [
   {
     // the bundled dataset carries contact flags only; the live ingest
     // adds Age (derived) and State
-    name: 'Member Profile', category: 'member', purpose: 'both', codeField: null, source: 'Symitar core extract',
+    name: 'Member Profile', category: 'member', purpose: 'both', codeField: null, source: 'Symitar core extract', sourceKey: 'src-symitar',
     fields: [
       { name: 'Has Email', label: 'Has Email', type: 'bool', role: null },
       { name: 'Has Mobile', label: 'Has Mobile', type: 'bool', role: null },
@@ -69,7 +69,7 @@ const FALLBACK_REGISTRY = [
 export const RESERVED_ENTITIES = [
   {
     name: 'App Events', category: 'behavior', purpose: 'segment', codeField: 'Event Name',
-    platform: true, source: 'Pulsate SDK',
+    platform: true, source: 'Pulsate SDK', sourceKey: 'src-pulsate-sdk',
     note: 'No app events ingested in this prototype — production streams these live from the mobile SDK.',
     fields: [
       { name: 'Event Name', label: 'Event Name', type: 'string', role: 'code' },
@@ -138,14 +138,22 @@ export const identitySummaryFrom = (metaSources) => {
   }
 }
 
-export const sourcesInRegistry = () => [...new Set(REGISTRY.map((e) => e.source || 'Unknown source'))]
+export const sourcesInRegistry = () => [...new Set(REGISTRY.map((e) => e.sourceKey || 'unknown'))]
 
 // how many sources actually contribute member data (platform declarations don't)
-export const dataSourceCount = () => new Set(REGISTRY.filter((e) => !e.platform).map((e) => e.source || '')).size
+export const dataSourceCount = () => new Set(REGISTRY.filter((e) => !e.platform).map((e) => e.sourceKey || '')).size
+
+/* Rename a source: display only — the stable key and every entity's
+   reference are untouched. Mutates REGISTRY; caller persists + re-renders. */
+export const setSourceName = (key, name) => {
+  const clean = (name ?? '').trim()
+  if (!clean) return
+  for (const e of REGISTRY) if (e.sourceKey === key) e.source = clean
+}
 
 /* Freshness per source, for the Dictionary group headers. */
-export const sourceMetaByName = (metaSources, name) =>
-  (metaSources ?? []).find((s) => s.name === name) ?? null
+export const sourceMetaByKey = (metaSources, key) =>
+  (metaSources ?? []).find((s) => s.id === key) ?? null
 
 const buildFallback = () => {
   REGISTRY = [...FALLBACK_REGISTRY, ...RESERVED_ENTITIES]
@@ -1118,8 +1126,9 @@ export function symitarSource(meta = null) {
     identity: 'Account number — stored as a salted hash',
     fields: 9,
     status: 'healthy',
-    // only the entities THIS source declared — never another source's
-    feeds: REGISTRY.filter((e) => e.source === 'Symitar core extract').map((e) => e.name).join(' · ') || 'Pending first ingest',
+    // only the entities THIS source declared — matched by stable key,
+    // so a display rename never breaks the linkage
+    feeds: REGISTRY.filter((e) => e.sourceKey === 'src-symitar').map((e) => e.name).join(' · ') || 'Pending first ingest',
     note: `${Math.round((100 * s.duePast) / s.loans)}% of due dates are in the past — the extract may be stale`,
   }
 }

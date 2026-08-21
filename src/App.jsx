@@ -5,8 +5,8 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, setActiveSegments, hydrateDataset, setIngestMeta, symitarSource, evolveStyleSources, registryDateFields, gapAudienceRule, setFieldMeta, setEntityCategory, entityDef } from './data'
-import { loadFromDb, persistCodeMapping, persistFieldMeta, persistEntityCategory } from './dbClient'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, setActiveSegments, hydrateDataset, setIngestMeta, symitarSource, evolveStyleSources, registryDateFields, gapAudienceRule, setFieldMeta, setEntityCategory, setSourceName, entityDef } from './data'
+import { loadFromDb, persistCodeMapping, persistFieldMeta, persistEntityCategory, persistSourceName } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -42,7 +42,12 @@ export default function App() {
       hydrateDataset(p)
       setIngestMeta(p.meta ?? null)
       setProductCodes(p.codes)
-      setSources([symitarSource(p.meta), ...evolveStyleSources(p.sources)])
+      // source_def owns display names — the Symitar card adopts its
+      // (possibly renamed) name from the payload's sources registry
+      const sym = symitarSource(p.meta)
+      const symEntry = (p.sources ?? []).find((s) => s.id === 'src-symitar')
+      if (symEntry) sym.name = symEntry.name
+      setSources([sym, ...evolveStyleSources(p.sources)])
       setMetaSources(p.sources ?? null)
       setDataSource({ kind: 'sqlite', fileDate: p.fileDate })
     })
@@ -166,6 +171,15 @@ export default function App() {
             onEditEntityCategory={(entity, category) => {
               setEntityCategory(entity, category)
               if (dataSource?.kind === 'sqlite') persistEntityCategory({ entity, category })
+              setRegistryVersion((v) => v + 1)
+            }}
+            onRenameSource={(key, name) => {
+              const clean = (name ?? '').trim()
+              if (!clean) return
+              setSourceName(key, clean)
+              setSources((prev) => prev.map((s) => (s.id === key ? { ...s, name: clean } : s)))
+              setMetaSources((prev) => prev?.map((s) => (s.id === key ? { ...s, name: clean } : s)) ?? prev)
+              if (dataSource?.kind === 'sqlite') persistSourceName({ key, name: clean })
               setRegistryVersion((v) => v + 1)
             }}
           />

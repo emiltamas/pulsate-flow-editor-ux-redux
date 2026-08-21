@@ -70,9 +70,16 @@ let salt = meta.get('salt')
 if (!salt) { salt = crypto.randomBytes(16).toString('hex'); meta.set('salt', salt) }
 const h = (s) => crypto.createHash('sha256').update(salt + '·' + s).digest('hex').slice(0, 16)
 
+/* The source registers itself under a STABLE key; the display name is
+   only a default — DO NOTHING means a user's rename survives re-ingest.
+   Every entity references the source row: nothing appears from nowhere. */
+const SOURCE_KEY = 'src-symitar'
 const SOURCE_NAME = 'Symitar core extract'
+db.prepare('INSERT INTO source_def (fi_id, key, name, type) VALUES (?, ?, ?, ?) ON CONFLICT(fi_id, key) DO NOTHING')
+  .run(FI_ID, SOURCE_KEY, SOURCE_NAME, 'core')
+const SOURCE_ID = db.prepare('SELECT id FROM source_def WHERE fi_id = ? AND key = ?').get(FI_ID, SOURCE_KEY).id
 const upsertEntity = (name, category, purpose) => {
-  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING').run(FI_ID, name, category, purpose, SOURCE_NAME)
+  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose, source_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING').run(FI_ID, name, category, purpose, SOURCE_ID)
   return db.prepare('SELECT id FROM entity_def WHERE fi_id = ? AND name = ?').get(FI_ID, name).id
 }
 const upsertField = (entityId, name, label, type, role = null) => {
@@ -275,8 +282,9 @@ meta.set('last_ingested_at', new Date().toISOString())
 // sources registry — one entry per connected source, upserted by id
 {
   const list = JSON.parse(meta.get('sources') ?? '[]')
+  // operational facts only — the display name lives in source_def
   const entry = {
-    id: 'src-symitar', name: SOURCE_NAME, type: 'core',
+    id: SOURCE_KEY, name: SOURCE_NAME, type: 'core',
     fileDate, ingestedAt: new Date().toISOString(),
     files: [path.basename(loanPath), path.basename(namePath)],
     entities: ['Loans', 'Member Profile'],

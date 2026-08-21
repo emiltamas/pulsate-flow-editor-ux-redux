@@ -125,11 +125,16 @@ export async function bootstrapPayload() {
        The client UI is entity-agnostic: it renders whatever this says. */
     const fieldRows = db.prepare('SELECT id, entity_def_id, name, user_label, type, semantic_role, hidden FROM field_def').all()
     const fieldById = new Map(fieldRows.map((f) => [f.id, f]))
-    const registry = db.prepare('SELECT id, name, pulsate_category, purpose, source FROM entity_def ORDER BY id').all().map((e) => {
+    /* every entity joins its declaring source — provenance is a foreign
+       key, not a naming convention */
+    const registry = db.prepare(`
+      SELECT e.id, e.name, e.pulsate_category, e.purpose, s.key AS source_key, s.name AS source_name
+      FROM entity_def e JOIN source_def s ON s.id = e.source_id ORDER BY e.id
+    `).all().map((e) => {
       const fields = fieldRows.filter((f) => f.entity_def_id === e.id)
         .map((f) => ({ name: f.name, label: f.user_label, type: f.type, role: f.semantic_role, hidden: !!f.hidden }))
       const codeField = fields.find((f) => f.role === 'code')?.name ?? null
-      return { name: e.name, category: e.pulsate_category, purpose: e.purpose, source: e.source ?? '', fields, codeField }
+      return { name: e.name, category: e.pulsate_category, purpose: e.purpose, source: e.source_name, sourceKey: e.source_key, fields, codeField }
     })
 
     const entityById = Object.fromEntries(db.prepare('SELECT id, name FROM entity_def').all().map((r) => [r.id, r.name]))
@@ -157,6 +162,10 @@ export async function bootstrapPayload() {
       // legacy DBs: synthesize the Symitar entry from the old meta keys
       sources = [{ id: 'src-symitar', name: 'Symitar core extract', type: 'core', fileDate, ingestedAt: meta.last_ingested_at, files: [meta.loan_file, meta.name_file].filter(Boolean), entities: ['Loans', 'Member Profile'], memberCount: out.length, identity: 'Account number — stored as a salted hash' }]
     }
+    // source_def is the display-name authority (it holds user renames);
+    // the meta registry carries only operational facts
+    const sourceDefs = new Map(db.prepare('SELECT key, name FROM source_def').all().map((s) => [s.key, s.name]))
+    sources = sources.map((s) => ({ ...s, name: sourceDefs.get(s.id) ?? s.name }))
 
     return { available: true, fileDate, stats, accounts: out, codes, registry, members: memberRows, sources, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
   } finally {
@@ -172,6 +181,19 @@ export async function saveFieldMeta({ entity, field, label, role, hidden }) {
       UPDATE field_def SET user_label = ?, semantic_role = ?, hidden = ?
       WHERE name = ? AND entity_def_id = (SELECT id FROM entity_def WHERE name = ?)
     `).run((label ?? '').trim() || String(field), role || null, hidden ? 1 : 0, String(field), String(entity))
+    return r.changes > 0
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveSourceName({ key, name }) {
+  const db = await openDb()
+  if (!db) return false
+  try {
+    const clean = (name ?? '').trim()
+    if (!clean) return false
+    const r = db.prepare('UPDATE source_def SET name = ? WHERE key = ?').run(clean, String(key))
     return r.changes > 0
   } finally {
     db.close()
@@ -236,6 +258,7 @@ export function pulsateDbApi() {
       server.middlewares.use('/api/code-map', postHandler(saveCodeMapping))
       server.middlewares.use('/api/field-label', postHandler(saveFieldMeta))
       server.middlewares.use('/api/entity-category', postHandler(saveEntityCategory))
+      server.middlewares.use('/api/source-name', postHandler(saveSourceName))
     },
   }
 }

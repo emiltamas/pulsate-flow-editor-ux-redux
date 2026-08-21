@@ -5,13 +5,26 @@
 -- holds only a stable id and a synthetic display name (no PII is ever stored —
 -- names, SSNs, and contact details from the source files never reach this DB).
 
+-- Every entity is declared by a registered source — never invented.
+-- `key` is the stable machine id an ingester registers under (renames
+-- never touch it); `name` is the display label, editable in the UI.
+-- Ingesters INSERT OR IGNORE, so a user's rename survives re-ingest.
+CREATE TABLE IF NOT EXISTS source_def (
+  id INTEGER PRIMARY KEY,
+  fi_id TEXT NOT NULL,
+  key TEXT NOT NULL,               -- stable: 'src-symitar', 'src-evolve-…'
+  name TEXT NOT NULL,              -- display label, user-editable
+  type TEXT NOT NULL,              -- core | file | crm | sdk | …
+  UNIQUE (fi_id, key)
+);
+
 CREATE TABLE IF NOT EXISTS entity_def (
   id INTEGER PRIMARY KEY,
   fi_id TEXT NOT NULL,
   name TEXT NOT NULL,              -- the FI's own words: "Loans", "Offers"
   pulsate_category TEXT NOT NULL,  -- loan | deposit | offer | ... | UNKNOWN
   purpose TEXT NOT NULL,           -- segment | campaign | both
-  source TEXT NOT NULL DEFAULT '', -- which connected source declared this entity
+  source_id INTEGER NOT NULL REFERENCES source_def(id), -- who declared it
   UNIQUE (fi_id, name)
 );
 
