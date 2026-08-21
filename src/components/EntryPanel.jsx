@@ -4,8 +4,8 @@ import {
   EnterIcon, ExitIcon, ProductIcon, PencilIcon,
 } from '../icons'
 
-const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
-const helperText = { margin: '4px 0 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
+const sectionLabel = { fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
+const helperText = { margin: '4px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
 
 export const TRIGGER_META = {
   audience: { label: 'Audience joined', desc: 'Always on — members enter as soon as they match the audience.', Icon: UsersIcon },
@@ -59,10 +59,10 @@ export default function EntryPanel({
         <div style={{ padding: '22px 24px 16px', borderBottom: '1px solid #edf1f6' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>
                 {saved ? 'Edit entry step' : 'Set up the entry step'}
               </h1>
-              <p style={{ margin: '5px 0 0', fontSize: 13.5, color: '#8a95a6', fontWeight: 500 }}>
+              <p style={{ margin: '5px 0 0', fontSize: 14.5, color: '#8a95a6', fontWeight: 500 }}>
                 Choose when members enter, and who is eligible.
               </p>
             </div>
@@ -87,44 +87,44 @@ export default function EntryPanel({
                     <div
                       onClick={() => setTrigger({ type: key })}
                       style={{
-                        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+                        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 4, cursor: 'pointer',
                         border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`, background: on ? '#eef5fc' : '#fff',
                       }}
                     >
-                      <span style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', background: on ? '#d7e6f7' : '#eef1f6', color: on ? '#2f6fc4' : '#8a95a6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ width: 30, height: 30, borderRadius: 4, flex: 'none', background: on ? '#d7e6f7' : '#e9ecf7', color: on ? '#2f6fc4' : '#8a95a6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <meta.Icon size={15} />
                       </span>
                       <div>
-                        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>{meta.label}</div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 1, lineHeight: 1.4 }}>{meta.desc}</div>
+                        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{meta.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', marginTop: 1, lineHeight: 1.4 }}>{meta.desc}</div>
                       </div>
                     </div>
                     {on && key === 'date' && (
-                      <div style={{ margin: '8px 0 2px 41px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 13, fontWeight: 700, color: '#1b3a63' }}>
+                      <div style={{ margin: '8px 0 2px 41px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 14, fontWeight: 500, color: '#1b3a63' }}>
                         <Stepper value={trigger.dateDays} onChange={(n) => setTrigger({ dateDays: n })} max={30} />
                         days before
                         <select
                           value={trigger.dateField}
                           onChange={(e) => setTrigger({ dateField: e.target.value })}
-                          style={{ border: '1px solid #d8e0ea', borderRadius: 9, padding: '7px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
+                          style={{ border: '1px solid #d8e0ea', borderRadius: 4, padding: '7px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#2e3d66', outline: 'none', background: '#fff' }}
                         >
                           {registryDateFields().map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()}</option>)}
                         </select>
-                        <span style={{ width: '100%', fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
+                        <span style={{ width: '100%', fontSize: 13, fontWeight: 600, color: '#8a95a6' }}>
                           Recurring — members re-enter each time this date field rolls forward in your synced data.
                         </span>
                       </div>
                     )}
                     {on && key === 'location' && (
                       GEOFENCES.length === 0 ? (
-                        <div style={{ margin: '8px 0 2px', border: '1px dashed #d8e0ea', borderRadius: 11, padding: '16px 14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#1b3a63' }}>No geofences defined yet</div>
-                          <div style={{ marginTop: 3, fontSize: 11.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5 }}>
+                        <div style={{ margin: '8px 0 2px', border: '1px dashed #d8e0ea', borderRadius: 4, padding: '16px 14px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#1b3a63' }}>No geofences defined yet</div>
+                          <div style={{ marginTop: 3, fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5 }}>
                             Draw branch, dealer or event zones in Geofences and they become entry triggers here.
                           </div>
                         </div>
                       ) : (
-                        <div style={{ margin: '8px 0 2px', border: '1px solid #e2e8f1', borderRadius: 11, maxHeight: 250, overflowY: 'auto' }}>
+                        <div style={{ margin: '8px 0 2px', border: '1px solid #e2e8f1', borderRadius: 4, maxHeight: 250, overflowY: 'auto' }}>
                           {GEOFENCES.map((g, i) => (
                             <GeofenceRow
                               key={i}
@@ -148,22 +148,22 @@ export default function EntryPanel({
           <div style={{ padding: '0 24px 20px' }}>
             <span style={sectionLabel}>Who — audience</span>
             {audience ? (
-              <div style={{ marginTop: 8, border: '1px solid #e2e8f1', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ marginTop: 8, border: '1px solid #e2e8f1', borderRadius: 4, overflow: 'hidden' }}>
                 <div style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 14.5, fontWeight: 800, color: '#17335f', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontSize: 15.5, fontWeight: 600, color: '#2e3d66', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {audience.name}
                     </span>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: tagColor(audience.kind), padding: '3px 8px', borderRadius: 20, flex: 'none' }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: '#fff', background: tagColor(audience.kind), padding: '3px 8px', borderRadius: 4, flex: 'none' }}>
                       {audience.kind}
                     </span>
                   </div>
                   {audience.rule && (
-                    <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: '#1f4a86', lineHeight: 1.45 }}>
+                    <div style={{ marginTop: 4, fontSize: 13.5, fontWeight: 500, color: '#1f4a86', lineHeight: 1.45 }}>
                       {segmentSentence(audience.rule)}
                     </div>
                   )}
-                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+                  <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 500, color: '#8a95a6' }}>
                     <UsersIcon size={13} />
                     ~{fmt(reach.members)} members
                     {reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`}
@@ -183,8 +183,8 @@ export default function EntryPanel({
                 onClick={onChooseAudience}
                 style={{
                   marginTop: 8, width: '100%', boxSizing: 'border-box', padding: '18px 14px',
-                  border: '1.5px dashed #c3ccd9', borderRadius: 12, background: 'transparent', cursor: 'pointer',
-                  fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, color: '#2f6fc4',
+                  border: '1.5px dashed #c3ccd9', borderRadius: 4, background: 'transparent', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, color: '#2f6fc4',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}
               >
@@ -204,12 +204,12 @@ export default function EntryPanel({
               Members finish the flow once they enter — falling out of the entry audience never ejects them. Exits are armed explicitly.
             </p>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ border: '1px solid #e2e8f1', borderRadius: 11, padding: '11px 13px' }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>Goal — exit as converted</div>
+              <div style={{ border: '1px solid #e2e8f1', borderRadius: 4, padding: '11px 13px' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#2e3d66' }}>Goal — exit as converted</div>
                 <select
                   value={entry.exits.goal}
                   onChange={(e) => setEntry((s) => ({ ...s, exits: { ...s.exits, goal: e.target.value } }))}
-                  style={{ marginTop: 7, width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 9, padding: '8px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
+                  style={{ marginTop: 7, width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 4, padding: '8px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#2e3d66', outline: 'none', background: '#fff' }}
                 >
                   <option value="none">No goal — run to the end</option>
                   <option value="engaged">Clicked any message in this flow</option>
@@ -240,7 +240,7 @@ export default function EntryPanel({
 
             <div style={{ marginTop: 14 }}>
               <span style={sectionLabel}>Re-enrollment</span>
-              <div style={{ marginTop: 7, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3 }}>
+              <div style={{ marginTop: 7, display: 'flex', background: '#e9ecf7', borderRadius: 4, padding: 3, gap: 3 }}>
                 {[{ k: 'off', label: 'Off' }, { k: 'once', label: 'Once ever' }, { k: 'per_event', label: 'Every qualifying event' }].map(({ k, label }) => {
                   const on = entry.reenroll === k
                   return (
@@ -248,8 +248,8 @@ export default function EntryPanel({
                       key={k}
                       onClick={() => setEntry((s) => ({ ...s, reenroll: k }))}
                       style={{
-                        flex: 1, border: 'none', borderRadius: 8, padding: '8px 4px', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                        ...(on ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' } : { background: 'transparent', color: '#5a6b85' }),
+                        flex: 1, border: 'none', borderRadius: 4, padding: '8px 4px', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                        ...(on ? { background: '#fff', color: '#2e3d66', boxShadow: '0 1px 3px rgba(20,34,60,.15)' } : { background: 'transparent', color: '#5a6b85' }),
                       }}
                     >
                       {label}
@@ -270,14 +270,14 @@ export default function EntryPanel({
           {/* governance */}
           <div style={{ padding: '0 24px' }}>
             <span style={sectionLabel}>Governance</span>
-            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 13, fontWeight: 700, color: '#1b3a63' }}>
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 14, fontWeight: 500, color: '#1b3a63' }}>
               Send at most
               <Stepper value={freqCap.n} onChange={(n) => setFreqCap({ ...freqCap, n })} max={9} />
               product message{freqCap.n === 1 ? '' : 's'} per member per
               <select
                 value={freqCap.per}
                 onChange={(e) => setFreqCap({ ...freqCap, per: e.target.value })}
-                style={{ border: '1px solid #d8e0ea', borderRadius: 9, padding: '7px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f', outline: 'none', background: '#fff' }}
+                style={{ border: '1px solid #d8e0ea', borderRadius: 4, padding: '7px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#2e3d66', outline: 'none', background: '#fff' }}
               >
                 <option value="day">day</option>
                 <option value="week">week</option>
@@ -289,7 +289,7 @@ export default function EntryPanel({
 
         {/* footer */}
         <div style={{ borderTop: '1px solid #edf1f6', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6', maxWidth: 220 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: '#8a95a6', maxWidth: 220 }}>
             {audience
               ? `${TRIGGER_META[trigger.type].label} · ${audience.name}`
               : trigger.type === 'location' && geoCount
@@ -297,14 +297,14 @@ export default function EntryPanel({
                 : 'Choose an audience to continue'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 500, color: '#5a6b85', cursor: 'pointer' }}>
               Cancel
             </button>
             <button
               onClick={() => canSave && onSave()}
               style={{
-                background: '#2f5aa0', border: 'none', borderRadius: 10, padding: '10px 24px', fontFamily: 'inherit',
-                fontSize: 14.5, fontWeight: 800, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
+                background: '#2d4b8a', border: 'none', borderRadius: 4, padding: '10px 24px', fontFamily: 'inherit',
+                fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
                 boxShadow: '0 2px 8px rgba(47,90,160,.3)', whiteSpace: 'nowrap', opacity: canSave ? 1 : 0.45,
               }}
             >
@@ -322,7 +322,7 @@ function ExitToggle({ armed, onToggle, title, desc, warning }) {
     <div
       onClick={onToggle}
       style={{
-        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 11, cursor: 'pointer',
+        display: 'flex', gap: 11, padding: '11px 13px', borderRadius: 4, cursor: 'pointer',
         border: `1px solid ${armed ? '#cfe1f6' : '#e2e8f1'}`, background: armed ? '#eef5fc' : '#fff',
       }}
     >
@@ -330,10 +330,10 @@ function ExitToggle({ armed, onToggle, title, desc, warning }) {
         {armed && <CheckIcon size={10} stroke="#fff" />}
       </span>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>{title}</div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#2e3d66' }}>{title}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
         {warning && (
-          <div style={{ marginTop: 7, fontSize: 11.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 7, padding: '5px 9px' }}>
+          <div style={{ marginTop: 7, fontSize: 12.5, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '5px 9px' }}>
             {warning}
           </div>
         )}
@@ -344,34 +344,34 @@ function ExitToggle({ armed, onToggle, title, desc, warning }) {
 
 const cardActionStyle = {
   flex: 1, border: 'none', background: '#fff', padding: '10px 0', fontFamily: 'inherit',
-  fontSize: 13, fontWeight: 800, color: '#2f6fc4', cursor: 'pointer',
+  fontSize: 14, fontWeight: 600, color: '#2f6fc4', cursor: 'pointer',
 }
 
 function GeofenceRow({ geofence, config, onToggle, onSetTrigger, onBumpDwell }) {
   const on = !!config
   const t = config?.trigger
   return (
-    <div style={{ borderBottom: '1px solid #f4f6fa', background: on ? '#eef5fc' : '#fff' }}>
+    <div style={{ borderBottom: '1px solid #eef0fa', background: on ? '#eef5fc' : '#fff' }}>
       <div className="row" onClick={onToggle} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', cursor: 'pointer' }}>
         <span style={{ width: 18, height: 18, borderRadius: 5, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${on ? '#2f7fd6' : '#c3ccd9'}`, background: on ? '#2f7fd6' : '#fff', boxSizing: 'border-box' }}>
           {on && <CheckIcon size={10} stroke="#fff" />}
         </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#1b3a63' }}>{geofence.name}</div>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: on ? '#2f7fd6' : tagColor(geofence.group) }}>
+          <div style={{ fontSize: 14, fontWeight: 500, color: '#1b3a63' }}>{geofence.name}</div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: on ? '#2f7fd6' : tagColor(geofence.group) }}>
             {on ? `Triggers when member ${trigLabel(t)}${t === 'dwell' ? ` ${config.dwell}m` : ''}` : geofence.group}
           </div>
         </div>
       </div>
       {on && (
         <div style={{ padding: '0 12px 10px 40px' }}>
-          <div style={{ display: 'flex', background: '#e4ebf5', borderRadius: 9, padding: 3, gap: 3 }}>
+          <div style={{ display: 'flex', background: '#e4ebf5', borderRadius: 4, padding: 3, gap: 3 }}>
             <TriggerButton active={t === 'enter'} onClick={() => onSetTrigger('enter')} icon={<EnterIcon size={13} />} label="Enters" />
             <TriggerButton active={t === 'exit'} onClick={() => onSetTrigger('exit')} icon={<ExitIcon size={13} />} label="Exits" />
             <TriggerButton active={t === 'dwell'} onClick={() => onSetTrigger('dwell')} icon={<DwellIcon size={13} />} label="Dwells" />
           </div>
           {t === 'dwell' && (
-            <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: '#1f4a86' }}>
+            <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 500, color: '#1f4a86' }}>
               Stays at least
               <Stepper value={config.dwell} onChange={(v) => onBumpDwell(v - config.dwell)} max={240} />
               minutes
@@ -389,7 +389,7 @@ function TriggerButton({ active, onClick, icon, label }) {
       onClick={(e) => { e.stopPropagation(); onClick() }}
       style={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-        border: 'none', borderRadius: 7, padding: '6px 4px', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+        border: 'none', borderRadius: 4, padding: '6px 4px', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
         ...(active
           ? { background: '#2f7fd6', color: '#fff', boxShadow: '0 1px 3px rgba(47,127,214,.4)' }
           : { background: 'transparent', color: '#5a6b85' }),
@@ -402,11 +402,11 @@ function TriggerButton({ active, onClick, icon, label }) {
 }
 
 function Stepper({ value, onChange, max = 9 }) {
-  const btn = { width: 26, height: 28, border: 'none', background: '#fff', color: '#2f6fc4', fontSize: 16, fontWeight: 800, cursor: 'pointer', lineHeight: 1, padding: 0 }
+  const btn = { width: 26, height: 28, border: 'none', background: '#fff', color: '#2f6fc4', fontSize: 17, fontWeight: 600, cursor: 'pointer', lineHeight: 1, padding: 0 }
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', background: '#fff', border: '1px solid #d8e0ea', borderRadius: 8, overflow: 'hidden' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', background: '#fff', border: '1px solid #d8e0ea', borderRadius: 4, overflow: 'hidden' }}>
       <button onClick={(e) => { e.stopPropagation(); onChange(Math.max(1, value - 1)) }} style={btn}>−</button>
-      <span style={{ minWidth: 26, textAlign: 'center', fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>{value}</span>
+      <span style={{ minWidth: 26, textAlign: 'center', fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{value}</span>
       <button onClick={(e) => { e.stopPropagation(); onChange(Math.min(max, value + 1)) }} style={btn}>+</button>
     </span>
   )

@@ -9,11 +9,11 @@ import {
 } from '../data'
 import { CloseIcon, SparkleIcon, ProductIcon } from '../icons'
 
-const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
-const helperText = { margin: '4px 0 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
+const sectionLabel = { fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
+const helperText = { margin: '4px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
 const selectStyle = {
-  width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 9,
-  padding: '8px 10px', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: '#17335f',
+  width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 4,
+  padding: '8px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#2e3d66',
   outline: 'none', background: '#fff',
 }
 
@@ -127,18 +127,18 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a95a6', padding: 2, display: 'flex' }}>
           <CloseIcon size={20} />
         </button>
-        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>
+        <h1 style={{ margin: 0, fontSize: 19, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>
           {isNew ? 'New audience' : 'Edit audience'}
         </h1>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 15, fontWeight: 500, color: '#5a6b85', cursor: 'pointer' }}>
             Cancel
           </button>
           <button
             onClick={() => canSave && save()}
             style={{
-              background: '#2f5aa0', border: 'none', borderRadius: 10, padding: '9px 22px', fontFamily: 'inherit',
-              fontSize: 14, fontWeight: 800, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
+              background: '#2d4b8a', border: 'none', borderRadius: 4, padding: '9px 22px', fontFamily: 'inherit',
+              fontSize: 15, fontWeight: 600, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
               boxShadow: '0 2px 8px rgba(47,90,160,.3)', opacity: canSave ? 1 : 0.45, whiteSpace: 'nowrap',
             }}
           >
@@ -158,24 +158,24 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={suggestedName}
-                style={{ ...selectStyle, marginTop: 7, padding: '10px 12px', fontSize: 14, fontWeight: 600 }}
+                style={{ ...selectStyle, marginTop: 7, padding: '10px 12px', fontSize: 15, fontWeight: 600 }}
               />
             </div>
 
             {/* AI assist */}
             <div style={{ marginBottom: 22 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1.5px solid #cfe1f6', background: '#f7fafd', borderRadius: 12, padding: '10px 13px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1.5px solid #cfe1f6', background: '#f7fafd', borderRadius: 4, padding: '10px 13px' }}>
                 <SparkleIcon size={17} stroke="#2f6fc4" />
                 <input
                   value={aiText}
                   onChange={(e) => { setAiText(e.target.value); setAiStatus('idle') }}
                   onKeyDown={(e) => { if (e.key === 'Enter') buildFromPhrase() }}
                   placeholder="Describe the audience — e.g. anyone with a loan due in the next 3 days and no card"
-                  style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, color: '#17335f' }}
+                  style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}
                 />
                 <button
                   onClick={buildFromPhrase}
-                  style={{ border: 'none', background: '#2f5aa0', color: '#fff', borderRadius: 8, padding: '7px 14px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', flex: 'none' }}
+                  style={{ border: 'none', background: '#2d4b8a', color: '#fff', borderRadius: 4, padding: '7px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', flex: 'none' }}
                 >
                   Build
                 </button>
@@ -193,9 +193,9 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               </p>
 
               {entities.length === 0 ? (
-                <div style={{ marginTop: 10, border: '1px dashed #d8e0ea', borderRadius: 11, padding: '18px 16px', maxWidth: 520, textAlign: 'center', background: '#fafbfd' }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63' }}>No data entities yet</div>
-                  <div style={{ margin: '5px auto 0', fontSize: 12, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5, maxWidth: 420 }}>
+                <div style={{ marginTop: 10, border: '1px dashed #d8e0ea', borderRadius: 4, padding: '18px 16px', maxWidth: 520, textAlign: 'center', background: '#fafbfd' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1b3a63' }}>No data entities yet</div>
+                  <div style={{ margin: '5px auto 0', fontSize: 13, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5, maxWidth: 420 }}>
                     Connect a source in Data → Sources. Whatever it sends — products, offers, eligibility,
                     anything relational — appears here as a targetable entity.
                   </div>
@@ -205,13 +205,13 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                   {segment.blocks.map((block, i) => (
                     <div
                       key={i}
-                      style={groupSize[groupIdx[i]] > 1 ? { borderLeft: '3px solid #b79ae0', paddingLeft: 12 } : undefined}
+                      style={groupSize[groupIdx[i]] > 1 ? { borderLeft: '3px solid #c9418f', paddingLeft: 12 } : undefined}
                     >
                       {i > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
                           {/* one control, both options visible — the segmented
                               shape is what makes it read as clickable */}
-                          <div style={{ display: 'flex', background: '#eef1f6', borderRadius: 8, padding: 2, gap: 2, flex: 'none' }}>
+                          <div style={{ display: 'flex', background: '#e9ecf7', borderRadius: 4, padding: 2, gap: 2, flex: 'none' }}>
                             {['AND', 'OR'].map((j) => {
                               const on = joins[i - 1] === j
                               return (
@@ -219,10 +219,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                                   key={j}
                                   onClick={() => { if (!on) toggleJoin(i) }}
                                   style={{
-                                    border: 'none', borderRadius: 6, padding: '4px 12px', fontFamily: 'inherit',
-                                    fontSize: 11, fontWeight: 800, letterSpacing: '.5px', cursor: 'pointer',
+                                    border: 'none', borderRadius: 4, padding: '4px 12px', fontFamily: 'inherit',
+                                    fontSize: 12, fontWeight: 600, letterSpacing: '.5px', cursor: 'pointer',
                                     ...(on
-                                      ? { background: '#fff', color: j === 'OR' ? '#7a4fc0' : '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                                      ? { background: '#fff', color: j === 'OR' ? '#c9418f' : '#2e3d66', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
                                       : { background: 'transparent', color: '#8a95a6' }),
                                   }}
                                 >
@@ -231,7 +231,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                               )
                             })}
                           </div>
-                          <div style={{ flex: 1, height: 1, background: joins[i - 1] === 'OR' ? '#e4d7f5' : '#e2e8f1' }} />
+                          <div style={{ flex: 1, height: 1, background: joins[i - 1] === 'OR' ? '#f3d3e6' : '#e2e8f1' }} />
                         </div>
                       )}
                       <BlockCard
@@ -254,8 +254,8 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                   <button
                     onClick={addBlock}
                     style={{
-                      marginTop: 12, padding: '9px 15px', border: '1.5px dashed #c3ccd9', borderRadius: 10,
-                      background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                      marginTop: 12, padding: '9px 15px', border: '1.5px dashed #c3ccd9', borderRadius: 4,
+                      background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
                     + AND members who…
@@ -263,14 +263,14 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
                   {active && (
                     <>
-                      <div style={{ marginTop: 16, background: '#eef5fc', border: '1px solid #cfe1f6', borderRadius: 11, padding: '11px 14px', maxWidth: 520 }}>
+                      <div style={{ marginTop: 16, background: '#eef5fc', border: '1px solid #cfe1f6', borderRadius: 4, padding: '11px 14px', maxWidth: 520 }}>
                         <span style={{ ...sectionLabel, color: '#5a7db0' }}>Rule</span>
-                        <div style={{ marginTop: 3, fontSize: 13.5, fontWeight: 700, color: '#1f4a86', lineHeight: 1.45 }}>
+                        <div style={{ marginTop: 3, fontSize: 14.5, fontWeight: 500, color: '#1f4a86', lineHeight: 1.45 }}>
                           {segmentSentence(segment)}
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 11, padding: '10px 14px', fontSize: 12.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
+                      <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 4, padding: '10px 14px', fontSize: 13.5, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
                         {primary && hasOr
                           ? `Each matching ${primary.entity} record in the primary block enrolls separately. Members who qualify through an OR alternative without a matching ${primary.entity} record enroll once, member-level.`
                           : primary
@@ -287,34 +287,34 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 
         {/* right — live preview */}
         <div style={{ width: 420, flex: 'none', borderLeft: '1px solid #edf1f6', background: '#f7f9fc', overflowY: 'auto', padding: '22px 24px 40px' }}>
-          <div style={{ borderRadius: 13, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '16px 18px', color: '#fff' }}>
+          <div style={{ borderRadius: 4, background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '16px 18px', color: '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>Exact reach</span>
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 20 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 4 }}>
                 {SYMITAR_STATS.fileDate} extract · {fmt(SYMITAR_STATS.accounts)} members
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
-              <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{fmt(reach.members)}</span>
-              <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
+              <span style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, letterSpacing: '-.5px' }}>{fmt(reach.members)}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 500, opacity: 0.85 }}>
                 members{reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(segment)}`}
                 {(reach.memberLevel ?? 0) > 0 && ` · ${fmt(reach.memberLevel)} via OR alternative`}
               </span>
             </div>
-            <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
+            <div style={{ marginTop: 12, height: 6, borderRadius: 4, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, Math.round((reach.members / Math.max(1, totalMembers())) * 100))}%`, height: '100%', background: '#fff', transition: 'width .2s' }} />
             </div>
           </div>
 
           {active && segmentIncompleteCount(segment) > 0 && (
-            <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
+            <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 500, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '8px 11px' }}>
               {segmentIncompleteCount(segment)} condition{segmentIncompleteCount(segment) === 1 ? ' needs' : 's need'} a date —
               until filled in, {segmentIncompleteCount(segment) === 1 ? 'it matches' : 'they match'} no records, which can pull reach to 0.
             </div>
           )}
 
           {active && reach.unlabeled > 0 && (
-            <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
+            <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 500, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '8px 11px' }}>
               {reach.unlabeled} record{reach.unlabeled === 1 ? ' carries' : 's carry'} unlabeled codes — still
               targetable by raw code, readable once labeled in Data → Catalog.
             </div>
@@ -342,16 +342,16 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
   const types = blockActive ? entityTypes(block.entity, block.codeCategory ?? null) : []
   const zeroData = blockActive && entityRecordCount(block.entity) === 0
   return (
-    <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 13, padding: '13px 15px', background: '#fff' }}>
+    <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 15px', background: '#fff' }}>
       {(isPrimary || showRemove) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
           {isPrimary && (
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 20 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 9px', borderRadius: 4 }}>
               Primary — drives enrollment & personalization
             </span>
           )}
           {showRemove && (
-            <button onClick={onRemove} style={{ marginLeft: 'auto', width: 22, height: 22, border: 'none', borderRadius: 6, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+            <button onClick={onRemove} style={{ marginLeft: 'auto', width: 22, height: 22, border: 'none', borderRadius: 4, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
               <CloseIcon size={12} />
             </button>
           )}
@@ -360,11 +360,11 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
 
       {/* sentence spine: quantifier as a verb, scope as the object */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>Has</span>
+        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Has</span>
         <select
           value={block.quantifier}
           onChange={(e) => onQuantifier(e.target.value)}
-          style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 13 }}
+          style={{ ...selectStyle, width: 'auto', padding: '8px 8px', fontSize: 14 }}
         >
           <option value="any">any</option>
           <option value="none">no</option>
@@ -377,10 +377,10 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
               key={s.entity + '·' + s.codeCategory}
               onClick={() => onScope(s.entity, s.codeCategory)}
               style={{
-                padding: '8px 15px', borderRadius: 10, fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                padding: '8px 15px', borderRadius: 4, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
                 background: on ? '#eef5fc' : '#fff',
-                color: on ? '#1f4a86' : '#17335f',
+                color: on ? '#1f4a86' : '#2e3d66',
               }}
             >
               {s.label}
@@ -391,7 +391,7 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
 
       {/* honest zero-data state — generic, driven by the data itself */}
       {zeroData && (
-        <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 10, padding: '9px 12px', fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.5, maxWidth: 520 }}>
+        <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 4, padding: '9px 12px', fontSize: 12.5, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.5, maxWidth: 520 }}>
           No {block.entity} records in this dataset yet — “Has any” matches no one; “Has no” matches all {fmt(totalMembers())} members.
           {entityDef(block.entity)?.note && (
             <div style={{ marginTop: 3, fontWeight: 600 }}>{entityDef(block.entity).note}</div>
@@ -429,8 +429,8 @@ function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantif
               <button
                 onClick={onAddCondition}
                 style={{
-                  alignSelf: 'flex-start', padding: '7px 12px', border: '1.5px dashed #c3ccd9', borderRadius: 10,
-                  background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                  alignSelf: 'flex-start', padding: '7px 12px', border: '1.5px dashed #c3ccd9', borderRadius: 4,
+                  background: 'transparent', color: '#4a6088', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 + Add condition
@@ -460,27 +460,27 @@ function SampleMembers({ segment }) {
   return (
     <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {members.map((u) => (
-        <div key={u.id} style={{ background: '#fff', border: '1px solid #e7edf5', borderRadius: 11, padding: '10px 12px' }}>
+        <div key={u.id} style={{ background: '#fff', border: '1px solid #e7edf5', borderRadius: 4, padding: '10px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: u.avBg, color: u.avFg, fontSize: 11.5, fontWeight: 800 }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: u.avBg, color: u.avFg, fontSize: 12.5, fontWeight: 600 }}>
               {u.initials}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#1b3a63', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1b3a63', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
             {u.matches.length >= 2 && (
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 7px', borderRadius: 20, flex: 'none' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 7px', borderRadius: 4, flex: 'none' }}>
                 {u.matches.length} enrollments
               </span>
             )}
           </div>
           {primary && u.matches.map((p, i) => (
-            <div key={i} style={{ margin: '5px 0 0 40px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#5a6b85' }}>
+            <div key={i} style={{ margin: '5px 0 0 40px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: '#5a6b85' }}>
               <ProductIcon size={11} stroke="#5a7db0" />
-              <span style={{ color: '#1b3a63', fontWeight: 800 }}>{p.label}</span>
+              <span style={{ color: '#1b3a63', fontWeight: 600 }}>{p.label}</span>
               {p.fact}
             </div>
           ))}
           {primary && u.matches.length === 0 && (
-            <div style={{ margin: '5px 0 0 40px', fontSize: 11, fontWeight: 700, color: '#8a95a6' }}>
+            <div style={{ margin: '5px 0 0 40px', fontSize: 12, fontWeight: 500, color: '#8a95a6' }}>
               Qualifies via an OR alternative — enrolls once
             </div>
           )}
@@ -495,7 +495,7 @@ function TypeChip({ label, on, onClick }) {
     <button
       onClick={onClick}
       style={{
-        padding: '6px 11px', borderRadius: 8, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+        padding: '6px 11px', borderRadius: 4, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer',
         border: `1px solid ${on ? '#cfe1f6' : '#e2e8f1'}`,
         background: on ? '#e6effb' : '#fff',
         color: on ? '#2f6fc4' : '#5a6b85',
@@ -519,7 +519,7 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
   }
 
   return (
-    <div style={{ border: `1px solid ${incomplete ? '#e8cf9a' : '#e2e8f1'}`, borderRadius: 11, padding: 10, display: 'flex', gap: 8, background: incomplete ? '#fffdf5' : '#fafbfd' }}>
+    <div style={{ border: `1px solid ${incomplete ? '#e8cf9a' : '#e2e8f1'}`, borderRadius: 4, padding: 10, display: 'flex', gap: 8, background: incomplete ? '#fffdf5' : '#fafbfd' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={condition.field} onChange={(e) => changeField(e.target.value)} style={{ ...selectStyle, width: 180 }}>
           {fields.map((f) => (
@@ -537,7 +537,7 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
         {field.type === 'date' && op.hasN && (
           <>
             <input type="number" min={1} value={condition.n} onChange={(e) => onPatch({ n: e.target.value })} style={{ ...selectStyle, width: 60, textAlign: 'center' }} />
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#5a6b85' }}>days</span>
+            <span style={{ fontSize: 13.5, fontWeight: 500, color: '#5a6b85' }}>days</span>
           </>
         )}
         {field.type === 'date' && op.hasDate && (
@@ -546,24 +546,24 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
         {field.type === 'date' && op.hasDateRange && (
           <>
             <input type="date" value={condition.value} onChange={(e) => onPatch({ value: e.target.value })} style={{ ...selectStyle, width: 150 }} />
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: '#5a6b85' }}>and</span>
+            <span style={{ fontSize: 13.5, fontWeight: 500, color: '#5a6b85' }}>and</span>
             <input type="date" value={condition.value2 ?? ''} onChange={(e) => onPatch({ value2: e.target.value })} style={{ ...selectStyle, width: 150 }} />
           </>
         )}
         {incomplete && (
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
             needs a date
           </span>
         )}
         {/* what the model actually knows about this field: its type, and
             the mapped semantic role when one exists */}
-        <span style={{ fontSize: 10, fontWeight: 700, color: '#8a95a6', background: '#eef1f6', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: '#8a95a6', background: '#e9ecf7', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
           {field.type}{field.role ? ` · ${field.role}` : ''}
         </span>
       </div>
       <button
         onClick={onRemove}
-        style={{ width: 24, height: 24, flex: 'none', border: 'none', borderRadius: 7, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, alignSelf: 'center' }}
+        style={{ width: 24, height: 24, flex: 'none', border: 'none', borderRadius: 4, background: 'transparent', color: '#8a95a6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, alignSelf: 'center' }}
       >
         <CloseIcon size={12} />
       </button>

@@ -114,7 +114,7 @@ export default function FlowCanvas({ entry, audience, audiences, message, showPe
       >
         <ViewportShifter sidebarOpen={sidebarOpen} />
       </ReactFlow>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 34, background: '#eef1f6', zIndex: 10 }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 34, background: '#e9ecf7', zIndex: 10 }} />
     </div>
   )
 }
@@ -169,11 +169,11 @@ function triggerDetail(trigger) {
 function StartNodeCard({ entry, audience, reach, perf }) {
   const trig = TRIGGER_META[entry.trigger.type]
   return (
-    <div style={{ width: 300, background: '#fff', borderRadius: 16, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
+    <div style={{ width: 300, background: '#fff', borderRadius: 4, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
       <div style={{ background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff' }}>
           <PlayIcon size={17} stroke="#fff" />
-          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.4px', textTransform: 'uppercase' }}>Start · Entry</span>
+          <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '.4px', textTransform: 'uppercase' }}>Start · Entry</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {(() => {
@@ -183,7 +183,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
             if (n) bits.push(`${n} exit${n === 1 ? '' : 's'}`)
             if (entry.reenroll && entry.reenroll !== 'off') bits.push(entry.reenroll === 'once' ? 're-enter once' : 're-enter per event')
             return bits.length ? (
-              <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '3px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
                 {bits.join(' · ')}
               </span>
             ) : null
@@ -193,12 +193,12 @@ function StartNodeCard({ entry, audience, reach, perf }) {
       </div>
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated reach</div>
+          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated reach</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#17335f', lineHeight: 1, letterSpacing: '-.5px' }}>
+            <div style={{ fontSize: 28, fontWeight: 600, color: '#2e3d66', lineHeight: 1, letterSpacing: '-.5px' }}>
               {reach.members ? `~${fmt(reach.members)}` : '—'}
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 500, color: '#8a95a6' }}>
               {reach.members
                 ? reach.products !== null
                   ? `members · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`
@@ -225,7 +225,7 @@ function StartNodeCard({ entry, audience, reach, perf }) {
         />
       </div>
       {perf && (
-        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#5a6b85', fontSize: 11.5, fontWeight: 700 }}>
+        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: 7, color: '#5a6b85', fontSize: 12.5, fontWeight: 500 }}>
           <ChartIcon size={13} />
           No entries yet — counts appear once this flow is live
         </div>
@@ -241,16 +241,16 @@ function MessageNode({ data }) {
     .join('  →  ')
 
   return (
-    <div style={{ width: NODE_WIDTH, background: '#fff', borderRadius: 16, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
+    <div style={{ width: NODE_WIDTH, background: '#fff', borderRadius: 4, boxShadow: '0 10px 30px rgba(20,34,60,.22)', overflow: 'hidden', cursor: 'pointer' }}>
       <Handle type="target" position={Position.Top} style={hiddenHandle} />
       <div style={{ background: 'linear-gradient(135deg,#5b3a9e,#7a4fc0)', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: '#fff' }}>
           <SendIcon size={16} stroke="#fff" />
-          <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.4px', textTransform: 'uppercase' }}>Message</span>
+          <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '.4px', textTransform: 'uppercase' }}>Message</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {m.skip === 'conditional' && (
-            <span style={{ fontSize: 10.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '3px 8px', borderRadius: 20 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '3px 8px', borderRadius: 4 }}>
               Skip rules
             </span>
           )}
@@ -258,7 +258,7 @@ function MessageNode({ data }) {
         </div>
       </div>
       <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: m.name ? '#17335f' : '#8a95a6' }}>
+        <div style={{ fontSize: 16, fontWeight: 600, color: m.name ? '#2e3d66' : '#8a95a6' }}>
           {m.name || 'Untitled message'}
         </div>
         <SummaryLine
@@ -277,8 +277,8 @@ function MessageNode({ data }) {
         />
       </div>
       {data.perf && (
-        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', color: '#5a6b85', fontSize: 11.5, fontWeight: 700, lineHeight: 1.5 }}>
-          <div style={{ fontWeight: 800 }}>No sends yet</div>
+        <div style={{ borderTop: '1px solid #e7edf5', background: '#f7fafd', padding: '8px 18px', color: '#5a6b85', fontSize: 12.5, fontWeight: 500, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 600 }}>No sends yet</div>
           <div>Delivery and engagement are observed events — they appear once messages go out.</div>
         </div>
       )}
@@ -298,8 +298,8 @@ function AddStepNode({ data }) {
     width: 34,
     height: 34,
     borderRadius: '50%',
-    fontSize: 20,
-    fontWeight: 800,
+    fontSize: 21,
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -322,11 +322,11 @@ function AddStepNode({ data }) {
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute', top: 44, left: '50%', transform: 'translateX(-50%)', width: 244,
-            background: '#fff', border: '1px solid #dbe3ee', borderRadius: 12,
+            background: '#fff', border: '1px solid #dbe3ee', borderRadius: 4,
             boxShadow: '0 14px 36px rgba(20,34,60,.28)', overflow: 'hidden', cursor: 'default',
           }}
         >
-          <div style={{ padding: '11px 14px 7px', fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>
+          <div style={{ padding: '11px 14px 7px', fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>
             Add a step
           </div>
           {STEP_TYPES.map(({ key, title, desc, Icon, enabled }) => (
@@ -339,15 +339,15 @@ function AddStepNode({ data }) {
               }}
               style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 14px', cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.45 }}
             >
-              <span style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', background: '#e6effb', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ width: 30, height: 30, borderRadius: 4, flex: 'none', background: '#e6effb', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon size={15} />
               </span>
               <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>{title}</div>
-                <div style={{ fontSize: 11.5, fontWeight: 600, color: '#8a95a6' }}>{desc}</div>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{title}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#8a95a6' }}>{desc}</div>
               </div>
               {!enabled && (
-                <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 8px', borderRadius: 20 }}>Soon</span>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 8px', borderRadius: 4 }}>Soon</span>
               )}
             </div>
           ))}
@@ -364,7 +364,7 @@ function EmptyStartNode() {
         width: 260,
         background: 'rgba(255,255,255,.14)',
         border: '2px dashed rgba(255,255,255,.6)',
-        borderRadius: 16,
+        borderRadius: 4,
         padding: '26px 22px',
         display: 'flex',
         flexDirection: 'column',
@@ -375,14 +375,14 @@ function EmptyStartNode() {
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ width: 46, height: 46, borderRadius: 12, background: 'rgba(255,255,255,.9)', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 46, height: 46, borderRadius: 4, background: 'rgba(255,255,255,.9)', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <PlayIcon size={22} />
       </div>
       <div>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Set up the entry step</div>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No trigger or audience yet</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>Set up the entry step</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.8)', marginTop: 3 }}>No trigger or audience yet</div>
       </div>
-      <div style={{ fontSize: 12.5, fontWeight: 800, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '7px 16px', borderRadius: 9 }}>+ Choose entry</div>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.22)', padding: '7px 16px', borderRadius: 4 }}>+ Choose entry</div>
     </div>
   )
 }
@@ -390,12 +390,12 @@ function EmptyStartNode() {
 function SummaryLine({ icon, iconBg, iconFg, label, detail }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-      <div style={{ width: 34, height: 34, borderRadius: 9, flex: 'none', background: iconBg, color: iconFg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 34, height: 34, borderRadius: 4, flex: 'none', background: iconBg, color: iconFg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: '#17335f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }}>{label}</div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }}>{detail}</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: '#2e3d66', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }}>{label}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 210 }}>{detail}</div>
       </div>
     </div>
   )

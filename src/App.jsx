@@ -95,7 +95,7 @@ export default function App() {
         height: 900,
         overflow: 'hidden',
         background: '#fff',
-        fontFamily: "'Nunito', system-ui, sans-serif",
+        fontFamily: "'Poppins', system-ui, sans-serif",
       }}
     >
       <AppHeader
@@ -210,46 +210,46 @@ function AppHeader({ view, onNav, showPerf, onTogglePerf, perfVisible, dataBadge
       >
         <ChevronLeftIcon size={15} strokeWidth={2.4} />
       </button>
-      <span style={{ fontSize: 16, fontWeight: 800, color: '#17335f', whiteSpace: 'nowrap' }}>Untitled automation</span>
-      <span style={{ fontSize: 12, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 20 }}>Draft</span>
+      <span style={{ fontSize: 17, fontWeight: 600, color: '#2e3d66', whiteSpace: 'nowrap' }}>Untitled automation</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 10px', borderRadius: 4 }}>Draft</span>
       {dataSource?.kind === 'sqlite' && (
-        <span title={`Evaluating against db/pulsate.db — ingested VIP extract, file date ${dataSource.fileDate}`} style={{ fontSize: 11, fontWeight: 800, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+        <span title={`Evaluating against db/pulsate.db — ingested VIP extract, file date ${dataSource.fileDate}`} style={{ fontSize: 12, fontWeight: 600, color: '#1f6f4a', background: '#e2f4ea', padding: '3px 10px', borderRadius: 4, whiteSpace: 'nowrap' }}>
         SQLite · {dataSource.fileDate}
         </span>
       )}
 
-      <div style={{ marginLeft: 18, display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
+      <div style={{ marginLeft: 18, display: 'flex', background: '#e9ecf7', borderRadius: 4, padding: 3, gap: 3 }}>
         {NAV.map(({ key, label, badge }) => (
           <button
             key={key}
             onClick={() => onNav(key)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              border: 'none', borderRadius: 7, padding: '6px 14px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+              border: 'none', borderRadius: 4, padding: '6px 14px', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
               ...(view === key
-                ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                ? { background: '#fff', color: '#2e3d66', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
                 : { background: 'transparent', color: '#8a95a6' }),
             }}
           >
             {label}
             {badge != null && (
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '1px 6px', borderRadius: 20 }}>{badge}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '1px 6px', borderRadius: 4 }}>{badge}</span>
             )}
           </button>
         ))}
       </div>
 
       {perfVisible && (
-        <div style={{ marginLeft: 'auto', display: 'flex', background: '#eef1f6', borderRadius: 9, padding: 3, gap: 3 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', background: '#e9ecf7', borderRadius: 4, padding: 3, gap: 3 }}>
           {[{ key: false, label: 'Build' }, { key: true, label: 'Performance' }].map(({ key, label }) => (
             <button
               key={label}
               onClick={() => onTogglePerf(key)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 7, padding: '6px 12px',
-                fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6, border: 'none', borderRadius: 4, padding: '6px 12px',
+                fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
                 ...(showPerf === key
-                  ? { background: '#fff', color: '#17335f', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
+                  ? { background: '#fff', color: '#2e3d66', boxShadow: '0 1px 3px rgba(20,34,60,.15)' }
                   : { background: 'transparent', color: '#8a95a6' }),
               }}
             >

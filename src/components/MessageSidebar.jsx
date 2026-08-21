@@ -9,11 +9,11 @@ const CHANNEL_ICONS = { push: BellIcon, inapp: SmartphoneIcon, feed: FeedIcon }
 
 const EMPTY_DRAFT = { name: '', channels: [], title: '', body: '', cta: '', skip: 'always', recheck: true }
 
-const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
-const helperText = { margin: '4px 0 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
+const sectionLabel = { fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }
+const helperText = { margin: '4px 0 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }
 const inputStyle = {
-  width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 10,
-  padding: '10px 12px', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, color: '#17335f',
+  width: '100%', boxSizing: 'border-box', border: '1px solid #d8e0ea', borderRadius: 4,
+  padding: '10px 12px', fontFamily: 'inherit', fontSize: 15, fontWeight: 600, color: '#2e3d66',
   outline: 'none', background: '#fff', resize: 'none',
 }
 
@@ -59,10 +59,10 @@ export default function MessageSidebar({ message, onClose, onSave }) {
         <div style={{ padding: '22px 24px 16px', borderBottom: '1px solid #edf1f6' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#17335f', letterSpacing: '-.3px' }}>
+              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#2e3d66', letterSpacing: '-.3px' }}>
                 {isNew ? 'Create a message' : 'Edit message'}
               </h1>
-              <p style={{ margin: '5px 0 0', fontSize: 13.5, color: '#8a95a6', fontWeight: 500 }}>
+              <p style={{ margin: '5px 0 0', fontSize: 14.5, color: '#8a95a6', fontWeight: 500 }}>
                 Write it once — it’s delivered through the first channel that reaches each member.
               </p>
             </div>
@@ -87,7 +87,7 @@ export default function MessageSidebar({ message, onClose, onSave }) {
           </div>
 
           {/* preview */}
-          <div style={{ margin: '0 24px 20px', borderRadius: 13, background: 'linear-gradient(135deg,#17335f,#2f5aa0)', padding: 14 }}>
+          <div style={{ margin: '0 24px 20px', borderRadius: 4, background: 'linear-gradient(135deg,#2e3d66,#2d4b8a)', padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>Preview</span>
               {draft.channels.length > 0 && (
@@ -97,9 +97,9 @@ export default function MessageSidebar({ message, onClose, onSave }) {
                       key={c.type}
                       onClick={() => setPreviewCh(c.type)}
                       style={{
-                        padding: '4px 9px', borderRadius: 7, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                        padding: '4px 9px', borderRadius: 4, border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         background: previewCh === c.type ? '#fff' : 'rgba(255,255,255,.18)',
-                        color: previewCh === c.type ? '#17335f' : 'rgba(255,255,255,.85)',
+                        color: previewCh === c.type ? '#2e3d66' : 'rgba(255,255,255,.85)',
                       }}
                     >
                       {CHANNELS[c.type].short}
@@ -139,8 +139,8 @@ export default function MessageSidebar({ message, onClose, onSave }) {
                         onClick={() => addChannel(t)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 7, padding: '9px 13px',
-                          border: '1.5px dashed #c3ccd9', borderRadius: 10, background: 'transparent',
-                          color: '#4a6088', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                          border: '1.5px dashed #c3ccd9', borderRadius: 4, background: 'transparent',
+                          color: '#4a6088', fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                         }}
                       >
                         <Icon size={14} />
@@ -167,7 +167,7 @@ export default function MessageSidebar({ message, onClose, onSave }) {
                   <button
                     key={tok}
                     onClick={() => patch({ body: (draft.body + ' ' + tok).trimStart() })}
-                    style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 10.5, fontWeight: 700, color: '#5b3a9e', background: '#faf8fe', border: '1px solid #e4dcf5', borderRadius: 7, padding: '4px 8px', cursor: 'pointer' }}
+                    style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5, fontWeight: 500, color: '#5b3a9e', background: '#faf8fe', border: '1px solid #e4dcf5', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
                   >
                     {tok}
                   </button>
@@ -197,7 +197,7 @@ export default function MessageSidebar({ message, onClose, onSave }) {
             <div
               onClick={() => patch({ recheck: !draft.recheck })}
               style={{
-                display: 'flex', gap: 11, padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+                display: 'flex', gap: 11, padding: '12px 14px', borderRadius: 4, cursor: 'pointer',
                 border: `1px solid ${draft.recheck ? '#cfe1f6' : '#e2e8f1'}`, background: draft.recheck ? '#eef5fc' : '#fff',
               }}
             >
@@ -205,8 +205,8 @@ export default function MessageSidebar({ message, onClose, onSave }) {
                 {draft.recheck && <CheckIcon size={10} stroke="#fff" />}
               </span>
               <div>
-                <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>Re-check audience before each send</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>Re-check audience before each send</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>
                   Members who no longer match are skipped for this send — they stay in the flow. Gates the message, not the membership.
                 </div>
               </div>
@@ -216,20 +216,20 @@ export default function MessageSidebar({ message, onClose, onSave }) {
 
         {/* footer */}
         <div style={{ borderTop: '1px solid #edf1f6', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a95a6' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: '#8a95a6' }}>
             {canSave
               ? `Delivers via ${draft.channels.map((c) => CHANNELS[c.type].short).join(' → ')}`
               : 'Add at least one channel'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700, color: '#5a6b85', cursor: 'pointer' }}>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 15.5, fontWeight: 500, color: '#5a6b85', cursor: 'pointer' }}>
               Cancel
             </button>
             <button
               onClick={() => canSave && onSave(draft)}
               style={{
-                background: '#2f5aa0', border: 'none', borderRadius: 10, padding: '10px 24px', fontFamily: 'inherit',
-                fontSize: 14.5, fontWeight: 800, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
+                background: '#2d4b8a', border: 'none', borderRadius: 4, padding: '10px 24px', fontFamily: 'inherit',
+                fontSize: 15.5, fontWeight: 600, color: '#fff', cursor: canSave ? 'pointer' : 'not-allowed',
                 boxShadow: '0 2px 8px rgba(47,90,160,.3)', opacity: canSave ? 1 : 0.45, whiteSpace: 'nowrap',
               }}
             >
@@ -247,7 +247,7 @@ function Field({ label, value, onChange, max, placeholder, textarea }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={sectionLabel}>{label}</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#b1bccb' }}>{value.length}/{max}</span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: '#b1bccb' }}>{value.length}/{max}</span>
       </div>
       {textarea ? (
         <textarea rows={3} value={value} maxLength={max} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
@@ -265,27 +265,27 @@ function ChannelRow({ channel, index, count, active, onSelect, onMove, onRemove,
     <div
       onClick={onSelect}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 11, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 4, cursor: 'pointer',
         border: `1px solid ${active ? '#cfe1f6' : '#e2e8f1'}`, background: active ? '#eef5fc' : '#fff',
       }}
     >
-      <span style={{ width: 20, height: 20, borderRadius: '50%', flex: 'none', background: '#17335f', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ width: 20, height: 20, borderRadius: '50%', flex: 'none', background: '#2e3d66', color: '#fff', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {index + 1}
       </span>
-      <span style={{ width: 30, height: 30, borderRadius: 8, flex: 'none', background: '#e6effb', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ width: 30, height: 30, borderRadius: 4, flex: 'none', background: '#e6effb', color: '#2f6fc4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon size={15} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>{meta.label}</div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6' }}>{meta.desc}</div>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{meta.label}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{meta.desc}</div>
       </div>
       {meta.feedCompanion && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleFeed() }}
           title="Also publish a card to the app feed"
           style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 8, fontFamily: 'inherit',
-            fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5, padding: '5px 9px', borderRadius: 4, fontFamily: 'inherit',
+            fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
             border: `1px solid ${channel.feedCard ? '#cfe1f6' : '#e2e8f1'}`,
             background: channel.feedCard ? '#e6effb' : '#fff',
             color: channel.feedCard ? '#2f6fc4' : '#8a95a6',
@@ -310,7 +310,7 @@ function RowButton({ disabled, onClick, children }) {
       disabled={disabled}
       onClick={onClick}
       style={{
-        width: 24, height: 24, borderRadius: 7, border: 'none', background: 'transparent', color: '#8a95a6',
+        width: 24, height: 24, borderRadius: 4, border: 'none', background: 'transparent', color: '#8a95a6',
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.3 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
       }}
@@ -332,7 +332,7 @@ function Preview({ channel, draft }) {
 
   if (!channel) {
     return (
-      <div style={{ padding: '22px 12px 12px', textAlign: 'center', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,.75)' }}>
+      <div style={{ padding: '22px 12px 12px', textAlign: 'center', fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,.75)' }}>
         Add a delivery channel below to see a live preview here.
       </div>
     )
@@ -340,17 +340,17 @@ function Preview({ channel, draft }) {
 
   if (channel === 'push') {
     return (
-      <div style={{ marginTop: 10, background: 'rgba(255,255,255,.96)', borderRadius: 12, padding: '10px 12px', display: 'flex', gap: 10 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, flex: 'none', background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15 }}>
+      <div style={{ marginTop: 10, background: 'rgba(255,255,255,.96)', borderRadius: 4, padding: '10px 12px', display: 'flex', gap: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 4, flex: 'none', background: 'linear-gradient(135deg,#1f4a86,#2f7fd6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 16 }}>
           P
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.4px' }}>Pulsate</span>
-            <span style={{ fontSize: 10.5, fontWeight: 600, color: '#b1bccb' }}>now</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.4px' }}>Pulsate</span>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: '#b1bccb' }}>now</span>
           </div>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#17335f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5a6b85', lineHeight: 1.35 }}>{body}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#2e3d66', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#5a6b85', lineHeight: 1.35 }}>{body}</div>
         </div>
       </div>
     )
@@ -358,25 +358,25 @@ function Preview({ channel, draft }) {
 
   if (channel === 'inapp') {
     return (
-      <div style={{ marginTop: 10, background: 'rgba(255,255,255,.12)', borderRadius: 12, padding: 16, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: 220, background: '#fff', borderRadius: 12, padding: 14, textAlign: 'center', boxShadow: '0 8px 24px rgba(10,20,40,.35)' }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>{title}</div>
-          <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5a6b85', marginTop: 4, lineHeight: 1.4 }}>{body}</div>
-          <div style={{ marginTop: 10, background: '#2f6fc4', borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 800, color: '#fff' }}>{cta}</div>
+      <div style={{ marginTop: 10, background: 'rgba(255,255,255,.12)', borderRadius: 4, padding: 16, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ width: 220, background: '#fff', borderRadius: 4, padding: 14, textAlign: 'center', boxShadow: '0 8px 24px rgba(10,20,40,.35)' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#2e3d66' }}>{title}</div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#5a6b85', marginTop: 4, lineHeight: 1.4 }}>{body}</div>
+          <div style={{ marginTop: 10, background: '#2f6fc4', borderRadius: 4, padding: '7px 0', fontSize: 13, fontWeight: 600, color: '#fff' }}>{cta}</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ marginTop: 10, background: 'rgba(255,255,255,.96)', borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ marginTop: 10, background: 'rgba(255,255,255,.96)', borderRadius: 4, overflow: 'hidden' }}>
       <div style={{ height: 52, background: '#dfe4ec', color: '#a6b1c1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <ImageIcon size={20} />
       </div>
       <div style={{ padding: '10px 12px' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: '#17335f' }}>{title}</div>
-        <div style={{ fontSize: 11.5, fontWeight: 600, color: '#5a6b85', marginTop: 2, lineHeight: 1.4 }}>{body}</div>
-        <div style={{ marginTop: 8, background: '#2f6fc4', borderRadius: 8, padding: '7px 0', fontSize: 12, fontWeight: 800, color: '#fff', textAlign: 'center' }}>{cta}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: '#2e3d66' }}>{title}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#5a6b85', marginTop: 2, lineHeight: 1.4 }}>{body}</div>
+        <div style={{ marginTop: 8, background: '#2f6fc4', borderRadius: 4, padding: '7px 0', fontSize: 13, fontWeight: 600, color: '#fff', textAlign: 'center' }}>{cta}</div>
       </div>
     </div>
   )
@@ -387,7 +387,7 @@ function SkipOption({ selected, onSelect, title, desc, note }) {
     <div
       onClick={onSelect}
       style={{
-        display: 'flex', gap: 11, padding: '12px 14px', borderRadius: 11, cursor: 'pointer',
+        display: 'flex', gap: 11, padding: '12px 14px', borderRadius: 4, cursor: 'pointer',
         border: `1px solid ${selected ? '#cfe1f6' : '#e2e8f1'}`, background: selected ? '#eef5fc' : '#fff',
       }}
     >
@@ -395,10 +395,10 @@ function SkipOption({ selected, onSelect, title, desc, note }) {
         {selected && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2f7fd6' }} />}
       </span>
       <div>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#17335f' }}>{title}</div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{title}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#8a95a6', marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
         {note && (
-          <div style={{ marginTop: 7, fontSize: 11.5, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 7, padding: '5px 9px', display: 'inline-block' }}>
+          <div style={{ marginTop: 7, fontSize: 12.5, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '5px 9px', display: 'inline-block' }}>
             {note}
           </div>
         )}
