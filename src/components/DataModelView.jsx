@@ -5,7 +5,7 @@ import {
   showcaseMember,
   codeMapped, fmt,
   entityRecordCount, fieldValueCount, humanizeFieldName, distinctValues,
-  identitySummaryFrom, sourceMetaByName,
+  identitySummaryFrom, sourceMetaByName, fieldUsage,
 } from '../data'
 import { ProductIcon, UsersIcon, SendIcon, RepeatIcon, CloseIcon, ChevronDownIcon } from '../icons'
 import SymitarConnect from './SymitarConnect'
@@ -383,8 +383,9 @@ function DictionaryTab({ codes, onMapCode, unmapped, metaSources, onEditField, o
 
 function EntityCard({ entity: e, codes, onMapCode, onEditField, onEditEntityCategory }) {
   const recs = entityRecordCount(e.name)
+  const hiddenCount = e.fields.filter((f) => f.hidden).length
   const humanizable = e.fields.filter(
-    (f) => f.role !== 'code' && f.label === f.name && humanizeFieldName(f.name) !== f.name
+    (f) => !f.hidden && f.role !== 'code' && f.label === f.name && humanizeFieldName(f.name) !== f.name
   )
   return (
     <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, overflow: 'hidden' }}>
@@ -410,6 +411,7 @@ function EntityCard({ entity: e, codes, onMapCode, onEditField, onEditEntityCate
         <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }}>{e.purpose}</span>
         <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: recs ? '#4a6088' : '#8a95a6' }}>
           {recs ? `${fmt(recs)} records` : 'no records yet'}
+          {hiddenCount > 0 && <span style={{ color: '#8a95a6' }}> · {hiddenCount} hidden</span>}
         </span>
         {humanizable.length > 0 && (
           <button
@@ -436,10 +438,43 @@ function EntityCard({ entity: e, codes, onMapCode, onEditField, onEditEntityCate
 }
 
 function FieldRow({ entity: e, field: f, first, onEditField }) {
+  const [confirming, setConfirming] = useState(false)
   const noData = !e.platform && fieldValueCount(e.name, f.name) === 0
   const vals = f.type === 'string' && f.role !== 'code' && !e.platform ? distinctValues(e.name, f.name) : []
+  const usage = fieldUsage(e.name, f.name)
+
+  /* hidden fields sink: the row collapses to a quiet, dimmed line —
+     still in the dictionary, gone from every picker */
+  if (f.hidden) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px', borderTop: first ? 'none' : '1px solid #eef0fa', background: '#fafbfd' }}>
+        <span style={{ width: 190, flex: 'none', fontFamily: mono, fontSize: 12, fontWeight: 500, color: '#b1bccb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {f.name}
+        </span>
+        <span style={{ width: 200, flex: 'none', fontSize: 12.5, fontWeight: 500, color: '#b1bccb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {f.label !== f.name ? f.label : ''}
+        </span>
+        <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#8a95a6', background: '#e9ecf7', padding: '2px 8px', borderRadius: 4 }} title="Not offered when building segments or messages. Still ingested — values keep syncing.">
+          hidden
+        </span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, color: '#b1bccb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {usage > 0 && `still used by ${usage} segment${usage === 1 ? '' : 's'}`}
+        </span>
+        <button
+          onClick={() => onEditField?.(e.name, f.name, { hidden: false })}
+          style={{ flex: 'none', border: '1px solid #cfe1f6', background: '#eef5fc', color: '#1f4a86', borderRadius: 4, padding: '4px 11px', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          Unhide
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderTop: first ? 'none' : '1px solid #eef0fa' }}>
+    <div
+      onMouseLeave={() => setConfirming(false)}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderTop: first ? 'none' : '1px solid #eef0fa' }}
+    >
       <span style={{ width: 190, flex: 'none', fontFamily: mono, fontSize: 12, fontWeight: 500, color: '#8a95a6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`Raw field name from the source: ${f.name}`}>
         {f.name}
       </span>
@@ -483,6 +518,27 @@ function FieldRow({ entity: e, field: f, first, onEditField }) {
         <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '2px 8px', borderRadius: 4 }} title="Declared by the source but no record carries a value yet">
           no data
         </span>
+      )}
+      {/* hide is a picker control: never for the code anchor or platform fields.
+          Hiding a field a segment uses asks once, with the real count. */}
+      {!e.platform && f.role !== 'code' && (
+        confirming ? (
+          <button
+            onClick={() => { setConfirming(false); onEditField?.(e.name, f.name, { hidden: true }) }}
+            title="Those segments keep evaluating and reading this field — it only leaves the pickers for new rules."
+            style={{ flex: 'none', border: '1px solid #f0e3c0', background: '#fbf1dc', color: '#8a6d2e', borderRadius: 4, padding: '4px 11px', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Hide anyway · in {usage} segment{usage === 1 ? '' : 's'}
+          </button>
+        ) : (
+          <button
+            onClick={() => (usage > 0 ? setConfirming(true) : onEditField?.(e.name, f.name, { hidden: true }))}
+            title="Remove from segment and message pickers. Still ingested — unhide anytime."
+            style={{ flex: 'none', border: 'none', background: 'transparent', color: '#8a95a6', borderRadius: 4, padding: '4px 8px', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Hide
+          </button>
+        )
       )}
     </div>
   )

@@ -153,7 +153,7 @@ function triggerDetail(trigger) {
   if (trigger.type === 'audience') return 'Always on — enters on joining the segment'
   if (trigger.type === 'schedule') return 'One-time send · not scheduled yet'
   if (trigger.type === 'date') {
-    const field = (registryDateFields().find((f) => f.key === trigger.dateField)?.label ?? 'anchored date').toLowerCase()
+    const field = (registryDateFields(true).find((f) => f.key === trigger.dateField)?.label ?? 'anchored date').toLowerCase()
     return `${trigger.dateDays} days before ${field} · recurring`
   }
   const geoSel = trigger.geoSel

@@ -109,6 +109,9 @@ export default function EntryPanel({
                           style={{ border: '1px solid #d8e0ea', borderRadius: 4, padding: '7px 10px', fontFamily: 'inherit', fontSize: 14, fontWeight: 500, color: '#2e3d66', outline: 'none', background: '#fff' }}
                         >
                           {registryDateFields().map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()}</option>)}
+                          {trigger.dateField && !registryDateFields().some((f) => f.key === trigger.dateField) &&
+                            registryDateFields(true).filter((f) => f.key === trigger.dateField)
+                              .map((f) => <option key={f.key} value={f.key}>{f.label.toLowerCase()} · hidden</option>)}
                         </select>
                         <span style={{ width: '100%', fontSize: 13, fontWeight: 600, color: '#8a95a6' }}>
                           Recurring — members re-enter each time this date field rolls forward in your synced data.

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS field_def (
   user_label TEXT NOT NULL,        -- what marketers see: "Balance"
   type TEXT NOT NULL,              -- string | number | currency | date | bool
   semantic_role TEXT,              -- optional: recurring_date, balance, code
+  hidden INTEGER NOT NULL DEFAULT 0, -- hidden from segment pickers; still ingested
   UNIQUE (entity_def_id, name)
 );
 

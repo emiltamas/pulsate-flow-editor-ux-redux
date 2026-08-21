@@ -98,12 +98,13 @@ export const humanizeFieldName = (name) =>
 
 /* Dictionary edits mutate the live registry in place; the caller bumps
    React state to re-render. Persistence goes through dbClient. */
-export function setFieldMeta(entityName, fieldName, { label, role }) {
+export function setFieldMeta(entityName, fieldName, { label, role, hidden }) {
   const def = entityDef(entityName)
   const f = def?.fields.find((x) => x.name === fieldName)
   if (!f) return
   if (label !== undefined) f.label = (label ?? '').trim() || f.name
   if (role !== undefined) f.role = role || null
+  if (hidden !== undefined) f.hidden = !!hidden
 }
 
 export function setEntityCategory(entityName, category) {
@@ -272,11 +273,37 @@ export const scopeCategoryFor = (entityName) => {
 }
 
 /* Condition fields for an entity = its typed fields minus the code field
-   (the code is the scope chips, not a condition). */
+   (the code is the scope chips, not a condition). Complete — includes
+   hidden fields, because saved rules that reference one must keep
+   evaluating and reading naturally. Pickers use pickableFields. */
 export const fieldsFor = (rule) => {
   const def = rule?.entity ? entityDef(rule.entity) : null
   return def ? def.fields.filter((f) => f.name !== def.codeField) : []
 }
+
+/* What NEW conditions can bind to: fieldsFor minus hidden fields.
+   Hiding is a picker concern only — it never changes evaluation. */
+export const pickableFields = (rule) => fieldsFor(rule).filter((f) => !f.hidden)
+
+/* How many saved segments reference a field — the honesty line shown
+   before hiding it. Scans conditions and aggregates of every active
+   segment's blocks on this entity. */
+export const fieldUsage = (entityName, fieldName) => {
+  let n = 0
+  for (const a of ACTIVE_SEGMENTS.values()) {
+    const hit = blocksOf(a.rule).some((b) =>
+      b.entity === entityName && !b.segmentRef && (
+        (b.conditions ?? []).some((c) => c.field === fieldName) ||
+        (b.aggregates ?? []).some((g) => g.field === fieldName)
+      )
+    )
+    if (hit) n++
+  }
+  return n
+}
+
+export const hiddenFieldCount = (entityName) =>
+  (entityDef(entityName)?.fields ?? []).filter((f) => f.hidden).length
 
 /* No synced-segment sources or geofences exist for this FI yet — these
    stay empty until a real source feeds them. Surfaces that list them
@@ -1035,10 +1062,12 @@ export const audienceTemplates = () => {
 }
 
 /* Anchor-able date fields for the journey's date trigger: every date
-   field of every segmentable entity, addressed as entity·field. */
-export const registryDateFields = () =>
+   field of every segmentable entity, addressed as entity·field.
+   Pickers get visible fields; pass includeHidden to resolve a saved
+   trigger that anchors to a since-hidden field. */
+export const registryDateFields = (includeHidden = false) =>
   segmentEntities().flatMap((e) =>
-    e.fields.filter((f) => f.type === 'date').map((f) => ({
+    e.fields.filter((f) => f.type === 'date' && (includeHidden || !f.hidden)).map((f) => ({
       key: `${e.name}·${f.name}`,
       label: `${f.label} (${e.name})`,
     }))
@@ -1055,6 +1084,7 @@ export const messageTokens = () => {
     if (def.purpose === 'segment') continue // campaign or both only
     const rec = MEMBERS.flatMap((m) => m.records[def.name] ?? [])[0]
     for (const f of def.fields) {
+      if (f.hidden) continue // hidden fields stay out of the token picker too
       if (f.role === 'code') {
         out.push({ token: `{{${slug(def.name)}.type}}`, sample: rec ? recordTypeLabel(def.name, rec) : '—' })
         continue

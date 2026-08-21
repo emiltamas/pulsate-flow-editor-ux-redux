@@ -6,7 +6,7 @@ import {
   conditionIncomplete, segmentIncompleteCount,
   parseAudiencePhrase, audienceReach,
   fmt, datasetMatchedMembers, dataSourceCount,
-  fieldsFor,
+  fieldsFor, pickableFields,
 } from '../data'
 import { CloseIcon, SparkleIcon, ProductIcon } from '../icons'
 
@@ -94,7 +94,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     patchBlock(i, (b) => ({ ...newBlock(), entity: null, segmentRef: id, quantifier: b.quantifier === 'none' ? 'none' : 'any' }))
   const addAggregate = (i) =>
     patchBlock(i, (b) => {
-      const f = fieldsFor(b).find((x) => x.type === 'currency' || x.type === 'number')
+      const f = pickableFields(b).find((x) => x.type === 'currency' || x.type === 'number')
       const id = ((b.aggregates ?? [])[b.aggregates?.length - 1]?.id ?? 0) + 1
       return { ...b, aggregates: [...(b.aggregates ?? []), { id, fn: f ? 'sum' : 'count', field: f?.name ?? null, op: 'gt', value: '' }] }
     })
@@ -108,7 +108,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const clearTypes = (i) => patchBlock(i, (b) => ({ ...b, types: [] }))
   const addCondition = (i) =>
     patchBlock(i, (b) => {
-      const f = fieldsFor(b)[0]
+      const f = pickableFields(b)[0]
       if (!f) return b
       const id = (b.conditions[b.conditions.length - 1]?.id ?? 0) + 1
       return { ...b, conditions: [...b.conditions, { id, field: f.name, op: operatorsFor(f.type)[0].key, value: '', n: 3 }] }
@@ -351,7 +351,7 @@ function BlockCard({ block, showRemove, excludeSegmentId, onScope, onScopeRef, o
   const blockActive = ruleActive(block)
   const types = blockActive && !isRef ? entityTypes(block.entity, block.codeCategory ?? null) : []
   const zeroData = blockActive && !isRef && entityRecordCount(block.entity) === 0
-  const numericFields = isRef ? [] : fieldsFor(block).filter((f) => f.type === 'currency' || f.type === 'number')
+  const numericFields = isRef ? [] : pickableFields(block).filter((f) => f.type === 'currency' || f.type === 'number')
   return (
     <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 15px', background: '#fff', position: 'relative' }}>
       {showRemove && (
@@ -480,6 +480,12 @@ function BlockCard({ block, showRemove, excludeSegmentId, onScope, onScopeRef, o
 /* Per-member aggregate: total of a numeric field, or a record count,
    across the block's matching records. */
 function AggregateRow({ block, agg, numericFields, onPatch, onRemove }) {
+  // keep a since-hidden selected field resolvable, labeled as hidden
+  const options = [...numericFields]
+  if (agg.field && !options.some((f) => f.name === agg.field)) {
+    const f = fieldsFor(block).find((x) => x.name === agg.field)
+    if (f) options.push(f)
+  }
   return (
     <div style={{ border: '1px solid #e2e8f1', borderRadius: 4, padding: 10, display: 'flex', gap: 8, background: '#fafbfd' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -493,8 +499,8 @@ function AggregateRow({ block, agg, numericFields, onPatch, onRemove }) {
         </select>
         {agg.fn === 'sum' && (
           <select value={agg.field ?? ''} onChange={(e) => onPatch({ field: e.target.value })} style={{ ...selectStyle, width: 170 }}>
-            {numericFields.map((f) => (
-              <option key={f.name} value={f.name}>{f.label}</option>
+            {options.map((f) => (
+              <option key={f.name} value={f.name}>{f.label}{f.hidden ? ' · hidden' : ''}</option>
             ))}
           </select>
         )}
@@ -700,6 +706,10 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
   const ops = operatorsFor(field.type)
   const op = ops.find((o) => o.key === condition.op) ?? ops[0]
   const incomplete = conditionIncomplete(block, condition)
+  // options: visible fields, plus the current one if it was hidden after
+  // this rule was built — the rule keeps working, the picker says why
+  const options = pickableFields(block)
+  if (field?.hidden && !options.some((f) => f.name === field.name)) options.push(field)
 
   const changeField = (name) => {
     const f = fields.find((x) => x.name === name)
@@ -710,8 +720,8 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
     <div style={{ border: `1px solid ${incomplete ? '#e8cf9a' : '#e2e8f1'}`, borderRadius: 4, padding: 10, display: 'flex', gap: 8, background: incomplete ? '#fffdf5' : '#fafbfd' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={condition.field} onChange={(e) => changeField(e.target.value)} style={{ ...selectStyle, width: 180 }}>
-          {fields.map((f) => (
-            <option key={f.name} value={f.name}>{f.label}</option>
+          {options.map((f) => (
+            <option key={f.name} value={f.name}>{f.label}{f.hidden ? ' · hidden' : ''}</option>
           ))}
         </select>
         <select value={condition.op} onChange={(e) => onPatch({ op: e.target.value })} style={{ ...selectStyle, width: 'auto', flex: 1, minWidth: 150 }}>

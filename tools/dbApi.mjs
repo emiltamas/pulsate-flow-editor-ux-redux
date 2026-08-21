@@ -123,11 +123,11 @@ export async function bootstrapPayload() {
 
     /* The live registry + generic records, straight from the EAV tables.
        The client UI is entity-agnostic: it renders whatever this says. */
-    const fieldRows = db.prepare('SELECT id, entity_def_id, name, user_label, type, semantic_role FROM field_def').all()
+    const fieldRows = db.prepare('SELECT id, entity_def_id, name, user_label, type, semantic_role, hidden FROM field_def').all()
     const fieldById = new Map(fieldRows.map((f) => [f.id, f]))
     const registry = db.prepare('SELECT id, name, pulsate_category, purpose, source FROM entity_def ORDER BY id').all().map((e) => {
       const fields = fieldRows.filter((f) => f.entity_def_id === e.id)
-        .map((f) => ({ name: f.name, label: f.user_label, type: f.type, role: f.semantic_role }))
+        .map((f) => ({ name: f.name, label: f.user_label, type: f.type, role: f.semantic_role, hidden: !!f.hidden }))
       const codeField = fields.find((f) => f.role === 'code')?.name ?? null
       return { name: e.name, category: e.pulsate_category, purpose: e.purpose, source: e.source ?? '', fields, codeField }
     })
@@ -164,14 +164,14 @@ export async function bootstrapPayload() {
   }
 }
 
-export async function saveFieldMeta({ entity, field, label, role }) {
+export async function saveFieldMeta({ entity, field, label, role, hidden }) {
   const db = await openDb()
   if (!db) return false
   try {
     const r = db.prepare(`
-      UPDATE field_def SET user_label = ?, semantic_role = ?
+      UPDATE field_def SET user_label = ?, semantic_role = ?, hidden = ?
       WHERE name = ? AND entity_def_id = (SELECT id FROM entity_def WHERE name = ?)
-    `).run((label ?? '').trim() || String(field), role || null, String(field), String(entity))
+    `).run((label ?? '').trim() || String(field), role || null, hidden ? 1 : 0, String(field), String(entity))
     return r.changes > 0
   } finally {
     db.close()

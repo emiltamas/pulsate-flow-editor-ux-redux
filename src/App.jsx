@@ -160,7 +160,7 @@ export default function App() {
               // persist the field's full post-edit state — the API writes
               // both columns, so a partial patch must not null the other
               const f = entityDef(entity)?.fields.find((x) => x.name === field)
-              if (dataSource?.kind === 'sqlite' && f) persistFieldMeta({ entity, field, label: f.label, role: f.role })
+              if (dataSource?.kind === 'sqlite' && f) persistFieldMeta({ entity, field, label: f.label, role: f.role, hidden: f.hidden })
               setRegistryVersion((v) => v + 1)
             }}
             onEditEntityCategory={(entity, category) => {
