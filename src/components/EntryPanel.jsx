@@ -168,6 +168,13 @@ export default function EntryPanel({
                     ~{fmt(reach.members)} members
                     {reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(audience.rule)}`}
                   </div>
+                  {/* enrollment is a FLOW fact, so it lives here, not in
+                      the audience builder */}
+                  {reach.products !== null && reach.products > reach.members && (
+                    <div style={{ marginTop: 4, fontSize: 12.5, fontWeight: 500, color: '#8a95a6', lineHeight: 1.45 }}>
+                      Enters once per matching record — a member with two qualifying records goes through this flow for each.
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', borderTop: '1px solid #edf1f6' }}>
                   <button onClick={onChooseAudience} style={cardActionStyle}>Change</button>

@@ -66,7 +66,6 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     })
   }
   const groupSize = groupIdx.reduce((m, g) => ((m[g] = (m[g] ?? 0) + 1), m), {})
-  const hasOr = joins.includes('OR')
   const reach = audienceReach({ rule: active ? segment : null, users: null })
   const canSave = active
   const suggestedName = active ? (segmentSentence(segment) || '').slice(0, 34) : 'My audience'
@@ -259,23 +258,16 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                     + AND members who…
                   </button>
 
+                  {/* the audience speaks audience language only — what
+                      happens per record when a flow USES this audience
+                      is stated in the flow's entry step, not here */}
                   {active && (
-                    <>
-                      <div style={{ marginTop: 16, background: '#eef5fc', border: '1px solid #cfe1f6', borderRadius: 4, padding: '11px 14px', maxWidth: 520 }}>
-                        <span style={{ ...sectionLabel, color: '#5a7db0' }}>Rule</span>
-                        <div style={{ marginTop: 3, fontSize: 14.5, fontWeight: 500, color: '#1f4a86', lineHeight: 1.45 }}>
-                          {segmentSentence(segment)}
-                        </div>
+                    <div style={{ marginTop: 16, background: '#eef5fc', border: '1px solid #cfe1f6', borderRadius: 4, padding: '11px 14px', maxWidth: 520 }}>
+                      <span style={{ ...sectionLabel, color: '#5a7db0' }}>Rule</span>
+                      <div style={{ marginTop: 3, fontSize: 14.5, fontWeight: 500, color: '#1f4a86', lineHeight: 1.45 }}>
+                        {segmentSentence(segment)}
                       </div>
-
-                      <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 4, padding: '10px 14px', fontSize: 13.5, fontWeight: 500, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
-                        {primary && hasOr
-                          ? `One message per matching ${primary.entity} record; members qualifying only via an OR path get one.`
-                          : primary
-                            ? `One message per matching ${primary.entity} record.`
-                            : 'Members matching all blocks get one message.'}
-                      </div>
-                    </>
+                    </div>
                   )}
                 </>
               )}
@@ -442,7 +434,7 @@ function SampleMembers({ segment }) {
             <div style={{ fontSize: 14, fontWeight: 600, color: '#1b3a63', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
             {u.matches.length >= 2 && (
               <span style={{ fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 7px', borderRadius: 4, flex: 'none' }}>
-                {u.matches.length} enrollments
+                {u.matches.length} records
               </span>
             )}
           </div>
@@ -455,7 +447,7 @@ function SampleMembers({ segment }) {
           ))}
           {primary && u.matches.length === 0 && (
             <div style={{ margin: '5px 0 0 40px', fontSize: 12, fontWeight: 500, color: '#8a95a6' }}>
-              Qualifies via an OR path — gets one message
+              Qualifies via an OR path
             </div>
           )}
         </div>

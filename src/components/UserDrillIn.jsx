@@ -101,7 +101,7 @@ function MatchedProducts({ rule, matches }) {
   if (matches.length === 0) {
     return (
       <div style={{ margin: '7px 0 0 48px', fontSize: 12.5, fontWeight: 500, color: '#8a95a6' }}>
-        Qualifies via an OR path — gets one message
+        Qualifies via an OR path
       </div>
     )
   }
@@ -114,11 +114,6 @@ function MatchedProducts({ rule, matches }) {
           <span style={{ fontSize: 12.5, fontWeight: 600, color: '#8a95a6' }}>{p.fact}</span>
         </div>
       ))}
-      {matches.length >= 2 && (
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '4px 9px', alignSelf: 'flex-start' }}>
-          Will be enrolled once per matching record · {matches.length} enrollments
-        </div>
-      )}
     </div>
   )
 }
