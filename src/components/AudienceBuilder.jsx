@@ -5,7 +5,7 @@ import {
   operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
   conditionIncomplete, segmentIncompleteCount,
   parseAudiencePhrase, audienceReach,
-  fmt, datasetMatchedMembers, SYMITAR_STATS,
+  fmt, datasetMatchedMembers, dataSourceCount,
   fieldsFor,
 } from '../data'
 import { CloseIcon, SparkleIcon, ProductIcon } from '../icons'
@@ -300,7 +300,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ ...sectionLabel, color: 'rgba(255,255,255,.75)' }}>Exact reach</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.2)', padding: '2px 8px', borderRadius: 4 }}>
-                {SYMITAR_STATS.fileDate} extract · {fmt(SYMITAR_STATS.accounts)} members
+                {fmt(totalMembers())} members · {dataSourceCount()} source{dataSourceCount() === 1 ? '' : 's'}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginTop: 4 }}>
@@ -325,7 +325,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
           {active && reach.unlabeled > 0 && (
             <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 500, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 4, padding: '8px 11px' }}>
               {reach.unlabeled} record{reach.unlabeled === 1 ? ' carries' : 's carry'} unlabeled codes — still
-              targetable by raw code, readable once labeled in Data → Catalog.
+              targetable by raw code, readable once labeled in Data → Dictionary.
             </div>
           )}
 

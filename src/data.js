@@ -39,7 +39,7 @@ const normalizeValues = (def, raw, fileDate) => {
    used only when the SQLite API is not available (fresh clone). */
 const FALLBACK_REGISTRY = [
   {
-    name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type',
+    name: 'Loans', category: 'loan', purpose: 'both', codeField: 'Loan Type', source: 'Symitar core extract',
     fields: [
       { name: 'Loan Type', label: 'Loan Type', type: 'string', role: 'code' },
       { name: 'Loan Balance', label: 'Loan Balance', type: 'currency', role: 'balance' },
@@ -52,7 +52,7 @@ const FALLBACK_REGISTRY = [
   {
     // the bundled dataset carries contact flags only; the live ingest
     // adds Age (derived) and State
-    name: 'Member Profile', category: 'member', purpose: 'both', codeField: null,
+    name: 'Member Profile', category: 'member', purpose: 'both', codeField: null, source: 'Symitar core extract',
     fields: [
       { name: 'Has Email', label: 'Has Email', type: 'bool', role: null },
       { name: 'Has Mobile', label: 'Has Mobile', type: 'bool', role: null },
@@ -69,7 +69,7 @@ const FALLBACK_REGISTRY = [
 export const RESERVED_ENTITIES = [
   {
     name: 'App Events', category: 'behavior', purpose: 'segment', codeField: 'Event Name',
-    platform: true,
+    platform: true, source: 'Pulsate SDK',
     note: 'No app events ingested in this prototype — production streams these live from the mobile SDK.',
     fields: [
       { name: 'Event Name', label: 'Event Name', type: 'string', role: 'code' },
@@ -80,6 +80,71 @@ export const RESERVED_ENTITIES = [
 
 export const entityRecordCount = (entityName) =>
   MEMBERS.reduce((s, m) => s + (m.records[entityName]?.length ?? 0), 0)
+
+export const fieldValueCount = (entityName, fieldName) =>
+  MEMBERS.reduce((s, m) => s + (m.records[entityName] ?? []).filter((r) => r.values[fieldName] !== undefined).length, 0)
+
+/* Humanize a raw source field name into a label SUGGESTION — applied
+   only by explicit user action, never silently.
+   Next_Payment_Date → Next Payment Date · has_better_checking → Has
+   Better Checking · FundedStatus → Funded Status */
+export const humanizeFieldName = (name) =>
+  name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+
+/* Dictionary edits mutate the live registry in place; the caller bumps
+   React state to re-render. Persistence goes through dbClient. */
+export function setFieldMeta(entityName, fieldName, { label, role }) {
+  const def = entityDef(entityName)
+  const f = def?.fields.find((x) => x.name === fieldName)
+  if (!f) return
+  if (label !== undefined) f.label = (label ?? '').trim() || f.name
+  if (role !== undefined) f.role = role || null
+}
+
+export function setEntityCategory(entityName, category) {
+  const def = entityDef(entityName)
+  if (def) def.category = category || 'UNKNOWN'
+}
+
+/* Source cards + identity summary from the payload's sources registry. */
+export const evolveStyleSources = (metaSources) =>
+  (metaSources ?? [])
+    .filter((s) => s.id !== 'src-symitar')
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type ?? 'file',
+      cadence: `File drop · ${s.fileDate}`,
+      records: `${fmt(s.memberCount ?? 0)} members · ${(s.entities ?? []).join(' · ')}`,
+      identity: s.identity ?? 'unlinked id space',
+      fields: null,
+      status: 'healthy',
+      feeds: (s.entities ?? []).join(' · '),
+      note: s.upstream?.length ? `Reports upstream: ${s.upstream.join(', ')}` : null,
+    }))
+
+export const identitySummaryFrom = (metaSources) => {
+  const list = metaSources ?? []
+  if (list.length <= 1) return null
+  return {
+    parts: list.map((s) => `${fmt(s.memberCount ?? 0)} ${s.id === 'src-symitar' ? 'member accounts' : 'aliases'} (${s.name})`),
+    linked: 0,
+  }
+}
+
+export const sourcesInRegistry = () => [...new Set(REGISTRY.map((e) => e.source || 'Unknown source'))]
+
+// how many sources actually contribute member data (platform declarations don't)
+export const dataSourceCount = () => new Set(REGISTRY.filter((e) => !e.platform).map((e) => e.source || '')).size
+
+/* Freshness per source, for the Dictionary group headers. */
+export const sourceMetaByName = (metaSources, name) =>
+  (metaSources ?? []).find((s) => s.name === name) ?? null
 
 const buildFallback = () => {
   REGISTRY = [...FALLBACK_REGISTRY, ...RESERVED_ENTITIES]
@@ -138,9 +203,13 @@ export const segmentEntities = () =>
    FI-named entities stay ORGANIZED without renaming them. Entity names
    and fields are always the FI's; categories are ours, used only for
    grouping and defaults. */
-export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'behavior', 'member', 'UNKNOWN']
+export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'behavior', 'member', 'other', 'UNKNOWN']
 export const categoryLabel = (c) =>
-  c === 'UNKNOWN' || !c ? 'Uncategorized' : c === 'member' ? 'Member profile' : c[0].toUpperCase() + c.slice(1) + 's'
+  c === 'UNKNOWN' || !c ? 'Uncategorized'
+    : c === 'member' ? 'Member profile'
+    : c === 'other' ? 'Other'
+    : c === 'eligibility' ? 'Eligibility'
+    : c[0].toUpperCase() + c.slice(1) + 's'
 
 /* Builder scopes: the top level marketers pick from. Categories come
    from TWO places the model supports — the entity's own category, and
@@ -162,6 +231,10 @@ export const segmentScopes = () => {
     for (const c of realCats) out.push({ entity: e.name, codeCategory: c, label: categoryLabel(c) })
     if (cats.includes(null)) out.push({ entity: e.name, codeCategory: 'UNKNOWN', label: 'Uncategorized' })
   }
+  // defensive: when two entities produce the same scope label, qualify
+  // with the entity name so picker chips stay distinguishable
+  const byLabel = out.reduce((m, s) => ((m[s.label] = (m[s.label] ?? 0) + 1), m), {})
+  for (const s of out) if (byLabel[s.label] > 1 && s.label !== s.entity) s.label = `${s.label} · ${s.entity}`
   return out
 }
 
@@ -1015,8 +1088,8 @@ export function symitarSource(meta = null) {
     identity: 'Account number — stored as a salted hash',
     fields: 9,
     status: 'healthy',
-    // platform entities are not fed by this source — claiming so would lie
-    feeds: REGISTRY.filter((e) => !e.platform).map((e) => e.name).join(' · ') || 'Pending first ingest',
+    // only the entities THIS source declared — never another source's
+    feeds: REGISTRY.filter((e) => e.source === 'Symitar core extract').map((e) => e.name).join(' · ') || 'Pending first ingest',
     note: `${Math.round((100 * s.duePast) / s.loans)}% of due dates are in the past — the extract may be stale`,
   }
 }

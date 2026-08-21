@@ -5,8 +5,8 @@ import MessageSidebar from './components/MessageSidebar'
 import AudienceLibrary from './components/AudienceLibrary'
 import AudienceBuilder from './components/AudienceBuilder'
 import DataModelView from './components/DataModelView'
-import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, setActiveSegments, hydrateDataset, setIngestMeta, symitarSource, registryDateFields, gapAudienceRule } from './data'
-import { loadFromDb, persistCodeMapping } from './dbClient'
+import { seedAudiences, seedSymitarCodes, seedSources, codeMapped, setActiveCodeMap, setActiveSegments, hydrateDataset, setIngestMeta, symitarSource, evolveStyleSources, registryDateFields, gapAudienceRule, setFieldMeta, setEntityCategory, entityDef } from './data'
+import { loadFromDb, persistCodeMapping, persistFieldMeta, persistEntityCategory } from './dbClient'
 import { ChevronLeftIcon, ChartIcon } from './icons'
 
 export default function App() {
@@ -30,6 +30,9 @@ export default function App() {
   const [builderCtx, setBuilderCtx] = useState(null) // { audienceId: string|null, returnTo: 'library'|'entry', initialRule?: object }
   const [sources, setSources] = useState(seedSources)
   const [dataSource, setDataSource] = useState(null) // { kind: 'sqlite', fileDate } once hydrated
+  const [metaSources, setMetaSources] = useState(null) // sources registry from the DB payload
+  // dictionary edits mutate the module-level REGISTRY; this counter forces re-render
+  const [, setRegistryVersion] = useState(0)
 
   // boot from the ingested SQLite kernel when available; the bundled
   // sanitized dataset stays as the fallback for clones without the files
@@ -39,7 +42,8 @@ export default function App() {
       hydrateDataset(p)
       setIngestMeta(p.meta ?? null)
       setProductCodes(p.codes)
-      setSources([symitarSource(p.meta)])
+      setSources([symitarSource(p.meta), ...evolveStyleSources(p.sources)])
+      setMetaSources(p.sources ?? null)
       setDataSource({ kind: 'sqlite', fileDate: p.fileDate })
     })
   }, [])
@@ -150,6 +154,20 @@ export default function App() {
               setBuilderCtx({ audienceId: null, returnTo: 'library', initialRule: gapAudienceRule() })
             }
             sources={sources}
+            metaSources={metaSources}
+            onEditField={(entity, field, patch) => {
+              setFieldMeta(entity, field, patch)
+              // persist the field's full post-edit state — the API writes
+              // both columns, so a partial patch must not null the other
+              const f = entityDef(entity)?.fields.find((x) => x.name === field)
+              if (dataSource?.kind === 'sqlite' && f) persistFieldMeta({ entity, field, label: f.label, role: f.role })
+              setRegistryVersion((v) => v + 1)
+            }}
+            onEditEntityCategory={(entity, category) => {
+              setEntityCategory(entity, category)
+              if (dataSource?.kind === 'sqlite') persistEntityCategory({ entity, category })
+              setRegistryVersion((v) => v + 1)
+            }}
           />
         )}
       </div>

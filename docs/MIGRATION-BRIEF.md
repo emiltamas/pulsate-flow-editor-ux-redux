@@ -64,7 +64,7 @@ Every condition source in today's builder, mapped:
 
 **Tally: 8 become real entities · 7 are campaign artifacts to archive (their data
 re-homed) · 5 are platform machinery.** The condition menu shrinks from 20 flat items to a
-categorized catalog that stops growing per campaign.
+categorized data dictionary that stops growing per campaign.
 
 ```mermaid
 flowchart LR
@@ -121,7 +121,7 @@ during cutover, diffing membership before flipping.
 | Phase | What ships | What it unlocks | Lift |
 |---|---|---|---|
 | **P1 — Typed operators** | `FIELD_DEF.type` on existing attributes; operator menus keyed by type | Closes the customer gap analysis (calendar dates, between, is-set); kills age-in-minutes-ago; **no data migration** | Small |
-| **P2 — Kernel underneath** | Bags → single-record entities; labels + categories; catalog UI; segment auto-translation | Menu becomes a curated catalog; names fixed; campaign artifacts archived; live reach becomes feasible (typed projections) | Medium |
+| **P2 — Kernel underneath** | Bags → single-record entities; labels + categories; dictionary UI; segment auto-translation | Menu becomes a curated dictionary; names fixed; campaign artifacts archived; live reach becomes feasible (typed projections) | Medium |
 | **P3 — Multi-instance** | Real Loans/Cards/Offers records; same-record conditions; per-record enrollment + tokens; `RECORD_MEMBER` roles; count quantifiers | "The same loan is past due AND > $500"; one reminder per qualifying loan; `{{loans.due_date}}` per record; joint-holder targeting & primary-only sends | Large — the differentiator |
 | **P4 — Unification** | Events as a reserved entity in the same builder; household (derived from shared records); role-based cross-entity scopes | One mental model for products, offers, eligibility AND behavior; household suppression/KPIs | Medium |
 

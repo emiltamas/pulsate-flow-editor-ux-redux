@@ -21,3 +21,21 @@ export function persistCodeMapping({ code, label, category }) {
     body: JSON.stringify({ code, label, category }),
   }).catch(() => {})
 }
+
+/* Dictionary edits — same doctrine: relabeling a field or categorizing an
+   entity is curation work and must survive reloads. */
+export function persistFieldMeta({ entity, field, label, role }) {
+  fetch('/api/field-label', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity, field, label, role }),
+  }).catch(() => {})
+}
+
+export function persistEntityCategory({ entity, category }) {
+  fetch('/api/entity-category', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity, category }),
+  }).catch(() => {})
+}

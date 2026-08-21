@@ -125,11 +125,11 @@ export async function bootstrapPayload() {
        The client UI is entity-agnostic: it renders whatever this says. */
     const fieldRows = db.prepare('SELECT id, entity_def_id, name, user_label, type, semantic_role FROM field_def').all()
     const fieldById = new Map(fieldRows.map((f) => [f.id, f]))
-    const registry = db.prepare('SELECT id, name, pulsate_category, purpose FROM entity_def ORDER BY id').all().map((e) => {
+    const registry = db.prepare('SELECT id, name, pulsate_category, purpose, source FROM entity_def ORDER BY id').all().map((e) => {
       const fields = fieldRows.filter((f) => f.entity_def_id === e.id)
         .map((f) => ({ name: f.name, label: f.user_label, type: f.type, role: f.semantic_role }))
       const codeField = fields.find((f) => f.role === 'code')?.name ?? null
-      return { name: e.name, category: e.pulsate_category, purpose: e.purpose, fields, codeField }
+      return { name: e.name, category: e.pulsate_category, purpose: e.purpose, source: e.source ?? '', fields, codeField }
     })
 
     const entityById = Object.fromEntries(db.prepare('SELECT id, name FROM entity_def').all().map((r) => [r.id, r.name]))
@@ -151,7 +151,40 @@ export async function bootstrapPayload() {
     const memberRows = [...memberRecords.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
       .map(([id, records]) => ({ id, records }))
 
-    return { available: true, fileDate, stats, accounts: out, codes, registry, members: memberRows, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
+    let sources = []
+    try { sources = JSON.parse(meta.sources ?? '[]') } catch { sources = [] }
+    if (!sources.length) {
+      // legacy DBs: synthesize the Symitar entry from the old meta keys
+      sources = [{ id: 'src-symitar', name: 'Symitar core extract', type: 'core', fileDate, ingestedAt: meta.last_ingested_at, files: [meta.loan_file, meta.name_file].filter(Boolean), entities: ['Loans', 'Member Profile'], memberCount: out.length, identity: 'Account number — stored as a salted hash' }]
+    }
+
+    return { available: true, fileDate, stats, accounts: out, codes, registry, members: memberRows, sources, meta: { lastIngestedAt: meta.last_ingested_at, loanFile: meta.loan_file, nameFile: meta.name_file } }
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveFieldMeta({ entity, field, label, role }) {
+  const db = await openDb()
+  if (!db) return false
+  try {
+    const r = db.prepare(`
+      UPDATE field_def SET user_label = ?, semantic_role = ?
+      WHERE name = ? AND entity_def_id = (SELECT id FROM entity_def WHERE name = ?)
+    `).run((label ?? '').trim() || String(field), role || null, String(field), String(entity))
+    return r.changes > 0
+  } finally {
+    db.close()
+  }
+}
+
+export async function saveEntityCategory({ entity, category }) {
+  const db = await openDb()
+  if (!db) return false
+  try {
+    const r = db.prepare('UPDATE entity_def SET pulsate_category = ? WHERE name = ?')
+      .run(category || 'UNKNOWN', String(entity))
+    return r.changes > 0
   } finally {
     db.close()
   }
@@ -188,18 +221,21 @@ export function pulsateDbApi() {
           json(res, 500, { available: false, error: String(e.message ?? e) })
         }
       })
-      server.middlewares.use('/api/code-map', async (req, res) => {
+      const postHandler = (fn) => async (req, res) => {
         if (req.method !== 'POST') return json(res, 405, { ok: false })
         let body = ''
         req.on('data', (c) => { body += c })
         req.on('end', async () => {
           try {
-            json(res, 200, { ok: await saveCodeMapping(JSON.parse(body)) })
+            json(res, 200, { ok: await fn(JSON.parse(body)) })
           } catch (e) {
             json(res, 400, { ok: false, error: String(e.message ?? e) })
           }
         })
-      })
+      }
+      server.middlewares.use('/api/code-map', postHandler(saveCodeMapping))
+      server.middlewares.use('/api/field-label', postHandler(saveFieldMeta))
+      server.middlewares.use('/api/entity-category', postHandler(saveEntityCategory))
     },
   }
 }

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS entity_def (
   name TEXT NOT NULL,              -- the FI's own words: "Loans", "Offers"
   pulsate_category TEXT NOT NULL,  -- loan | deposit | offer | ... | UNKNOWN
   purpose TEXT NOT NULL,           -- segment | campaign | both
+  source TEXT NOT NULL DEFAULT '', -- which connected source declared this entity
   UNIQUE (fi_id, name)
 );
 

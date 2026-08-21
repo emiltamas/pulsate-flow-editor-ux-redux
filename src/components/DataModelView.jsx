@@ -4,6 +4,8 @@ import {
   SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, SYMITAR_STATS, INGEST_META,
   showcaseMember,
   codeMapped, fmt,
+  entityRecordCount, fieldValueCount, humanizeFieldName, distinctValues,
+  identitySummaryFrom, sourceMetaByName,
 } from '../data'
 import { ProductIcon, UsersIcon, SendIcon, RepeatIcon, CloseIcon, ChevronDownIcon } from '../icons'
 import SymitarConnect from './SymitarConnect'
@@ -20,7 +22,7 @@ const selectStyle = {
 /* Data is a workspace, prioritized by the marketer's jobs: fix what needs
    fixing (attention queue), check health (KPIs + source list), add
    sources (header CTA), learn how it works (last tab, once). */
-export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources }) {
+export default function DataModelView({ codes, onMapCode, onCreateGapAudience, sources, metaSources, onEditField, onEditEntityCategory }) {
   const [tab, setTab] = useState('sources')
   const [expanded, setExpanded] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -48,7 +50,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
 
         <div style={{ margin: '18px 0 20px', display: 'inline-flex', background: '#e4e9f1', borderRadius: 4, padding: 4, gap: 4 }}>
           <ModeTab on={tab === 'sources'} onClick={() => setTab('sources')} label="Sources" />
-          <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Catalog" badge={unmapped || null} />
+          <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Dictionary" badge={unmapped || null} />
           <ModeTab on={tab === 'migration'} onClick={() => setTab('migration')} label="Migration preview" />
           <ModeTab on={tab === 'model'} onClick={() => setTab('model')} label="How it works" />
         </div>
@@ -56,6 +58,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
         {tab === 'sources' && (
           <SourcesTab
             sources={sources}
+            metaSources={metaSources}
             unmapped={unmapped}
             expanded={expanded}
             onToggleExpand={(id) => setExpanded(expanded === id ? null : id)}
@@ -64,7 +67,16 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
             onCreateGapAudience={onCreateGapAudience}
           />
         )}
-        {tab === 'catalog' && <CatalogTab codes={codes} onMapCode={onMapCode} unmapped={unmapped} />}
+        {tab === 'catalog' && (
+          <DictionaryTab
+            codes={codes}
+            onMapCode={onMapCode}
+            unmapped={unmapped}
+            metaSources={metaSources}
+            onEditField={onEditField}
+            onEditEntityCategory={onEditEntityCategory}
+          />
+        )}
         {tab === 'migration' && <MigrationTab />}
         {tab === 'model' && <ModelTab />}
       </div>
@@ -105,9 +117,14 @@ function ModeTab({ on, onClick, label, badge }) {
 
 /* ── Sources (workspace) ─────────────────────────────────────────── */
 
-function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience }) {
+function SourcesTab({ sources, metaSources, unmapped, expanded, onToggleExpand, onMapCodes, onViewFeed, onCreateGapAudience }) {
   const gap = dueDateGap()
+  const identity = identitySummaryFrom(metaSources)
   const attention = [
+    identity && {
+      text: `${identity.parts.length} id spaces are unlinked — members in one source can't be matched to the other yet`,
+      action: 'View identity', onClick: onViewFeed,
+    },
     unmapped > 0 && {
       text: `${unmapped} ${unmapped === 1 ? 'code needs' : 'codes need'} a label — discovered in the ${SYMITAR_STATS.fileDate} extract`,
       action: 'Map codes', onClick: onMapCodes,
@@ -188,16 +205,33 @@ function SourcesTab({ sources, unmapped, expanded, onToggleExpand, onMapCodes, o
         })}
       </div>
 
-      {/* identity resolution — one source, so nothing to join yet */}
+      {/* identity resolution — per-source id spaces, honest about linkage */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 26, flexWrap: 'wrap' }}>
         <span style={sectionLabel}>Identity</span>
-        <div>
-          <div style={{ fontSize: 11.5, fontWeight: 500, color: '#8a95a6' }}>Canonical key</div>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#2e3d66' }}>{IDENTITY_SUMMARY.canonical}</div>
-        </div>
-        <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#8a95a6' }}>
-          One source connected — identity resolution starts when a second source needs joining to it.
-        </span>
+        {identity ? (
+          <>
+            <div>
+              <div style={{ fontSize: 11.5, fontWeight: 500, color: '#8a95a6' }}>Id spaces</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#2e3d66' }}>
+                {identity.parts.join(' · ')} · <span style={{ color: '#8a6d2e' }}>{identity.linked} linked</span>
+              </div>
+            </div>
+            <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', maxWidth: 380 }}>
+              Each source keeps its own salted-hash id space. Nothing is merged until a key
+              (SSN-hash, account map) links them — guessing would corrupt segments.
+            </span>
+          </>
+        ) : (
+          <>
+            <div>
+              <div style={{ fontSize: 11.5, fontWeight: 500, color: '#8a95a6' }}>Canonical key</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: '#2e3d66' }}>{IDENTITY_SUMMARY.canonical}</div>
+            </div>
+            <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#8a95a6' }}>
+              One source connected — identity resolution starts when a second source needs joining to it.
+            </span>
+          </>
+        )}
       </div>
     </>
   )
@@ -281,11 +315,17 @@ function AddSourceModal({ onClose, onSymitar }) {
   )
 }
 
-/* ── Catalog: labels for whatever codes the data carries ──────────── */
+/* ── Data dictionary: every entity, field and code the sources declared,
+   with the curation controls — relabel, categorize, assign roles. The
+   raw names stay visible; humanizing is an explicit act. ─────────────── */
 
-const PULSATE_CATEGORIES = ['loan', 'deposit', 'certificate', 'card', 'offer', 'other']
+const PULSATE_CATEGORIES = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'behavior', 'member', 'other']
+const ROLE_OPTIONS = ['balance', 'recurring_date', 'rate']
+const rawLooking = (name) => /[_-]/.test(name) || /^[A-Z0-9_]+$/.test(name)
 
-function CatalogTab({ codes, onMapCode, unmapped }) {
+function DictionaryTab({ codes, onMapCode, unmapped, metaSources, onEditField, onEditEntityCategory }) {
+  const sourceNames = [...new Set(REGISTRY.map((e) => e.source || 'Unknown source'))]
+  const multi = sourceNames.length > 1
   return (
     <>
       {unmapped > 0 && (
@@ -295,105 +335,227 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         </div>
       )}
 
-      <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
-          <thead>
-            <tr>
-              {['Code', 'Source field', 'Records', 'Label — what marketers see', 'Category', 'Status'].map((h) => (
-                <th key={h} style={{ ...sectionLabel, textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #edf1f6', background: '#fafbfd' }}>{h}</th>
+      {sourceNames.map((src) => {
+        const meta = sourceMetaByName(metaSources, src)
+        const ents = REGISTRY.filter((e) => (e.source || 'Unknown source') === src)
+        return (
+          <div key={src} style={{ marginBottom: 18 }}>
+            {multi && (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '4px 0 8px' }}>
+                <span style={{ fontSize: 14.5, fontWeight: 600, color: '#2e3d66' }}>{src}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>
+                  {meta
+                    ? `as of ${meta.fileDate}${meta.ingestedAt ? ` · ingested ${new Date(meta.ingestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}`
+                    : src === 'Pulsate SDK' ? 'declared by the platform' : ''}
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {ents.map((e) => (
+                <EntityCard
+                  key={e.name}
+                  entity={e}
+                  codes={e.codeField === 'Loan Type' ? codes : null}
+                  onMapCode={onMapCode}
+                  onEditField={onEditField}
+                  onEditEntityCategory={onEditEntityCategory}
+                />
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {codes.map((c) => {
-              const mapped = codeMapped(c)
-              return (
-                <tr key={c.code} style={{ background: mapped ? '#fff' : '#fffdf5' }}>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
-                    <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 500, color: '#2e3d66', background: '#e9ecf7', padding: '3px 8px', borderRadius: 4 }}>{c.code}</span>
-                  </td>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa', fontFamily: mono, fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{c.rawCols}</td>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa', fontWeight: 500, color: '#4a6088' }}>{fmt(c.holders)}</td>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
-                    <input
-                      value={c.label}
-                      placeholder="e.g. HSA Savings"
-                      onChange={(e) => onMapCode(c.code, { label: e.target.value })}
-                      style={{ ...selectStyle, width: 190 }}
-                    />
-                  </td>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
-                    <select
-                      value={c.category ?? ''}
-                      onChange={(e) => onMapCode(c.code, { category: e.target.value || null })}
-                      style={{ ...selectStyle, width: 130 }}
-                    >
-                      <option value="">Optional…</option>
-                      {PULSATE_CATEGORIES.map((k) => (
-                        <option key={k} value={k}>{k[0].toUpperCase() + k.slice(1)}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 4, color: mapped ? '#1f6f4a' : '#8a6d2e', background: mapped ? '#e2f4ea' : '#fbf1dc', whiteSpace: 'nowrap' }}>
-                      {mapped ? 'Mapped' : 'Needs mapping'}
-                    </span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+            </div>
+          </div>
+        )
+      })}
 
-      {/* more entities arrive as sources land — explicit empty state */}
+      {/* more vocabularies arrive as sources send code fields */}
       <div style={{ margin: '18px 0 8px', fontSize: 12, fontWeight: 600, color: '#8a95a6', textTransform: 'uppercase', letterSpacing: '.5px' }}>
         Other vocabularies
       </div>
       <div style={{ background: '#fff', border: '1px dashed #d8e0ea', borderRadius: 4, padding: '22px 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 14.5, fontWeight: 600, color: '#1b3a63' }}>One ingested code field so far — Loan Type</div>
         <div style={{ margin: '5px auto 0', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', maxWidth: 560, lineHeight: 1.5 }}>
-          Event Name (App Events) is declared by the platform but has no codes yet. Every new entity a source sends
-          (offers, eligibility, anything relational) brings its own codes here for labeling — and becomes targetable
-          in segments and usable in personalization the moment it lands.
-        </div>
-      </div>
-
-      {/* the live entity registry — whatever the FI's data declared */}
-      <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, padding: 16 }}>
-        <span style={sectionLabel}>Your entity registry — from the ingested data</span>
-        <p style={{ margin: '5px 0 12px', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.5, maxWidth: 720 }}>
-          These are the entities your sources actually declared — names, fields and types come from ingestion, not from a
-          built-in list. Segments, date anchors and personalization tokens bind to exactly what you see here.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {REGISTRY.map((e) => (
-            <div key={e.name} style={{ border: '1px solid #e7edf5', background: '#f7fafd', borderRadius: 4, padding: '11px 13px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 600, color: '#1b3a63' }}>
-                <ProductIcon size={13} stroke="#5a7db0" />
-                {e.name}
-                <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }}>
-                  {e.purpose}
-                </span>
-              </div>
-              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {e.fields.map((f) => (
-                  <div key={f.name} style={{ fontSize: 12.5, fontWeight: 600, color: '#5a6b85' }}>
-                    {f.label} <span style={{ color: '#b1bccb' }}>· {f.type}{f.role ? ` · ${f.role}` : ''}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div style={{ border: '1px dashed #d8e0ea', background: '#fafbfd', borderRadius: 4, padding: '11px 13px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#5a6b85' }}>Next entity</div>
-            <div style={{ marginTop: 3, fontSize: 12, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }}>
-              Ingest any relational feed and it appears here — rows, never schema.
-            </div>
-          </div>
+          AUTO_LOAN carries attributes only — no code field to label. Event Name (App Events) is declared by the
+          platform but has no codes yet. Every code field a source sends brings its own vocabulary here for labeling.
         </div>
       </div>
     </>
+  )
+}
+
+function EntityCard({ entity: e, codes, onMapCode, onEditField, onEditEntityCategory }) {
+  const recs = entityRecordCount(e.name)
+  const humanizable = e.fields.filter(
+    (f) => f.role !== 'code' && f.label === f.name && humanizeFieldName(f.name) !== f.name
+  )
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, overflow: 'hidden' }}>
+      {/* entity header: raw name, category (editable), purpose, counts */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderBottom: '1px solid #edf1f6', background: '#fafbfd' }}>
+        <ProductIcon size={14} stroke="#5a7db0" />
+        <span style={{ fontSize: 14.5, fontWeight: 600, color: '#1b3a63', fontFamily: rawLooking(e.name) ? mono : 'inherit' }}>{e.name}</span>
+        {e.platform ? (
+          <span style={{ fontSize: 10.5, fontWeight: 600, color: '#7a4fc0', background: '#efe8fb', padding: '2px 7px', borderRadius: 4 }}>platform</span>
+        ) : (
+          <select
+            value={PULSATE_CATEGORIES.includes(e.category) ? e.category : ''}
+            onChange={(ev) => onEditEntityCategory?.(e.name, ev.target.value || 'UNKNOWN')}
+            style={{ ...selectStyle, padding: '4px 7px', fontSize: 12.5, width: 150 }}
+            title="Pulsate category — groups this entity in the segment picker"
+          >
+            <option value="">Uncategorized</option>
+            {PULSATE_CATEGORIES.map((k) => (
+              <option key={k} value={k}>{categoryLabel(k)}</option>
+            ))}
+          </select>
+        )}
+        <span style={{ fontSize: 10.5, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 4 }}>{e.purpose}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: recs ? '#4a6088' : '#8a95a6' }}>
+          {recs ? `${fmt(recs)} records` : 'no records yet'}
+        </span>
+        {humanizable.length > 0 && (
+          <button
+            onClick={() => humanizable.forEach((f) => onEditField?.(e.name, f.name, { label: humanizeFieldName(f.name) }))}
+            style={{ flex: 'none', border: '1px solid #cfe1f6', background: '#eef5fc', color: '#1f4a86', borderRadius: 4, padding: '5px 11px', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            title="Apply the suggested labels to every field still showing its raw name"
+          >
+            Humanize all ({humanizable.length})
+          </button>
+        )}
+      </div>
+
+      {/* field rows */}
+      <div>
+        {e.fields.map((f, i) => (
+          <FieldRow key={f.name} entity={e} field={f} first={i === 0} onEditField={onEditField} />
+        ))}
+      </div>
+
+      {/* the code vocabulary nested where it belongs */}
+      {codes && <CodeTable codes={codes} onMapCode={onMapCode} />}
+    </div>
+  )
+}
+
+function FieldRow({ entity: e, field: f, first, onEditField }) {
+  const noData = !e.platform && fieldValueCount(e.name, f.name) === 0
+  const vals = f.type === 'string' && f.role !== 'code' && !e.platform ? distinctValues(e.name, f.name) : []
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px', borderTop: first ? 'none' : '1px solid #eef0fa' }}>
+      <span style={{ width: 190, flex: 'none', fontFamily: mono, fontSize: 12, fontWeight: 500, color: '#8a95a6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`Raw field name from the source: ${f.name}`}>
+        {f.name}
+      </span>
+      {e.platform ? (
+        <span style={{ width: 200, flex: 'none', fontSize: 13, fontWeight: 600, color: '#2e3d66' }}>{f.label}</span>
+      ) : (
+        <input
+          value={f.label === f.name ? '' : f.label}
+          placeholder={humanizeFieldName(f.name)}
+          onChange={(ev) => onEditField?.(e.name, f.name, { label: ev.target.value })}
+          style={{ ...selectStyle, width: 200, flex: 'none', padding: '5px 8px', fontSize: 13 }}
+          title="Label marketers see in the builder — blank keeps the raw name"
+        />
+      )}
+      <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#5a7db0', background: '#e6effb', padding: '2px 8px', borderRadius: 4 }}>{f.type}</span>
+      {f.role === 'code' ? (
+        <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#7a4fc0', background: '#efe8fb', padding: '2px 8px', borderRadius: 4 }} title="The code role anchors this entity's vocabulary and can't be reassigned here">
+          code
+        </span>
+      ) : e.platform ? (
+        f.role && <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#8a95a6', background: '#e9ecf7', padding: '2px 8px', borderRadius: 4 }}>{f.role}</span>
+      ) : (
+        <select
+          value={f.role ?? ''}
+          onChange={(ev) => onEditField?.(e.name, f.name, { role: ev.target.value || null })}
+          style={{ ...selectStyle, padding: '4px 7px', fontSize: 12, width: 130, flex: 'none' }}
+          title="Semantic role — lets playbooks and templates find this field by meaning"
+        >
+          <option value="">no role</option>
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+      )}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, color: '#8a95a6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {vals.length > 0 && (
+          <>observed: {vals.slice(0, 8).join(', ')}{vals.length > 8 ? ` +${vals.length - 8} more` : ''}</>
+        )}
+      </span>
+      {noData && (
+        <span style={{ flex: 'none', fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '2px 8px', borderRadius: 4 }} title="Declared by the source but no record carries a value yet">
+          no data
+        </span>
+      )}
+    </div>
+  )
+}
+
+function CodeTable({ codes, onMapCode }) {
+  const unused = codes.filter((c) => c.holders === 0).length
+  return (
+    <div style={{ borderTop: '1px solid #edf1f6' }}>
+      <div style={{ padding: '9px 16px', background: '#fafbfd', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={sectionLabel}>Loan Type — code vocabulary</span>
+        {unused > 0 && (
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '2px 8px', borderRadius: 4 }}>
+            {unused} unused
+          </span>
+        )}
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+        <thead>
+          <tr>
+            {['Code', 'Source field', 'Records', 'Label — what marketers see', 'Category', 'Status'].map((h) => (
+              <th key={h} style={{ ...sectionLabel, textAlign: 'left', padding: '8px 14px', borderBottom: '1px solid #edf1f6', background: '#fafbfd' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {codes.map((c) => {
+            const mapped = codeMapped(c)
+            return (
+              <tr key={c.code} style={{ background: mapped ? '#fff' : '#fffdf5' }}>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
+                  <span style={{ fontFamily: mono, fontSize: 12.5, fontWeight: 500, color: '#2e3d66', background: '#e9ecf7', padding: '3px 8px', borderRadius: 4 }}>{c.code}</span>
+                </td>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa', fontFamily: mono, fontSize: 12, fontWeight: 600, color: '#8a95a6' }}>{c.rawCols}</td>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa', fontWeight: 500, color: '#4a6088' }}>
+                  {fmt(c.holders)}
+                  {c.holders === 0 && (
+                    <span style={{ marginLeft: 7, fontSize: 11, fontWeight: 600, color: '#8a6d2e', background: '#fbf1dc', padding: '2px 7px', borderRadius: 4 }} title="No record in the current extract carries this code">
+                      unused
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
+                  <input
+                    value={c.label}
+                    placeholder="e.g. HSA Savings"
+                    onChange={(e) => onMapCode(c.code, { label: e.target.value })}
+                    style={{ ...selectStyle, width: 190 }}
+                  />
+                </td>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
+                  <select
+                    value={c.category ?? ''}
+                    onChange={(e) => onMapCode(c.code, { category: e.target.value || null })}
+                    style={{ ...selectStyle, width: 130 }}
+                  >
+                    <option value="">Optional…</option>
+                    {PULSATE_CATEGORIES.map((k) => (
+                      <option key={k} value={k}>{k[0].toUpperCase() + k.slice(1)}</option>
+                    ))}
+                  </select>
+                </td>
+                <td style={{ padding: '9px 14px', borderBottom: '1px solid #eef0fa' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 4, color: mapped ? '#1f6f4a' : '#8a6d2e', background: mapped ? '#e2f4ea' : '#fbf1dc', whiteSpace: 'nowrap' }}>
+                    {mapped ? 'Mapped' : 'Needs mapping'}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -562,7 +724,7 @@ const MAPPINGS = [
   ['Loan Balance', 'Loans record', 'Loan Balance · currency'],
   ['Due Date', 'Loans record', 'Due Date · date'],
   ['--/--/---- (sentinel)', 'decoded on ingest', 'not set'],
-  ['0010 (type code)', 'label translation', 'your catalog label'],
+  ['0010 (type code)', 'label translation', 'your dictionary label'],
 ]
 
 function RelationalView() {
@@ -607,7 +769,7 @@ function RelationalView() {
         <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 4, padding: 16 }}>
           <span style={sectionLabel}>Import mapping — raw columns → entity records</span>
           <p style={{ margin: '5px 0 10px', fontSize: 13.5, fontWeight: 600, color: '#8a95a6', lineHeight: 1.45 }}>
-            Each FI’s columns bind once into typed entity fields, keeping the FI’s own names; codes get labels in the catalog.
+            Each FI’s columns bind once into typed entity fields, keeping the FI’s own names; codes get labels in the dictionary.
           </p>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
             <thead>

@@ -70,8 +70,9 @@ let salt = meta.get('salt')
 if (!salt) { salt = crypto.randomBytes(16).toString('hex'); meta.set('salt', salt) }
 const h = (s) => crypto.createHash('sha256').update(salt + '·' + s).digest('hex').slice(0, 16)
 
+const SOURCE_NAME = 'Symitar core extract'
 const upsertEntity = (name, category, purpose) => {
-  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose) VALUES (?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING').run(FI_ID, name, category, purpose)
+  db.prepare('INSERT INTO entity_def (fi_id, name, pulsate_category, purpose, source) VALUES (?, ?, ?, ?, ?) ON CONFLICT(fi_id, name) DO NOTHING').run(FI_ID, name, category, purpose, SOURCE_NAME)
   return db.prepare('SELECT id FROM entity_def WHERE fi_id = ? AND name = ?').get(FI_ID, name).id
 }
 const upsertField = (entityId, name, label, type, role = null) => {
@@ -271,6 +272,21 @@ meta.set('name_file', path.basename(namePath))
 meta.set('loan_cols', loan.header.length)
 meta.set('name_cols', name.header.length)
 meta.set('last_ingested_at', new Date().toISOString())
+// sources registry — one entry per connected source, upserted by id
+{
+  const list = JSON.parse(meta.get('sources') ?? '[]')
+  const entry = {
+    id: 'src-symitar', name: SOURCE_NAME, type: 'core',
+    fileDate, ingestedAt: new Date().toISOString(),
+    files: [path.basename(loanPath), path.basename(namePath)],
+    entities: ['Loans', 'Member Profile'],
+    memberCount: sortedAccts.length,
+    identity: 'Account number — stored as a salted hash',
+  }
+  const i = list.findIndex((s) => s.id === entry.id)
+  if (i < 0) list.push(entry); else list[i] = entry
+  meta.set('sources', JSON.stringify(list))
+}
 db.exec('COMMIT')
 
 const count = (sql) => db.prepare(sql).get().n
