@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  feedFiles, dueDateGap, REGISTRY,
+  feedFiles, dueDateGap, REGISTRY, LEGACY_MIGRATION, categoryLabel,
   SOURCE_TYPE_META, SOURCE_GALLERY, IDENTITY_SUMMARY, SYMITAR_STATS, INGEST_META,
   showcaseMember,
   codeMapped, fmt,
@@ -49,6 +49,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
         <div style={{ margin: '18px 0 20px', display: 'inline-flex', background: '#e4e9f1', borderRadius: 11, padding: 4, gap: 4 }}>
           <ModeTab on={tab === 'sources'} onClick={() => setTab('sources')} label="Sources" />
           <ModeTab on={tab === 'catalog'} onClick={() => setTab('catalog')} label="Catalog" badge={unmapped || null} />
+          <ModeTab on={tab === 'migration'} onClick={() => setTab('migration')} label="Migration preview" />
           <ModeTab on={tab === 'model'} onClick={() => setTab('model')} label="How it works" />
         </div>
 
@@ -64,6 +65,7 @@ export default function DataModelView({ codes, onMapCode, onCreateGapAudience, s
           />
         )}
         {tab === 'catalog' && <CatalogTab codes={codes} onMapCode={onMapCode} unmapped={unmapped} />}
+        {tab === 'migration' && <MigrationTab />}
         {tab === 'model' && <ModelTab />}
       </div>
 
@@ -349,10 +351,11 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
         Other vocabularies
       </div>
       <div style={{ background: '#fff', border: '1px dashed #d8e0ea', borderRadius: 14, padding: '22px 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1b3a63' }}>One code field so far — Loan Type</div>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: '#1b3a63' }}>One ingested code field so far — Loan Type</div>
         <div style={{ margin: '5px auto 0', fontSize: 12.5, fontWeight: 600, color: '#8a95a6', maxWidth: 560, lineHeight: 1.5 }}>
-          Every new entity a source sends (offers, eligibility, anything relational) brings its own codes here for
-          labeling — and becomes targetable in audiences and usable in personalization the moment it lands.
+          Event Name (App Events) is declared by the platform but has no codes yet. Every new entity a source sends
+          (offers, eligibility, anything relational) brings its own codes here for labeling — and becomes targetable
+          in audiences and usable in personalization the moment it lands.
         </div>
       </div>
 
@@ -389,6 +392,82 @@ function CatalogTab({ codes, onMapCode, unmapped }) {
             </div>
           </div>
         </div>
+      </div>
+    </>
+  )
+}
+
+/* ── Migration preview: production's condition sources → the kernel ──
+   Renders LEGACY_MIGRATION — a mapping plan observed from the production
+   segment builder, not ingested data. */
+
+const DISPOSITION_META = {
+  migrate: { label: 'Becomes entity', fg: '#1f6f4a', bg: '#e2f4ea' },
+  'campaign-artifact': { label: 'Campaign artifact — archive', fg: '#8a6d2e', bg: '#fbf1dc' },
+  platform: { label: 'Platform', fg: '#7a4fc0', bg: '#efe8fb' },
+}
+
+function MigrationTab() {
+  const tally = LEGACY_MIGRATION.reduce((m, r) => ((m[r.disposition] = (m[r.disposition] ?? 0) + 1), m), {})
+  return (
+    <>
+      <div style={{ background: '#eef5fc', border: '1px solid #cfe1f6', borderRadius: 12, padding: '13px 16px', fontSize: 13, fontWeight: 700, color: '#1f4a86', lineHeight: 1.5, marginBottom: 12 }}>
+        Mapping plan observed from the production segment builder (staging, Aug 2026). Nothing below is ingested —
+        it shows the translation every legacy condition source gets in the entity kernel: real entities absorbed,
+        campaign file-drops archived (their data gets a proper home), platform machinery left alone.
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
+        <Kpi big={String(tally.migrate ?? 0)} label="become real entities" />
+        <Kpi big={String(tally['campaign-artifact'] ?? 0)} label="campaign artifacts — archived, data re-homed" />
+        <Kpi big={String(tally.platform ?? 0)} label="platform machinery — unchanged" />
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #e2e8f1', borderRadius: 14, overflow: 'hidden' }}>
+        {LEGACY_MIGRATION.map((row, i) => {
+          const d = DISPOSITION_META[row.disposition]
+          return (
+            <div key={row.legacyName} style={{ display: 'flex', gap: 16, padding: '13px 16px', borderTop: i ? '1px solid #f4f6fa' : 'none', alignItems: 'flex-start' }}>
+              {/* before — the raw production source */}
+              <div style={{ width: 250, flex: 'none' }}>
+                <div style={{ fontFamily: mono, fontSize: 12, fontWeight: 700, color: '#a33c3c' }}>{row.legacyName}</div>
+                {row.exampleFields.map((f) => (
+                  <div key={f.raw} style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: '#c48a8a', marginTop: 3, overflowWrap: 'anywhere' }}>{f.raw}</div>
+                ))}
+              </div>
+              <span style={{ color: '#c3ccd9', fontWeight: 800, flex: 'none', marginTop: 1 }}>→</span>
+              {/* after — the kernel mapping */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                  {row.cleanName && <span style={{ fontSize: 13, fontWeight: 800, color: '#17335f' }}>{row.cleanName}</span>}
+                  <span style={{ fontSize: 9.5, fontWeight: 800, color: '#5a7db0', background: '#e6effb', padding: '2px 7px', borderRadius: 20 }}>
+                    {categoryLabel(row.category)}
+                  </span>
+                  {row.purpose && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, color: '#8a95a6', background: '#eef1f6', padding: '2px 7px', borderRadius: 20 }}>{row.purpose}</span>
+                  )}
+                </div>
+                {row.exampleFields.length > 0 && (
+                  <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {row.exampleFields.map((f) => (
+                      <span key={f.raw} style={{ fontSize: 10.5, fontWeight: 700, color: '#4a6088', background: '#f4f7fb', border: '1px solid #e7edf5', padding: '2px 8px', borderRadius: 6 }}>
+                        {f.label} · {f.type}{f.role ? ` · ${f.role}` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {(row.note || row.exampleFields.some((f) => f.note)) && (
+                  <div style={{ marginTop: 5, fontSize: 11, fontWeight: 600, color: '#8a6d2e', lineHeight: 1.45 }}>
+                    {[row.note, ...row.exampleFields.filter((f) => f.note).map((f) => `${f.label}: ${f.note}`)].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </div>
+              <span style={{ flex: 'none', fontSize: 10, fontWeight: 800, color: d.fg, background: d.bg, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                {d.label}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </>
   )

@@ -98,6 +98,13 @@ function MatchedProducts({ rule, matches }) {
       </div>
     )
   }
+  if (matches.length === 0) {
+    return (
+      <div style={{ margin: '7px 0 0 48px', fontSize: 11.5, fontWeight: 700, color: '#8a95a6' }}>
+        Qualified without a matching record in the primary block — enrolls once, member-level
+      </div>
+    )
+  }
   return (
     <div style={{ margin: '7px 0 0 48px', display: 'flex', flexDirection: 'column', gap: 4 }}>
       {matches.map((p, i) => (

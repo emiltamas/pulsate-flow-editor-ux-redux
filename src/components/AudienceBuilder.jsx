@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  QUANTIFIERS, newBlock, blocksOf, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
-  operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock,
+  QUANTIFIERS, newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
+  operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
   parseAudiencePhrase, audienceReach,
   fmt, datasetMatchedMembers, SYMITAR_STATS,
   fieldsFor,
@@ -43,7 +43,8 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   }
   const normalizeSegment = (x) => {
     const bs = blocksOf(x).map(normalizeBlock)
-    return { blocks: bs.length ? bs : [defaultBlock()] }
+    const blocks = bs.length ? bs : [defaultBlock()]
+    return { blocks, joins: joinsOf({ blocks, joins: x?.joins }) }
   }
 
   const [segment, setSegment] = useState(() => normalizeSegment(audience?.rule ?? initialRule))
@@ -53,6 +54,18 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
   const entities = segmentEntities()
   const active = segmentActive(segment)
   const primary = primaryBlock(segment)
+  // group bookkeeping for the OR visuals: maximal OR-runs share a border
+  const joins = joinsOf(segment)
+  const groupIdx = []
+  {
+    let g = 0
+    segment.blocks.forEach((_, i) => {
+      if (i > 0 && joins[i - 1] === 'AND') g++
+      groupIdx.push(g)
+    })
+  }
+  const groupSize = groupIdx.reduce((m, g) => ((m[g] = (m[g] ?? 0) + 1), m), {})
+  const hasOr = joins.includes('OR')
   const reach = audienceReach({ rule: active ? segment : null, users: null })
   const canSave = active
   const suggestedName = active ? (segmentSentence(segment) || '').slice(0, 34) : 'My audience'
@@ -62,8 +75,9 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     if (parsed) { setSegment(normalizeSegment(parsed)); setAiStatus('ok') } else setAiStatus('fail')
   }
 
+  // every setter must spread ...s — joins live alongside blocks
   const patchBlock = (i, fn) =>
-    setSegment((s) => ({ blocks: s.blocks.map((b, j) => (j === i ? fn(b) : b)) }))
+    setSegment((s) => ({ ...s, blocks: s.blocks.map((b, j) => (j === i ? fn(b) : b)) }))
 
   const setScope = (i, entity, codeCategory) =>
     patchBlock(i, (b) =>
@@ -86,15 +100,21 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
     patchBlock(i, (b) => ({ ...b, conditions: b.conditions.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
   const removeCondition = (i, id) =>
     patchBlock(i, (b) => ({ ...b, conditions: b.conditions.filter((c) => c.id !== id) }))
-  const addBlock = () => setSegment((s) => ({ blocks: [...s.blocks, defaultBlock()] }))
-  const removeBlock = (i) => setSegment((s) => ({ blocks: s.blocks.filter((_, j) => j !== i) }))
+  const addBlock = () => setSegment((s) => ({ blocks: [...s.blocks, defaultBlock()], joins: [...joinsOf(s), 'AND'] }))
+  const removeBlock = (i) =>
+    setSegment((s) => ({
+      blocks: s.blocks.filter((_, j) => j !== i),
+      joins: joinsOf(s).filter((_, j) => j !== Math.max(0, i - 1)),
+    }))
+  const toggleJoin = (i) =>
+    setSegment((s) => ({ ...s, joins: joinsOf(s).map((j, k) => (k === i - 1 ? (j === 'OR' ? 'AND' : 'OR') : j)) }))
 
   const save = () =>
     onSave({
       id: audience?.id ?? `aud-custom-${Date.now()}`,
       name: name.trim() || suggestedName,
       kind: 'Rule',
-      rule: active ? { blocks: segment.blocks.filter(ruleActive) } : null,
+      rule: active ? compactSegment(segment) : null,
       users: reach.members,
       usedIn: audience?.usedIn ?? 0,
     })
@@ -182,16 +202,34 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               ) : (
                 <>
                   {segment.blocks.map((block, i) => (
-                    <div key={i}>
+                    <div
+                      key={i}
+                      style={groupSize[groupIdx[i]] > 1 ? { borderLeft: '3px solid #b79ae0', paddingLeft: 12 } : undefined}
+                    >
                       {i > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0' }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: '#5a7db0', background: '#e6effb', padding: '3px 12px', borderRadius: 20, letterSpacing: '.5px' }}>AND</span>
-                          <div style={{ flex: 1, height: 1, background: '#e2e8f1' }} />
+                          <button
+                            onClick={() => toggleJoin(i)}
+                            title={joins[i - 1] === 'OR' ? 'Switch to AND' : 'Switch to OR'}
+                            style={{
+                              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                              fontSize: 11, fontWeight: 800, padding: '3px 12px', borderRadius: 20, letterSpacing: '.5px',
+                              ...(joins[i - 1] === 'OR'
+                                ? { color: '#7a4fc0', background: '#efe8fb' }
+                                : { color: '#5a7db0', background: '#e6effb' }),
+                            }}
+                          >
+                            {joins[i - 1]}
+                          </button>
+                          {joins[i - 1] === 'OR'
+                            ? <span style={{ fontSize: 11, fontWeight: 600, color: '#8a95a6' }}>either block qualifies</span>
+                            : <div style={{ flex: 1, height: 1, background: '#e2e8f1' }} />}
                         </div>
                       )}
                       <BlockCard
                         block={block}
                         isPrimary={block === primary}
+                        inOrGroup={groupSize[groupIdx[i]] > 1}
                         showRemove={i > 0}
                         onScope={(e, c) => setScope(i, e, c)}
                         onQuantifier={(q) => setQuantifier(i, q)}
@@ -225,9 +263,11 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
                       </div>
 
                       <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 11, padding: '10px 14px', fontSize: 12.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.45, maxWidth: 520 }}>
-                        {primary
-                          ? `Each matching ${primary.entity} record in the primary block enrolls separately — the other blocks only decide who is eligible.`
-                          : 'Every block is a filter — members matching all of them enroll once, with no per-record enrollment.'}
+                        {primary && hasOr
+                          ? `Each matching ${primary.entity} record in the primary block enrolls separately. Members who qualify through an OR alternative without a matching ${primary.entity} record enroll once, member-level.`
+                          : primary
+                            ? `Each matching ${primary.entity} record in the primary block enrolls separately — the other blocks only decide who is eligible.`
+                            : 'Every block is a filter — members matching all of them enroll once, with no per-record enrollment.'}
                       </div>
                     </>
                   )}
@@ -250,6 +290,7 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
               <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-.5px' }}>{fmt(reach.members)}</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, opacity: 0.85 }}>
                 members{reach.products !== null && ` · ${fmt(reach.products)} matching ${segmentPlural(segment)}`}
+                {(reach.memberLevel ?? 0) > 0 && ` · ${fmt(reach.memberLevel)} via OR alternative`}
               </span>
             </div>
             <div style={{ marginTop: 12, height: 6, borderRadius: 6, background: 'rgba(255,255,255,.25)', overflow: 'hidden' }}>
@@ -279,9 +320,10 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
 }
 
 /* One block: scope + quantifier + type chips + same-record conditions. */
-function BlockCard({ block, isPrimary, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
+function BlockCard({ block, isPrimary, inOrGroup, showRemove, onScope, onQuantifier, onToggleType, onClearTypes, onAddCondition, onPatchCondition, onRemoveCondition, onRemove }) {
   const blockActive = ruleActive(block)
   const types = blockActive ? entityTypes(block.entity, block.codeCategory ?? null) : []
+  const zeroData = blockActive && entityRecordCount(block.entity) === 0
   return (
     <div style={{ marginTop: 10, border: '1px solid #e2e8f1', borderRadius: 13, padding: '13px 15px', background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
@@ -290,7 +332,8 @@ function BlockCard({ block, isPrimary, showRemove, onScope, onQuantifier, onTogg
             Primary — drives enrollment & personalization
           </span>
         )}
-        {!isPrimary && block.quantifier === 'none' && (
+        {/* inside an OR group a 'none' block is an alternative, not an exclusion */}
+        {!isPrimary && block.quantifier === 'none' && !inOrGroup && (
           <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 9px', borderRadius: 20 }}>
             Filter — excludes members
           </span>
@@ -322,6 +365,16 @@ function BlockCard({ block, isPrimary, showRemove, onScope, onQuantifier, onTogg
           )
         })}
       </div>
+
+      {/* honest zero-data state — generic, driven by the data itself */}
+      {zeroData && (
+        <div style={{ marginTop: 10, background: '#fbf1dc', borderRadius: 10, padding: '9px 12px', fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', lineHeight: 1.5, maxWidth: 520 }}>
+          No {block.entity} records in this dataset yet — “Has any” matches no one; “Has none” matches all {fmt(totalMembers())} members.
+          {entityDef(block.entity)?.note && (
+            <div style={{ marginTop: 3, fontWeight: 600 }}>{entityDef(block.entity).note}</div>
+          )}
+        </div>
+      )}
 
       {/* quantifier */}
       <div style={{ marginTop: 10, display: 'flex', background: '#eef1f6', borderRadius: 10, padding: 3, gap: 3, maxWidth: 360 }}>
@@ -425,6 +478,11 @@ function SampleMembers({ segment }) {
               {p.fact}
             </div>
           ))}
+          {primary && u.matches.length === 0 && (
+            <div style={{ margin: '5px 0 0 40px', fontSize: 11, fontWeight: 700, color: '#8a95a6' }}>
+              Qualifies via an OR alternative — enrolls once
+            </div>
+          )}
         </div>
       ))}
     </div>

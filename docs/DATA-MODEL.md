@@ -127,11 +127,16 @@ Nothing the segment builder shows is stored — it is all queries over the kerne
   same way relabeling changes display names. Constraint this relies on: **exactly one field
   per entity carries the `code` role** — the binding step designates the primary classifier;
   any second classifier is an ordinary string field.
-- A **segment** is an AND of blocks; each block is a quantifier (any / none / 2+) over one
-  scope with conditions that must match the same record. Membership = the intersection of
-  per-block member sets — the kernel answers each block independently. The first non-"none"
-  block is **primary**: its matching records drive per-record enrollment and supply
-  personalization values; "none" blocks are person-level filters.
+- A **segment** is an AND of OR-groups of blocks: `joins[i]` connects blocks i and i+1,
+  maximal OR-runs form groups, and membership = every group has at least one satisfied
+  block. Each block is a quantifier (any / none / 2+) over one scope with conditions that
+  must match the same record. The first non-"none" block is **primary**: its matching
+  records drive per-record enrollment and supply personalization values; members who
+  qualify only through an OR alternative enroll once, member-level; "none" blocks outside
+  OR groups are person-level filters.
+- **Reserved platform entities** (e.g. App Events) are `ENTITY_DEF` rows the platform
+  declares rather than a source feeding them — same machinery, records stream from the
+  SDK; no connected source ever claims to feed them.
 - Known limit, chartable evolution: blocks are entity-bound because conditions bind to one
   entity's field names. When two sources contribute entities in the same category, a unified
   category scope needs conditions expressed in **semantic roles** (each entity's balance-role

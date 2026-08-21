@@ -58,8 +58,29 @@ const FALLBACK_REGISTRY = [
   },
 ]
 
+/* Platform-declared entities every FI gets. platform: true = no
+   connected source feeds them (records stream from the SDK in
+   production); zero records here is the honest state, and the existing
+   block machinery already gives the right semantics: Has any App Events
+   = event recorded, Has none = never, Has 2+ = occurrence count,
+   Occurred At = recency. */
+export const RESERVED_ENTITIES = [
+  {
+    name: 'App Events', category: 'behavior', purpose: 'segment', codeField: 'Event Name',
+    platform: true,
+    note: 'No app events ingested in this prototype — production streams these live from the mobile SDK.',
+    fields: [
+      { name: 'Event Name', label: 'Event Name', type: 'string', role: 'code' },
+      { name: 'Occurred At', label: 'Occurred At', type: 'date', role: null },
+    ],
+  },
+]
+
+export const entityRecordCount = (entityName) =>
+  MEMBERS.reduce((s, m) => s + (m.records[entityName]?.length ?? 0), 0)
+
 const buildFallback = () => {
-  REGISTRY = FALLBACK_REGISTRY
+  REGISTRY = [...FALLBACK_REGISTRY, ...RESERVED_ENTITIES]
   MEMBERS = SYMITAR_ACCOUNTS.map((a) => ({
     id: a.id,
     records: {
@@ -87,7 +108,7 @@ export function hydrateDataset({ accounts, stats, registry, members }) {
   for (const k of Object.keys(SYMITAR_STATS)) delete SYMITAR_STATS[k]
   Object.assign(SYMITAR_STATS, stats)
   if (registry?.length && members?.length) {
-    REGISTRY = registry
+    REGISTRY = [...registry, ...RESERVED_ENTITIES]
     MEMBERS = members.map((m) => ({
       id: m.id,
       records: Object.fromEntries(
@@ -115,7 +136,7 @@ export const segmentEntities = () =>
    FI-named entities stay ORGANIZED without renaming them. Entity names
    and fields are always the FI's; categories are ours, used only for
    grouping and defaults. */
-export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'member', 'UNKNOWN']
+export const PULSATE_CATEGORY_ORDER = ['loan', 'deposit', 'certificate', 'card', 'offer', 'eligibility', 'behavior', 'member', 'UNKNOWN']
 export const categoryLabel = (c) =>
   c === 'UNKNOWN' || !c ? 'Uncategorized' : c === 'member' ? 'Member profile' : c[0].toUpperCase() + c.slice(1) + 's'
 
@@ -265,12 +286,60 @@ const fmtDateValue = (v) => {
    Factories, not constants — shared array refs would alias across
    audiences. */
 export const newBlock = () => ({ quantifier: 'any', entity: null, codeCategory: null, types: [], conditions: [] })
-export const emptySegment = () => ({ blocks: [newBlock()] })
+export const emptySegment = () => ({ blocks: [newBlock()], joins: [] })
 
 /* Legacy single-rule objects (older seeds, in-flight builder state)
    wrap to a one-block segment; every segment-level function funnels
    through this. */
 export const blocksOf = (x) => (!x ? [] : Array.isArray(x.blocks) ? x.blocks : [x])
+
+/* joins[i] connects blocks i and i+1: 'AND' or 'OR'. Maximal OR-runs
+   form groups; groups are ANDed. Missing/short/legacy joins default to
+   AND, so every pre-joins segment evaluates exactly as before. */
+export const joinsOf = (seg) => {
+  const n = blocksOf(seg).length
+  const js = Array.isArray(seg?.joins) ? seg.joins : []
+  return Array.from({ length: Math.max(0, n - 1) }, (_, i) => (js[i] === 'OR' ? 'OR' : 'AND'))
+}
+
+/* Structural grouping over ALL blocks first, then activity-filter within
+   groups, then drop empty groups — so an inactive block inside an OR run
+   can never merge two AND-separated groups. Member ∈ segment iff every
+   group has ≥1 satisfied block. */
+export const segmentGroups = (seg) => {
+  const bs = blocksOf(seg)
+  const js = joinsOf(seg)
+  const groups = []
+  bs.forEach((b, i) => {
+    if (i === 0 || js[i - 1] === 'AND') groups.push([b])
+    else groups[groups.length - 1].push(b)
+  })
+  return groups.map((g) => g.filter(ruleActive)).filter((g) => g.length)
+}
+
+/* Save-time normalization: drop inactive blocks while preserving GROUP
+   semantics — two kept blocks stay OR-joined iff they were in the same
+   structural OR group, else AND (matches how segmentGroups evaluates). */
+export const compactSegment = (seg) => {
+  const bs = blocksOf(seg)
+  const js = joinsOf(seg)
+  const groupIdx = []
+  let g = 0
+  bs.forEach((_, i) => {
+    if (i > 0 && js[i - 1] === 'AND') g++
+    groupIdx.push(g)
+  })
+  const blocks = []
+  const joins = []
+  let lastGroup = null
+  bs.forEach((b, i) => {
+    if (!ruleActive(b)) return
+    if (blocks.length > 0) joins.push(groupIdx[i] === lastGroup ? 'OR' : 'AND')
+    blocks.push(b)
+    lastGroup = groupIdx[i]
+  })
+  return { blocks, joins }
+}
 
 /* N-value with default, treating 0 as a real value ("more than 0 days
    ago" = any past date). */
@@ -432,34 +501,54 @@ export const segmentActive = (seg) => activeBlocks(seg).length > 0
    primary — they are pure person-level filters. */
 export const primaryBlock = (seg) => activeBlocks(seg).find((b) => b.quantifier !== 'none') ?? null
 
+/* Per-member evaluation over OR-groups: the member is in the segment iff
+   EVERY group has at least one satisfied block. Returns null when the
+   member is out; else { primaryMatches, satisfiedPrimary }. */
+const memberInGroups = (m, groups, primary) => {
+  let primaryMatches = []
+  let satisfiedPrimary = false
+  for (const group of groups) {
+    let groupOk = false
+    for (const b of group) {
+      const matches = blockInstances(m, b)
+      const ok = memberSatisfies(matches.length, b.quantifier)
+      if (b === primary && ok) { primaryMatches = matches; satisfiedPrimary = true }
+      if (ok) groupOk = true
+    }
+    if (!groupOk) return null
+  }
+  return { primaryMatches, satisfiedPrimary }
+}
+
 export function segmentReach(seg) {
-  const blocks = activeBlocks(seg)
-  if (!blocks.length) return null
+  const groups = segmentGroups(seg)
+  if (!groups.length) return null
   const primary = primaryBlock(seg)
   let members = 0
   let records = 0
+  let memberLevel = 0
   for (const m of MEMBERS) {
-    let inAll = true
-    let primaryMatches = 0
-    for (const b of blocks) {
-      const matches = blockInstances(m, b)
-      if (!memberSatisfies(matches.length, b.quantifier)) { inAll = false; break }
-      if (b === primary) primaryMatches = matches.length
-    }
-    if (!inAll) continue
+    const r = memberInGroups(m, groups, primary)
+    if (!r) continue
     members++
-    records += primaryMatches
+    if (primary && r.satisfiedPrimary) records += r.primaryMatches.length
+    else if (primary) memberLevel++
   }
   return {
     members,
     products: primary ? records : null,
+    memberLevel,
     source: 'extract',
-    unlabeled: [...new Set(blocks.map((b) => b.entity))].reduce((s, e) => s + unlabeledRecordCount(e), 0),
+    unlabeled: [...new Set(groups.flat().map((b) => b.entity))].reduce((s, e) => s + unlabeledRecordCount(e), 0),
   }
 }
 
 export const segmentSentence = (seg) => {
-  const parts = activeBlocks(seg).map((b) => ruleSentence(b)).filter(Boolean)
+  const parts = segmentGroups(seg).map((group) => {
+    const ss = group.map((b) => ruleSentence(b)).filter(Boolean)
+    if (!ss.length) return null
+    return ss.length > 1 ? `(${ss.join(' OR ')})` : ss[0]
+  }).filter(Boolean)
   return parts.length ? parts.join(' AND ') : null
 }
 
@@ -512,21 +601,16 @@ export const recordTypeLabel = (entityName, rec) => {
    synthetic display names (real names never leave the source files).
    Multi-match members sort first. */
 export function datasetMatchedMembers(seg, limit = 8) {
-  const blocks = activeBlocks(seg)
-  if (!blocks.length) return []
+  const groups = segmentGroups(seg)
+  if (!groups.length) return []
   const primary = primaryBlock(seg)
   const out = []
   for (const m of MEMBERS) {
-    let inAll = true
-    let matches = []
-    for (const b of blocks) {
-      const found = blockInstances(m, b)
-      if (!memberSatisfies(found.length, b.quantifier)) { inAll = false; break }
-      if (b === primary) {
-        matches = found.map((r) => ({ label: recordTypeLabel(b.entity, r), fact: recordFactline(b.entity, r) }))
-      }
-    }
-    if (!inAll) continue
+    const r = memberInGroups(m, groups, primary)
+    if (!r) continue
+    const matches = primary && r.satisfiedPrimary
+      ? r.primaryMatches.map((rec) => ({ label: recordTypeLabel(primary.entity, rec), fact: recordFactline(primary.entity, rec) }))
+      : []
     const h = hash(m.id)
     const f = FIRST[h % FIRST.length]
     const l = LAST[(h >>> 3) % LAST.length]
@@ -547,7 +631,7 @@ export function datasetMatchedMembers(seg, limit = 8) {
 /* Reach for an audience object — always the live evaluation. Never
    returns null: inactive segments read as zero reach. */
 export function audienceReach(a) {
-  if (a.rule) return segmentReach(a.rule) ?? { members: 0, products: null, unlabeled: 0 }
+  if (a.rule) return segmentReach(a.rule) ?? { members: 0, products: null, memberLevel: 0, unlabeled: 0 }
   return { members: a.users ?? 0, products: null }
 }
 
@@ -663,7 +747,7 @@ export function parseAudiencePhrase(text) {
     if (noneBlock) blocks.push(noneBlock)
   }
 
-  return { blocks }
+  return { blocks, joins: blocks.slice(1).map(() => 'AND') }
 }
 
 /* Performance metrics come only from observed delivery/engagement
@@ -807,7 +891,8 @@ export function symitarSource(meta = null) {
     identity: 'Account number — stored as a salted hash',
     fields: 9,
     status: 'healthy',
-    feeds: REGISTRY.map((e) => e.name).join(' · ') || 'Pending first ingest',
+    // platform entities are not fed by this source — claiming so would lie
+    feeds: REGISTRY.filter((e) => !e.platform).map((e) => e.name).join(' · ') || 'Pending first ingest',
     note: `${Math.round((100 * s.duePast) / s.loans)}% of due dates are in the past — the extract may be stale`,
   }
 }
@@ -921,3 +1006,80 @@ export const showcaseMember = () => {
     ),
   }
 }
+
+/* ── Legacy migration map ────────────────────────────────────────────
+   Observed from the production (staging) segment builder, August 2026
+   screenshots. This is a mapping PLAN — nothing here is ingested data.
+   Every condition source in today's builder is either a real entity the
+   kernel absorbs, a campaign-shaped file drop to archive (its underlying
+   data has a proper home), or platform machinery. */
+export const LEGACY_MIGRATION = [
+  { legacyName: 'All Users', cleanName: 'Everyone', category: 'member', disposition: 'platform',
+    note: 'The baseline audience, not an entity.', exampleFields: [] },
+  { legacyName: 'Personal', cleanName: 'Member Profile', category: 'member', purpose: 'both', disposition: 'migrate',
+    exampleFields: [
+      { raw: 'Alias', label: 'Alias', type: 'string' },
+      { raw: 'Email', label: 'Email', type: 'string' },
+      { raw: 'Age', label: 'Age', type: 'number', note: 'staging offers "is less than __ minutes ago" — a number treated as a timestamp' },
+    ] },
+  { legacyName: 'Activity', cleanName: 'App Activity', category: 'behavior', disposition: 'platform',
+    note: 'Session/open stream from the SDK — not a file-drop entity.', exampleFields: [] },
+  { legacyName: 'Events', cleanName: 'App Events', category: 'behavior', disposition: 'platform',
+    note: 'Maps to the reserved App Events entity. "Number Of Event Occurrences = N" needs a count quantifier (phase 3).',
+    exampleFields: [
+      { raw: 'Last In App Event', label: 'Event Name + Occurred At', type: 'string + date' },
+      { raw: 'Event Recorded', label: 'Has any App Events', type: 'quantifier' },
+    ] },
+  { legacyName: 'Cunexus', cleanName: 'CuNexus Offers', category: 'offer', purpose: 'segment', disposition: 'migrate',
+    note: 'Pre-approval offers become records — one per offer instance, expirations as typed dates.', exampleFields: [] },
+  { legacyName: 'Device Settings', cleanName: 'Device & Push Settings', category: 'member', disposition: 'platform',
+    note: 'Push permission and device attributes — SDK-owned.', exampleFields: [] },
+  { legacyName: 'Location Events', cleanName: 'Location Events', category: 'behavior', disposition: 'platform',
+    note: 'Geofence enter/exit stream.', exampleFields: [] },
+  { legacyName: 'Auto Loan', cleanName: 'Loans', category: 'loan', purpose: 'both', disposition: 'migrate',
+    note: 'Folds into the Loans entity as records with an auto-typed code — not its own entity.', exampleFields: [] },
+  { legacyName: 'Auto Loan Renewal', cleanName: null, category: 'loan', disposition: 'campaign-artifact',
+    note: 'Campaign targeting extract. Underlying data = Loans · Maturity Date.', exampleFields: [] },
+  { legacyName: 'Credit Card Activation Usage', cleanName: 'Cards', category: 'card', purpose: 'both', disposition: 'migrate',
+    note: 'Activation and usage become typed fields on card records.', exampleFields: [] },
+  { legacyName: 'H ELOC Offer', cleanName: null, category: 'offer', disposition: 'campaign-artifact',
+    note: 'One-campaign file drop — each column has a proper home.',
+    exampleFields: [
+      { raw: 'HELOC Offer->Member_Age', label: 'Age', type: 'number', note: 'belongs on Member Profile, not on an offer' },
+      { raw: 'HELOC Offer->Loan_Type', label: 'Loan Type', type: 'string', role: 'code', note: 'belongs on Loans' },
+      { raw: 'HELOC Offer->Loan_Balance', label: 'Loan Balance', type: 'currency', note: 'belongs on Loans' },
+    ] },
+  { legacyName: 'Personal Loan Promotion', cleanName: null, category: 'offer', disposition: 'campaign-artifact',
+    note: 'One-campaign file drop; data = Loans + offer records.', exampleFields: [] },
+  { legacyName: 'C D Offer CD Renewal', cleanName: 'Certificates', category: 'certificate', purpose: 'both', disposition: 'migrate',
+    note: 'Name mangled by auto-splitting ("C D Offer CD Renewal"). Maturity/renewal become date fields with calendar operators.', exampleFields: [] },
+  { legacyName: 'Debit Card Activation Usage', cleanName: 'Debit Cards', category: 'card', purpose: 'both', disposition: 'migrate',
+    exampleFields: [
+      { raw: 'Debit Card Activation & Usage->Activation_Date', label: 'Activation Date', type: 'date', note: 'staging offers relative-time operators only — no calendar dates, no between, no is-set' },
+    ] },
+  { legacyName: 'E Statement Enrollment', cleanName: 'Member Profile · eStatement', category: 'member', purpose: 'segment', disposition: 'migrate',
+    exampleFields: [
+      { raw: 'eStatement Enrollment->eStatement_Enrollment', label: 'eStatement enrolled', type: 'bool', note: 'typed bool distinguishes false from never-set' },
+    ] },
+  { legacyName: 'Direct Deposit', cleanName: 'Direct Deposits', category: 'deposit', purpose: 'both', disposition: 'migrate',
+    exampleFields: [
+      { raw: 'Direct Deposit->Direct_Deposit_Status', label: 'Status', type: 'bool', note: 'bool/string ambiguity in staging' },
+      { raw: 'Direct Deposit->Deposit_Amount', label: 'Deposit Amount', type: 'currency' },
+      { raw: 'Direct Deposit->Deposit_Frequency', label: 'Frequency', type: 'string', role: 'code' },
+      { raw: 'Direct Deposit->Employment_Status', label: 'Employment Status', type: 'string', note: 'belongs on Member Profile, not on deposits' },
+    ] },
+  { legacyName: 'Loan Payment Reminder', cleanName: null, category: 'loan', disposition: 'campaign-artifact',
+    note: 'Exactly this prototype’s Due Date playbook — data = Loans · Due Date with the recurring_date role.', exampleFields: [] },
+  { legacyName: 'Birthday Anniversary', cleanName: null, category: 'member', disposition: 'campaign-artifact',
+    note: 'Birthday becomes a recurring_date field on Member Profile; the campaign is a date-anchor playbook.', exampleFields: [] },
+  { legacyName: 'Dormant Account Win Back', cleanName: null, category: 'deposit', disposition: 'campaign-artifact',
+    note: 'Campaign extract spanning four homes.',
+    exampleFields: [
+      { raw: 'Dormant Account / Win-Back->Last_Transaction_Date', label: 'Last Transaction Date', type: 'date', note: 'belongs on Accounts; staging offers "equal to __ years ago" only' },
+      { raw: 'Dormant Account / Win-Back->Account_Balance', label: 'Account Balance', type: 'currency' },
+      { raw: 'Dormant Account / Win-Back->Card_Usage_Status', label: 'Card Usage Status', type: 'string', note: 'belongs on Cards' },
+      { raw: 'Dormant Account / Win-Back->Join_Date', label: 'Join Date', type: 'date', note: 'belongs on Member Profile' },
+    ] },
+  { legacyName: 'Custom Data', cleanName: null, category: 'UNKNOWN', disposition: 'platform',
+    note: 'The escape hatch the kernel dissolves — every entity IS custom data, typed and labeled.', exampleFields: [] },
+]
