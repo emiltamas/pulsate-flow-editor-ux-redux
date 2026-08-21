@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   newBlock, blocksOf, joinsOf, compactSegment, totalMembers, segmentEntities, segmentScopes, entityTypes, entityDef,
   operatorsFor, ruleActive, segmentActive, segmentSentence, segmentPlural, primaryBlock, entityRecordCount,
+  conditionIncomplete, segmentIncompleteCount,
   parseAudiencePhrase, audienceReach,
   fmt, datasetMatchedMembers, SYMITAR_STATS,
   fieldsFor,
@@ -305,6 +306,13 @@ export default function AudienceBuilder({ audiences, audience, initialRule, onCa
             </div>
           </div>
 
+          {active && segmentIncompleteCount(segment) > 0 && (
+            <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
+              {segmentIncompleteCount(segment)} condition{segmentIncompleteCount(segment) === 1 ? ' needs' : 's need'} a date —
+              until filled in, {segmentIncompleteCount(segment) === 1 ? 'it matches' : 'they match'} no records, which can pull reach to 0.
+            </div>
+          )}
+
           {active && reach.unlabeled > 0 && (
             <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: '#8a6d2e', background: '#fbf1dc', borderRadius: 9, padding: '8px 11px' }}>
               {reach.unlabeled} record{reach.unlabeled === 1 ? ' carries' : 's carry'} unlabeled codes — still
@@ -503,6 +511,7 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
   const field = fields.find((f) => f.name === condition.field) ?? fields[0]
   const ops = operatorsFor(field.type)
   const op = ops.find((o) => o.key === condition.op) ?? ops[0]
+  const incomplete = conditionIncomplete(block, condition)
 
   const changeField = (name) => {
     const f = fields.find((x) => x.name === name)
@@ -510,7 +519,7 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
   }
 
   return (
-    <div style={{ border: '1px solid #e2e8f1', borderRadius: 11, padding: 10, display: 'flex', gap: 8, background: '#fafbfd' }}>
+    <div style={{ border: `1px solid ${incomplete ? '#e8cf9a' : '#e2e8f1'}`, borderRadius: 11, padding: 10, display: 'flex', gap: 8, background: incomplete ? '#fffdf5' : '#fafbfd' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
         <select value={condition.field} onChange={(e) => changeField(e.target.value)} style={{ ...selectStyle, width: 180 }}>
           {fields.map((f) => (
@@ -540,6 +549,11 @@ function ConditionRow({ block, condition, onPatch, onRemove }) {
             <span style={{ fontSize: 12.5, fontWeight: 700, color: '#5a6b85' }}>and</span>
             <input type="date" value={condition.value2 ?? ''} onChange={(e) => onPatch({ value2: e.target.value })} style={{ ...selectStyle, width: 150 }} />
           </>
+        )}
+        {incomplete && (
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#8a6d2e', background: '#fbf1dc', padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap' }}>
+            needs a date
+          </span>
         )}
         {/* what the model actually knows about this field: its type, and
             the mapped semantic role when one exists */}

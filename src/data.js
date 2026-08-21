@@ -485,6 +485,22 @@ const recordMatches = (def, rec, rule) => {
 export const memberSatisfies = (matchCount, quantifier) =>
   quantifier === 'none' ? matchCount === 0 : quantifier === 'two_plus' ? matchCount >= 2 : matchCount >= 1
 
+/* A condition whose calendar input is still empty matches nothing — the
+   evaluation stays strict (honest zero), but the builder flags it so a
+   zero reach never goes unexplained. */
+export const conditionIncomplete = (block, c) => {
+  const f = fieldsFor(block).find((x) => x.name === c.field)
+  if (!f) return false
+  const op = operatorsFor(f.type).find((o) => o.key === c.op)
+  if (!op) return false
+  if (op.hasDate) return !c.value
+  if (op.hasDateRange) return !c.value || !c.value2
+  return false
+}
+
+export const segmentIncompleteCount = (seg) =>
+  blocksOf(seg).filter(ruleActive).reduce((s, b) => s + b.conditions.filter((c) => conditionIncomplete(b, c)).length, 0)
+
 const blockInstances = (member, block) => {
   const def = entityDef(block.entity)
   if (!def) return []
